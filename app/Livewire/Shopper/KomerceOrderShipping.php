@@ -203,6 +203,7 @@ final class KomerceOrderShipping extends Component
 
         $reconcile = resolve(ReconcileKomerceShipment::class);
         $trackable = collect();
+        $awaitingAwbCount = 0;
 
         foreach ($shipments as $shipment) {
             if (filled(data_get($shipment->metadata, 'komerce.order_no'))) {
@@ -216,12 +217,22 @@ final class KomerceOrderShipping extends Component
 
             if (filled($shipment->awb) || filled($shipment->tracking_number)) {
                 $trackable->push($shipment);
+            } elseif (filled(data_get($shipment->metadata, 'komerce.order_no'))) {
+                $awaitingAwbCount++;
             }
         }
 
         if ($trackable->isEmpty()) {
-            $this->overrideError = $this->overrideError
-                ?? 'Belum ada nomor resi AWB. Request pickup dulu, atau tunggu Komerce menerbitkan resi.';
+            if ($awaitingAwbCount > 0) {
+                $this->successMessage = 'Data Komerce disinkronkan. Paket masih dalam proses packing dan nomor resi belum diterbitkan oleh kurir.';
+            } else {
+                $this->overrideError = $this->overrideError
+                    ?? 'Belum ada nomor resi AWB. Request pickup dulu, atau tunggu Komerce menerbitkan resi.';
+            }
+
+            $this->order->refresh();
+            $this->seedOverrideDefaults();
+            $this->dispatch('order.updated');
 
             return;
         }
@@ -279,6 +290,173 @@ final class KomerceOrderShipping extends Component
         }
     }
 
+    public function simulateGenerateAwb(int $shipmentId): void
+    {
+        $this->ensureCourierSimulationAllowed();
+        Gate::authorize('print-shipment-label', $this->order);
+        $this->overrideError = null;
+        $this->successMessage = null;
+
+        $shipment = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->where('id', $shipmentId)
+            ->first();
+
+        if ($shipment === null) {
+            $this->overrideError = 'Shipment tidak ditemukan.';
+
+            return;
+        }
+
+        $courier = strtoupper((string) ($shipment->carrier_code ?: 'JNT'));
+        $awb = $courier . mt_rand(100000000, 999999999);
+        $orderNo = 'KOM-' . $this->order->number . '-' . $shipment->id;
+
+        $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
+        $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
+        $komerce['order_no'] = $orderNo;
+        $komerce['order_id'] = mt_rand(100000, 999999);
+        $komerce['awb'] = $awb;
+
+        $history = [
+            [
+                'description' => "[TERDAFTAR] Nomor resi {$awb} berhasil diterbitkan oleh {$courier}. Paket sedang dikemas oleh penjual.",
+                'datetime' => now()->format('Y-m-d H:i:s'),
+                'location' => 'Gudang Penjual (' . ($shipment->inventory?->name ?? 'Gudang Utama') . ')',
+            ],
+        ];
+
+        $komerce['tracking_history'] = $history;
+        $komerce['tracking_status'] = 'Resi Terbit';
+        $komerce['tracked_at'] = now()->toIso8601String();
+        $metadata['komerce'] = $komerce;
+        $metadata['tracking_history'] = $history;
+
+        $shipment->forceFill([
+            'awb' => $awb,
+            'tracking_number' => $awb,
+            'status' => \App\Actions\Shipping\NormalizeShipmentStatus::LABELED,
+            'metadata' => $metadata,
+        ])->save();
+
+        $this->order->refresh();
+        resolve(SyncOrderShippingFromShipments::class)->handle($this->order);
+        $this->order->refresh();
+
+        $this->seedOverrideDefaults();
+        $this->dispatch('order.updated');
+        $this->successMessage = "Nomor resi simulasi berhasil diterbitkan: {$awb}";
+    }
+
+    public function simulateScanPickup(int $shipmentId): void
+    {
+        $this->ensureCourierSimulationAllowed();
+        Gate::authorize('print-shipment-label', $this->order);
+        $this->overrideError = null;
+        $this->successMessage = null;
+
+        $shipment = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->where('id', $shipmentId)
+            ->first();
+
+        if ($shipment === null) {
+            $this->overrideError = 'Shipment tidak ditemukan.';
+
+            return;
+        }
+
+        $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
+        $rawHistory = data_get($metadata, 'komerce.tracking_history')
+            ?: data_get($metadata, 'tracking_history', []);
+        $history = is_array($rawHistory) ? $rawHistory : [];
+
+        $courierName = strtoupper((string) ($shipment->carrier_code ?: 'Kurir'));
+        $history[] = [
+            'description' => "[PICKED_UP] Paket telah diserahkan oleh penjual ke kurir {$courierName}. Sedang dalam perjalanan ke alamat tujuan.",
+            'datetime' => now()->format('Y-m-d H:i:s'),
+            'location' => 'Pusat Drop Point ' . $courierName,
+        ];
+
+        $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
+        $komerce['tracking_history'] = $history;
+        $komerce['tracking_status'] = 'Dalam Pengiriman';
+        $komerce['tracked_at'] = now()->toIso8601String();
+        $metadata['komerce'] = $komerce;
+        $metadata['tracking_history'] = $history;
+        $metadata['last_tracking_status'] = 'IN_TRANSIT';
+
+        $shipment->forceFill([
+            'status' => \App\Actions\Shipping\NormalizeShipmentStatus::PICKED_UP,
+            'metadata' => $metadata,
+        ])->save();
+
+        $this->order->refresh();
+        resolve(SyncOrderShippingFromShipments::class)->handle($this->order);
+        $this->order->refresh();
+
+        $this->seedOverrideDefaults();
+        $this->dispatch('order.updated');
+        $this->successMessage = "Kurir berhasil men-scan jemput paket! Status pengiriman kini DIANTAR (Shipped).";
+    }
+
+    public function simulateScanDelivered(int $shipmentId): void
+    {
+        $this->ensureCourierSimulationAllowed();
+        Gate::authorize('print-shipment-label', $this->order);
+        $this->overrideError = null;
+        $this->successMessage = null;
+
+        $shipment = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->where('id', $shipmentId)
+            ->first();
+
+        if ($shipment === null) {
+            $this->overrideError = 'Shipment tidak ditemukan.';
+
+            return;
+        }
+
+        $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
+        $rawHistory = data_get($metadata, 'komerce.tracking_history')
+            ?: data_get($metadata, 'tracking_history', []);
+        $history = is_array($rawHistory) ? $rawHistory : [];
+
+        $destCity = $this->order->shippingAddress?->city ?? 'Kota Tujuan';
+        $history[] = [
+            'description' => '[DELIVERED] Paket telah sampai di alamat tujuan dan diterima oleh penerima.',
+            'datetime' => now()->format('Y-m-d H:i:s'),
+            'location' => $destCity,
+        ];
+
+        $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
+        $komerce['tracking_history'] = $history;
+        $komerce['tracking_status'] = 'Terkirim';
+        $komerce['tracked_at'] = now()->toIso8601String();
+        $metadata['komerce'] = $komerce;
+        $metadata['tracking_history'] = $history;
+        $metadata['last_tracking_status'] = 'DELIVERED';
+
+        $shipment->forceFill([
+            'status' => \App\Actions\Shipping\NormalizeShipmentStatus::DELIVERED,
+            'metadata' => $metadata,
+        ])->save();
+
+        $this->order->refresh();
+        resolve(SyncOrderShippingFromShipments::class)->handle($this->order);
+        $this->order->refresh();
+
+        $this->seedOverrideDefaults();
+        $this->dispatch('order.updated');
+        $this->successMessage = "Kurir berhasil men-scan paket diterima! Karena pembayaran lunas & barang terkirim, status pesanan otomatis menjadi COMPLETED.";
+    }
+
+    private function ensureCourierSimulationAllowed(): void
+    {
+        abort_unless(app()->environment(['local', 'testing']), 403);
+    }
+
     public function render(): View
     {
         $this->ensureShipmentsExist();
@@ -287,10 +465,12 @@ final class KomerceOrderShipping extends Component
         $inventories = $presenter->inventories();
         $printableCount = $presenter->printableCount($shipments);
         $hasUnprocessed = collect($shipments)->contains(
-            fn (array $s): bool => ! $s['can_print_label'] || ($s['needs_pickup'] ?? false),
+            fn (array $s): bool => (bool) ($s['needs_pickup'] ?? false) || blank($s['delivery_order_no'] ?? null),
         );
         $needsPickup = collect($shipments)->contains(fn (array $s): bool => (bool) ($s['needs_pickup'] ?? false));
-        $hasTrackable = collect($shipments)->contains(fn (array $s): bool => filled($s['awb']) || filled($s['tracking_number']));
+        $hasTrackable = collect($shipments)->contains(
+            fn (array $s): bool => filled($s['awb']) || filled($s['tracking_number']) || filled($s['delivery_order_no']),
+        );
         $overridable = array_values(array_filter(
             $shipments,
             static fn (array $shipment): bool => (bool) $shipment['can_override'],
@@ -299,6 +479,7 @@ final class KomerceOrderShipping extends Component
         return view('livewire.shopper.komerce-order-shipping', [
             'shipments' => $shipments,
             'inventories' => $inventories,
+            'canSimulateCourier' => app()->environment(['local', 'testing']),
             'komerceEnabled' => komerce_shipping_delivery_enabled(),
             'canPrintAnyLabel' => $printableCount > 0,
             'printableShipmentCount' => $printableCount,

@@ -56,7 +56,16 @@ final class OrderController extends Controller
             ->orderBy('id')
             ->get()
             ->map(static function (OrderShipment $shipment): array {
-                $history = data_get($shipment->metadata, 'komerce.tracking_history', []);
+                $rawHistory = data_get($shipment->metadata, 'komerce.tracking_history')
+                    ?: data_get($shipment->metadata, 'tracking_history', []);
+
+                $history = collect(is_array($rawHistory) ? $rawHistory : [])->map(function ($event): array {
+                    return [
+                        'description' => data_get($event, 'description') ?? data_get($event, 'desc') ?? 'Paket diproses',
+                        'datetime' => data_get($event, 'datetime') ?? data_get($event, 'date') ?? null,
+                        'location' => data_get($event, 'location') ?? null,
+                    ];
+                })->values()->all();
 
                 return [
                     'id' => $shipment->id,
@@ -69,7 +78,7 @@ final class OrderController extends Controller
                     'carrier_logo' => \App\Support\KomerceCourierAssets::logoUrl($shipment->carrier_code),
                     'cost' => $shipment->cost,
                     'currency' => $shipment->currency_code,
-                    'tracking_history' => is_array($history) ? array_values($history) : [],
+                    'tracking_history' => $history,
                 ];
             });
 

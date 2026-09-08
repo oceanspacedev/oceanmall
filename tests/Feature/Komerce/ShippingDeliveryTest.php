@@ -1000,4 +1000,53 @@ final class ShippingDeliveryTest extends TestCase
             'tracking_number' => 'JNE-COMMIT-1',
         ]);
     }
+
+    public function test_delivery_job_handles_pickup_success_when_awb_is_not_issued_yet(): void
+    {
+        $this->fakeDeliveryConfig();
+
+        [$order, $shipment] = $this->createShipmentReadyForDelivery();
+
+        Http::fake([
+            'https://delivery.example.test/order/api/v1/orders/store' => Http::response([
+                'meta' => ['code' => 201, 'status' => 'success'],
+                'data' => [
+                    'order_id' => 19688,
+                    'order_no' => 'KOM-JNT-001',
+                ],
+            ]),
+            'https://delivery.example.test/order/api/v1/pickup/request' => Http::response([
+                'meta' => ['message' => 'Success Request Pickup', 'code' => 201, 'status' => 'success'],
+                'data' => [[
+                    'status' => 'success',
+                    'order_no' => 'KOM-JNT-001',
+                    'awb' => '',
+                ]],
+            ]),
+            'https://delivery.example.test/order/api/v1/orders/detail*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [
+                    'order_no' => 'KOM-JNT-001',
+                    'awb' => '',
+                    'order_status' => 'Dipacking',
+                ],
+            ]),
+        ]);
+
+        resolve(CreateRajaOngkirDeliveryForShipment::class, [
+            'orderShipmentId' => $shipment->id,
+        ])->handle();
+
+        $shipment->refresh();
+        $this->assertNull($shipment->awb);
+        $this->assertNull($shipment->tracking_number);
+        $this->assertSame('pending', $shipment->status);
+        $this->assertSame('KOM-JNT-001', data_get($shipment->metadata, 'komerce.order_no'));
+        $this->assertNotNull(data_get($shipment->metadata, 'komerce.pickup_response'));
+        $this->assertNull(data_get($shipment->metadata, 'komerce.fulfillment_error'));
+
+        $presenter = resolve(\App\Support\OrderShipmentOpsPresenter::class);
+        $this->assertFalse($presenter->needsPickup($shipment));
+        $this->assertFalse($presenter->canPrintLabel($shipment));
+    }
 }

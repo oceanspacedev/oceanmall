@@ -87,7 +87,11 @@ final class NormalizeShipmentStatus
             return self::LABELED;
         }
 
-        if (in_array($lower, [self::PENDING, 'ready'], true)) {
+        if (
+            str_contains($lower, 'pack')
+            || str_contains($lower, 'kemas')
+            || in_array($lower, [self::PENDING, 'ready'], true)
+        ) {
             return self::PENDING;
         }
 

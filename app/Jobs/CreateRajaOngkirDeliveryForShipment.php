@@ -195,19 +195,15 @@ final class CreateRajaOngkirDeliveryForShipment implements ShouldBeUnique, Shoul
             $detail = $delivery->detailOrder($deliveryOrderNo);
             $awb = trim((string) (data_get($detail, 'data.awb') ?? ''));
         }
-        if ($awb === '') {
-            throw new RuntimeException(sprintf(
-                'RajaOngkir pickup succeeded for [%s] but AWB is not issued yet (order still packing).',
-                $deliveryOrderNo,
-            ));
-        }
-        $trackingNumber = $awb;
-        $labelResponse = $this->printOfficialLabel($delivery, $deliveryOrderNo);
+
+        $trackingNumber = $awb !== '' ? $awb : null;
+        $labelResponse = $awb !== '' ? $this->printOfficialLabel($delivery, $deliveryOrderNo) : null;
+        $status = $awb !== '' ? 'labeled' : 'pending';
 
         $shipment->forceFill([
-            'awb' => $awb,
+            'awb' => $awb !== '' ? $awb : null,
             'tracking_number' => $trackingNumber,
-            'status' => 'labeled',
+            'status' => $status,
             'metadata' => $this->metadataAfterPickup(
                 $shipment,
                 $deliveryOrderId,
@@ -349,7 +345,7 @@ final class CreateRajaOngkirDeliveryForShipment implements ShouldBeUnique, Shoul
             ),
             'shipper_name' => $this->requiredString($inventory->getAttribute('name'), 'Shipment inventory name'),
             'shipper_phone' => $this->requiredPhone(
-                $inventory->getAttribute('phone_number'),
+                $inventory->getAttribute('phone_number') ?: shopper_setting('phone_number'),
                 'Shipment inventory phone',
             ),
             'shipper_destination_id' => $originId,
@@ -517,37 +513,45 @@ final class CreateRajaOngkirDeliveryForShipment implements ShouldBeUnique, Shoul
     private function weightGrams(Model $model): int
     {
         $raw = $model->getAttribute('weight_value');
+        $unit = $model->getAttribute('weight_unit');
+
+        if ((! is_numeric($raw) || (float) $raw <= 0) && method_exists($model, 'product') && $model->product) {
+            $raw = $model->product->getAttribute('weight_value');
+            $unit = $model->product->getAttribute('weight_unit');
+        }
+
         if (! is_numeric($raw) || (float) $raw <= 0) {
-            throw new RuntimeException(sprintf('Product [%s] must have a positive weight.', $model->getKey()));
+            return 100;
         }
 
         $value = (float) $raw;
-        $unit = $model->getAttribute('weight_unit');
 
         if ($unit instanceof Weight) {
             $unit = $unit->value;
         }
 
-        return match (strtolower(trim((string) $unit))) {
+        return match (strtolower(trim((string) ($unit ?: Weight::KG->value)))) {
             Weight::G->value => (int) ceil($value),
             Weight::KG->value => (int) ceil($value * 1000),
             Weight::LBS->value => (int) ceil($value * 453.59237),
-            default => throw new RuntimeException(sprintf('Product [%s] has an unsupported weight unit.', $model->getKey())),
+            default => (int) ceil($value * 1000),
         };
     }
 
     private function dimensionCentimeters(Model $model, string $dimension): int
     {
         $raw = $model->getAttribute($dimension.'_value');
-        if (! is_numeric($raw) || (float) $raw <= 0) {
-            throw new RuntimeException(sprintf(
-                'Product [%s] must have a positive %s dimension.',
-                $model->getKey(),
-                $dimension,
-            ));
+        $unit = $model->getAttribute($dimension.'_unit');
+
+        if ((! is_numeric($raw) || (float) $raw <= 0) && method_exists($model, 'product') && $model->product) {
+            $raw = $model->product->getAttribute($dimension.'_value');
+            $unit = $model->product->getAttribute($dimension.'_unit');
         }
 
-        $unit = $model->getAttribute($dimension.'_unit');
+        if (! is_numeric($raw) || (float) $raw <= 0) {
+            return 1;
+        }
+
         if ($unit instanceof Length) {
             $unit = $unit->value;
         }
@@ -558,14 +562,10 @@ final class CreateRajaOngkirDeliveryForShipment implements ShouldBeUnique, Shoul
             Length::MM->value => (float) $raw / 10,
             Length::FT->value => (float) $raw * 30.48,
             Length::IN->value => (float) $raw * 2.54,
-            default => throw new RuntimeException(sprintf(
-                'Product [%s] has an unsupported %s unit.',
-                $model->getKey(),
-                $dimension,
-            )),
+            default => (float) $raw,
         };
 
-        return (int) ceil($centimeters);
+        return max(1, (int) ceil($centimeters));
     }
 
     private function receiverName(array $shippingAddress): string
@@ -610,13 +610,14 @@ final class CreateRajaOngkirDeliveryForShipment implements ShouldBeUnique, Shoul
 
     private function pickupDate(string $pickupTime): string
     {
-        $todayPickup = now()->setTimeFromTimeString($pickupTime);
+        $wib = now('Asia/Jakarta');
+        $todayPickup = now('Asia/Jakarta')->setTimeFromTimeString($pickupTime);
 
-        if (now()->lessThan($todayPickup)) {
-            return now()->format('Y-m-d');
+        if ($wib->addMinutes(90)->lessThanOrEqualTo($todayPickup)) {
+            return $wib->format('Y-m-d');
         }
 
-        return now()->addDay()->format('Y-m-d');
+        return $wib->addDay()->format('Y-m-d');
     }
 
     private function persistFulfillmentError(OrderShipment $shipment, string $message): void
@@ -763,12 +764,17 @@ final class CreateRajaOngkirDeliveryForShipment implements ShouldBeUnique, Shoul
         $labelUrl = is_array($labelResponse) ? KomerceLabelResponse::absoluteUrl($labelResponse) : null;
 
         $metadata['komerce'] = array_filter(array_merge($metadata['komerce'], [
-            'awb' => $awb,
-            'tracking_number' => $awb,
+            'awb' => $awb !== '' ? $awb : null,
+            'tracking_number' => $awb !== '' ? $awb : null,
             'pickup_response' => $pickupResponse,
             'label_response' => $labelResponse,
             'label_url' => $labelUrl,
         ]), static fn (mixed $value): bool => $value !== null);
+
+        if ($awb === '') {
+            unset($metadata['komerce']['awb'], $metadata['komerce']['tracking_number']);
+        }
+        unset($metadata['komerce']['fulfillment_error'], $metadata['komerce']['fulfillment_failed_at']);
 
         return $metadata;
     }
@@ -937,19 +943,35 @@ final class CreateRajaOngkirDeliveryForShipment implements ShouldBeUnique, Shoul
 
     private function destinationPinPoint(OrderShipment $shipment): ?string
     {
-        $address = $this->shippingAddress($shipment->order);
-        $pin = $address['rajaongkir_pin_point'] ?? $address['pin_point'] ?? null;
-        if (is_string($pin) && str_contains($pin, ',')) {
-            return $pin;
+        $order = $shipment->order;
+        if (! $order instanceof Order) {
+            return null;
         }
 
-        $lat = $address['latitude'] ?? null;
-        $lng = $address['longitude'] ?? null;
-        if (is_numeric($lat) && is_numeric($lng)) {
-            return $lat.','.$lng;
+        $address = $this->shippingAddress($order);
+        $originPin = $this->originPinPoint($shipment);
+
+        $pin = resolve(\App\Services\Shipping\DestinationCoordinateResolver::class)
+            ->resolve($address, $originPin);
+
+        if ($pin !== null) {
+            $this->persistDestinationPinPoint($order, $pin);
         }
 
-        return null;
+        return $pin;
+    }
+
+    private function persistDestinationPinPoint(Order $order, string $pin): void
+    {
+        $metadata = $this->decodeMetadata($order->getAttribute('metadata'));
+        if (! isset($metadata['shipping_address']) || ! is_array($metadata['shipping_address'])) {
+            $metadata['shipping_address'] = [];
+        }
+
+        if (blank($metadata['shipping_address']['rajaongkir_pin_point'] ?? null)) {
+            $metadata['shipping_address']['rajaongkir_pin_point'] = $pin;
+            $order->update(['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)]);
+        }
     }
 
     private function shipmentWeightKilograms(OrderShipment $shipment): float

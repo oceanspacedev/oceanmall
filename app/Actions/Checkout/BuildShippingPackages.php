@@ -29,11 +29,15 @@ final class BuildShippingPackages
                 continue;
             }
 
+            if (method_exists($model, 'product')) {
+                $model->loadMissing('product');
+            }
+
             for ($i = 0; $i < $line->quantity; $i++) {
                 $packages[] = new Package(
-                    length: (float) ($model->depth_value ?? 10.0),
-                    width: (float) ($model->width_value ?? 10.0),
-                    height: (float) ($model->height_value ?? 10.0),
+                    length: $this->dimensionValue($model, 'depth_value', 10.0),
+                    width: $this->dimensionValue($model, 'width_value', 10.0),
+                    height: $this->dimensionValue($model, 'height_value', 10.0),
                     weight: $this->packageWeight($model),
                     unit: $this->packageUnit($model),
                 );
@@ -63,11 +67,15 @@ final class BuildShippingPackages
                 continue;
             }
 
+            if (method_exists($model, 'product')) {
+                $model->loadMissing('product');
+            }
+
             for ($i = 0; $i < (int) $line['qty']; $i++) {
                 $packages[] = new Package(
-                    length: (float) ($model->depth_value ?? 10.0),
-                    width: (float) ($model->width_value ?? 10.0),
-                    height: (float) ($model->height_value ?? 10.0),
+                    length: $this->dimensionValue($model, 'depth_value', 10.0),
+                    width: $this->dimensionValue($model, 'width_value', 10.0),
+                    height: $this->dimensionValue($model, 'height_value', 10.0),
                     weight: $this->packageWeight($model),
                     unit: $this->packageUnit($model),
                 );
@@ -79,12 +87,41 @@ final class BuildShippingPackages
 
     private function packageWeight(object $model): float
     {
-        $value = (float) ($model->weight_value ?? 1.0);
+        $value = (float) ($model->weight_value ?? 0);
+        $unit = $model->weight_unit ?? null;
 
-        return match ($this->weightUnit($model)) {
+        if ($value <= 0 && (method_exists($model, 'product') || property_exists($model, 'product')) && $model->product) {
+            $value = (float) ($model->product->weight_value ?? 0);
+            $unit = $model->product->weight_unit ?? null;
+        }
+
+        if ($value <= 0) {
+            $value = 1.0;
+            $unit = Weight::KG;
+        }
+
+        if ($unit instanceof Weight) {
+            $unit = $unit->value;
+        }
+
+        $unitStr = strtolower(trim((string) ($unit ?: Weight::KG->value)));
+
+        return match ($unitStr) {
             Weight::G->value => max($value / 1000, 0.001),
+            Weight::LBS->value => max($value * 0.45359237, 0.001),
             default => max($value, 0.001),
         };
+    }
+
+    private function dimensionValue(object $model, string $attribute, float $fallback = 10.0): float
+    {
+        $val = (float) ($model->{$attribute} ?? 0);
+
+        if ($val <= 0 && (method_exists($model, 'product') || property_exists($model, 'product'))) {
+            $val = (float) ($model->product?->{$attribute} ?? 0);
+        }
+
+        return $val > 0 ? $val : $fallback;
     }
 
     private function packageUnit(object $model): string
@@ -94,7 +131,14 @@ final class BuildShippingPackages
 
     private function weightUnit(object $model): string
     {
-        $unit = $model->weight_unit ?? Weight::KG;
+        $value = (float) ($model->weight_value ?? 0);
+        $unit = $model->weight_unit ?? null;
+
+        if ($value <= 0 && (method_exists($model, 'product') || property_exists($model, 'product')) && $model->product) {
+            $unit = $model->product->weight_unit ?? null;
+        }
+
+        $unit = $unit ?? Weight::KG;
 
         if ($unit instanceof Weight) {
             return $unit->value;

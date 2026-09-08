@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Truck } from 'lucide-vue-next';
 import { computed } from 'vue';
 import SelectableCard from '@/components/shop/selectable-card.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -164,13 +165,22 @@ return option.service_name;
                         class="items-center p-3"
                     >
                         <div class="flex items-center justify-between gap-4">
-                            <div class="flex items-start gap-3">
-                                <img
-                                    v-if="option.carrier_logo"
-                                    :src="option.carrier_logo"
-                                    :alt="option.carrier_name ?? ''"
-                                    class="mt-0.5 size-5 rounded-full object-cover"
-                                />
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="flex items-center justify-center h-10 w-16 rounded-md bg-white border border-border/60 p-1.5 shrink-0 shadow-2xs"
+                                >
+                                    <img
+                                        v-if="option.carrier_logo"
+                                        :src="option.carrier_logo"
+                                        :alt="option.carrier_name ?? ''"
+                                        class="max-h-full max-w-full object-contain"
+                                        loading="lazy"
+                                    />
+                                    <Truck
+                                        v-else
+                                        class="size-5 text-muted-foreground"
+                                    />
+                                </div>
                                 <div class="flex flex-col">
                                     <span
                                         class="text-sm font-medium text-foreground"
@@ -178,16 +188,16 @@ return option.service_name;
                                         {{ formatCourierTitle(option) }}
                                     </span>
                                     <span
-                                        v-if="option.estimated_days"
-                                        class="text-xs text-muted-foreground"
-                                    >
-                                        {{ option.estimated_days }} hari
-                                    </span>
-                                    <span
-                                        v-else-if="option.description"
-                                        class="text-xs text-muted-foreground"
+                                        v-if="option.description"
+                                        class="text-xs text-muted-foreground font-normal"
                                     >
                                         {{ option.description }}
+                                    </span>
+                                    <span
+                                        v-if="option.estimated_days"
+                                        class="text-[11px] text-muted-foreground/80"
+                                    >
+                                        Estimasi: {{ option.estimated_days }} hari
                                     </span>
                                 </div>
                             </div>

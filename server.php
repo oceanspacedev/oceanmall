@@ -6,6 +6,10 @@ $uri = urldecode(
     parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? ''
 );
 
+$_SERVER['SCRIPT_FILENAME'] = $publicPath.'/index.php';
+$_SERVER['SCRIPT_NAME'] = '/index.php';
+$_SERVER['PHP_SELF'] = '/index.php';
+
 /*
  * public/cpanel is a symlink to Shopper's public assets. Once vendor exists the
  * symlink is a real directory, and PHP's built-in server would 404 GET /cpanel

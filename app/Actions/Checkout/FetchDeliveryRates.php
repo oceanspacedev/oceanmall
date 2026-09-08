@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Checkout;
 
+use App\Support\CourierServiceExplainer;
 use App\Support\EnabledCarriers;
 use App\Support\KomerceCourierAssets;
 use App\Support\RajaOngkirQuoteContext;
@@ -184,7 +185,7 @@ final class FetchDeliveryRates
                 'currency' => $rate->currency,
                 'carrier_code' => $carrierCode,
                 'estimated_days' => $rate->estimatedDays,
-                'description' => null,
+                'description' => CourierServiceExplainer::explain($carrierCode, $rate->serviceName),
                 'carrier_name' => $dbCarrier?->name ?? $rate->carrierCode,
                 'carrier_logo' => $logoUrl,
             ];

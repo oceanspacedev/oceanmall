@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Exceptions\InvalidDiscountException;
+use Shopper\Cart\Models\Cart;
 use Shopper\Core\Enum\DiscountStatus;
 use Shopper\Core\Models\Discount;
 use Throwable;
@@ -30,7 +31,22 @@ final class CartController extends Controller
 
     public function show(Request $request): JsonResponse
     {
-        return $this->cartResponse($request);
+        $user = $this->actor($request);
+        $guestToken = $this->customerCart->tokenFrom($request);
+
+        if ($user instanceof User) {
+            return $this->cartResponse($this->customerCart->current($user, $guestToken));
+        }
+
+        if (is_string($guestToken)) {
+            $cart = $this->customerCart->findGuest($guestToken);
+
+            return $cart instanceof Cart
+                ? $this->cartResponse($cart)
+                : response()->json(['data' => $this->presenter->emptyCart()]);
+        }
+
+        return response()->json(['data' => $this->presenter->emptyCart()]);
     }
 
     public function add(Request $request): JsonResponse
@@ -46,8 +62,14 @@ final class CartController extends Controller
             ? ProductVariant::query()->where('product_id', $product->id)->findOrFail($data['variant_id'])
             : null;
 
-        $user = $this->customer($request);
-        $cart = $this->customerCart->current($user);
+        if ($variant === null && $product->variants()->exists()) {
+            return response()->json(['message' => 'Pilih varian produk sebelum menambah ke keranjang.'], 422);
+        }
+
+        $cart = $this->writableCart($request);
+        if (! $cart instanceof Cart) {
+            return $this->missingCartToken();
+        }
 
         try {
             resolve(CartManager::class)->add($cart, $variant ?? $product, (int) ($data['quantity'] ?? 1));
@@ -57,9 +79,9 @@ final class CartController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        $this->checkoutState->forget($user);
+        $this->forgetCheckout($request);
 
-        return $this->cartResponse($request);
+        return $this->cartResponse($cart->refresh());
     }
 
     public function update(Request $request, int $line): JsonResponse
@@ -68,8 +90,10 @@ final class CartController extends Controller
             'quantity' => ['required', 'integer', 'min:1', 'max:10'],
         ]);
 
-        $user = $this->customer($request);
-        $cart = $this->customerCart->current($user);
+        $cart = $this->existingCart($request);
+        if (! $cart instanceof Cart) {
+            return $this->missingCart();
+        }
 
         try {
             resolve(CartManager::class)->update($cart, $line, ['quantity' => (int) $data['quantity']]);
@@ -77,29 +101,35 @@ final class CartController extends Controller
             return response()->json(['message' => 'Stok tidak mencukupi.'], 422);
         }
 
-        $this->checkoutState->forget($user);
+        $this->forgetCheckout($request);
 
-        return $this->cartResponse($request);
+        return $this->cartResponse($cart->refresh());
     }
 
     public function destroy(Request $request, int $line): JsonResponse
     {
-        $user = $this->customer($request);
-        $cart = $this->customerCart->current($user);
-        resolve(CartManager::class)->remove($cart, $line);
-        $this->checkoutState->forget($user);
+        $cart = $this->existingCart($request);
+        if (! $cart instanceof Cart) {
+            return $this->missingCart();
+        }
 
-        return $this->cartResponse($request);
+        resolve(CartManager::class)->remove($cart, $line);
+        $this->forgetCheckout($request);
+
+        return $this->cartResponse($cart->refresh());
     }
 
     public function clear(Request $request): JsonResponse
     {
-        $user = $this->customer($request);
-        $cart = $this->customerCart->current($user);
-        resolve(CartManager::class)->clear($cart);
-        $this->checkoutState->forget($user);
+        $cart = $this->existingCart($request);
+        if (! $cart instanceof Cart) {
+            return $this->missingCart();
+        }
 
-        return $this->cartResponse($request);
+        resolve(CartManager::class)->clear($cart);
+        $this->forgetCheckout($request);
+
+        return $this->cartResponse($cart->refresh());
     }
 
     public function applyCoupon(Request $request): JsonResponse
@@ -108,8 +138,10 @@ final class CartController extends Controller
             'code' => ['required', 'string', 'max:50'],
         ]);
         $code = strtoupper(trim($data['code']));
-        $user = $this->customer($request);
-        $cart = $this->customerCart->current($user);
+        $cart = $this->existingCart($request);
+        if (! $cart instanceof Cart) {
+            return $this->missingCart();
+        }
 
         if ($cart->lines()->count() < 1) {
             return response()->json(['message' => 'Keranjang masih kosong.'], 422);
@@ -130,22 +162,24 @@ final class CartController extends Controller
             return response()->json(['message' => 'Kupon tidak bisa dipakai.'], 422);
         }
 
-        return $this->cartResponse($request);
+        return $this->cartResponse($cart->refresh());
     }
 
     public function removeCoupon(Request $request): JsonResponse
     {
-        $user = $this->customer($request);
-        $cart = $this->customerCart->current($user);
+        $cart = $this->existingCart($request);
+        if (! $cart instanceof Cart) {
+            return $this->missingCart();
+        }
+
         resolve(CartManager::class)->removeCoupon($cart);
 
-        return $this->cartResponse($request);
+        return $this->cartResponse($cart->refresh());
     }
 
-    private function cartResponse(Request $request): JsonResponse
+    private function cartResponse(Cart $cart): JsonResponse
     {
-        $user = $this->customer($request);
-        $cart = $this->customerCart->current($user)->load(['lines.purchasable.media']);
+        $cart->load(['lines.purchasable.media']);
         $context = $cart->lines->isEmpty()
             ? null
             : resolve(CartManager::class)->calculate($cart);
@@ -155,11 +189,56 @@ final class CartController extends Controller
         ]);
     }
 
-    private function customer(Request $request): User
+    private function writableCart(Request $request): ?Cart
     {
-        /** @var User $user */
-        $user = $request->user();
+        $user = $this->actor($request);
+        $guestToken = $this->customerCart->tokenFrom($request);
 
-        return $user;
+        if ($user instanceof User) {
+            return $this->customerCart->current($user, $guestToken);
+        }
+
+        if (is_string($guestToken)) {
+            return $this->customerCart->forGuest($guestToken);
+        }
+
+        return null;
+    }
+
+    private function existingCart(Request $request): ?Cart
+    {
+        $user = $this->actor($request);
+        $guestToken = $this->customerCart->tokenFrom($request);
+
+        if ($user instanceof User) {
+            return $this->customerCart->current($user, $guestToken);
+        }
+
+        return is_string($guestToken) ? $this->customerCart->findGuest($guestToken) : null;
+    }
+
+    private function actor(Request $request): ?User
+    {
+        $user = $request->user('sanctum') ?? $request->user();
+
+        return $user instanceof User ? $user : null;
+    }
+
+    private function forgetCheckout(Request $request): void
+    {
+        $user = $this->actor($request);
+        if ($user instanceof User) {
+            $this->checkoutState->forget($user);
+        }
+    }
+
+    private function missingCartToken(): JsonResponse
+    {
+        return response()->json(['message' => 'Kirim X-Cart-Token atau masuk dulu.'], 422);
+    }
+
+    private function missingCart(): JsonResponse
+    {
+        return response()->json(['message' => 'Keranjang tidak ditemukan.'], 422);
     }
 }

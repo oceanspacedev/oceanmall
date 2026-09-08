@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\Product;
+use App\Models\ProductVariant;
 use Illuminate\Support\Collection;
 use Shopper\Cart\Models\Cart;
 use Shopper\Cart\Models\CartLine;
@@ -54,6 +55,25 @@ final class CustomerCatalogPresenter
     /**
      * @return array<string, mixed>
      */
+    public function emptyCart(): array
+    {
+        return [
+            'id' => null,
+            'currency' => shopper_currency(),
+            'coupon_code' => null,
+            'lines' => [],
+            'totals' => [
+                'subtotal' => 0,
+                'discount' => 0,
+                'tax' => 0,
+                'total' => 0,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function cart(Cart $cart, mixed $context): array
     {
         $cart->loadMissing(['lines.purchasable.media']);
@@ -64,18 +84,15 @@ final class CustomerCatalogPresenter
             'coupon_code' => $cart->coupon_code,
             'lines' => $cart->lines->map(function (CartLine $line): array {
                 $purchasable = $line->purchasable;
-                $name = is_object($purchasable) ? (string) ($purchasable->name ?? '') : '';
-                $thumbnail = null;
-                if (is_object($purchasable) && method_exists($purchasable, 'getAttribute')) {
-                    $thumbnail = $purchasable->thumbnail ?? null;
-                }
 
                 return [
                     'id' => $line->id,
                     'quantity' => (int) $line->quantity,
                     'unit_price' => (int) $line->unit_price_amount,
-                    'name' => $name,
-                    'thumbnail' => $thumbnail,
+                    'name' => $this->purchasableName($purchasable),
+                    'variant' => $this->purchasableVariantName($purchasable),
+                    'slug' => $this->purchasableSlug($purchasable),
+                    'thumbnail' => $this->purchasableThumbnail($purchasable),
                     'purchasable_type' => $line->purchasable_type,
                     'purchasable_id' => $line->purchasable_id,
                 ];
@@ -92,5 +109,69 @@ final class CustomerCatalogPresenter
                 'total' => 0,
             ],
         ];
+    }
+
+    private function purchasableName(mixed $purchasable): string
+    {
+        if ($purchasable instanceof ProductVariant) {
+            $purchasable->loadMissing('product');
+            $productName = (string) ($purchasable->product?->name ?? '');
+            if ($productName !== '') {
+                return $productName;
+            }
+        }
+
+        return is_object($purchasable) ? (string) ($purchasable->name ?? '') : '';
+    }
+
+    private function purchasableVariantName(mixed $purchasable): ?string
+    {
+        if (! $purchasable instanceof ProductVariant) {
+            return null;
+        }
+
+        $variant = trim((string) ($purchasable->name ?? ''));
+        $product = trim((string) ($purchasable->product?->name ?? ''));
+        if ($variant === '' || $variant === $product) {
+            return null;
+        }
+
+        return $variant;
+    }
+
+    private function purchasableSlug(mixed $purchasable): ?string
+    {
+        if ($purchasable instanceof Product) {
+            $slug = $purchasable->slug;
+
+            return is_string($slug) && $slug !== '' ? $slug : null;
+        }
+
+        if ($purchasable instanceof ProductVariant) {
+            $purchasable->loadMissing('product');
+            $slug = $purchasable->product?->slug;
+
+            return is_string($slug) && $slug !== '' ? $slug : null;
+        }
+
+        return null;
+    }
+
+    private function purchasableThumbnail(mixed $purchasable): mixed
+    {
+        if (is_object($purchasable) && method_exists($purchasable, 'getAttribute')) {
+            $thumbnail = $purchasable->thumbnail ?? null;
+            if ($thumbnail) {
+                return $thumbnail;
+            }
+        }
+
+        if ($purchasable instanceof ProductVariant) {
+            $purchasable->loadMissing('product');
+
+            return $purchasable->product?->thumbnail ?? null;
+        }
+
+        return null;
     }
 }

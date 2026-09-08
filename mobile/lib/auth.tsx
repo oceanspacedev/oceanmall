@@ -1,6 +1,7 @@
-import { api, setAuthToken, type User } from '@/lib/api';
+import { ApiError, api, setAuthToken, type User } from '@/lib/api';
+import { useNetwork } from '@/lib/network';
 import { deleteSecureItem, getSecureItem, setSecureItem } from '@/lib/storage';
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 const TOKEN_KEY = 'oceanmall.token';
@@ -24,10 +25,13 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { online } = useNetwork();
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const tokenRef = useRef<string | null>(null);
 
   async function applyToken(token: string | null) {
+    tokenRef.current = token;
     setAuthToken(token);
     if (token) {
       await setSecureItem(TOKEN_KEY, token);
@@ -46,17 +50,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const stored = await getSecureItem(TOKEN_KEY);
         if (stored) {
+          tokenRef.current = stored;
           setAuthToken(stored);
-          await hydrateUser();
+          try {
+            await hydrateUser();
+          } catch (error) {
+            if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+              await applyToken(null);
+              setUser(null);
+            }
+          }
         }
       } catch {
-        await applyToken(null);
         setUser(null);
       } finally {
         setReady(true);
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!ready || !online || !tokenRef.current || user) {
+      return;
+    }
+    void hydrateUser().catch(() => {
+      // Keep the stored token; profile fills in when /me succeeds.
+    });
+  }, [online, ready, user]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

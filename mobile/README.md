@@ -30,7 +30,7 @@ Request API selalu kirim `Accept: application/json` + `Authorization: Bearer` se
 
 ## UI
 
-Komponen dari [React Native Reusables](https://reactnativereusables.com) (`Button`, `Input`, `Card`, `Badge`, `Label`, `Separator`). Tambah komponen:
+Komponen dari [React Native Reusables](https://reactnativereusables.com): `Button`, `Input`, `Label`, `Card`, `Badge`, `Avatar`, `Skeleton`, `Accordion`, `ToggleGroup`, `Tabs`, `Alert`, `Separator`, `Text`, `Icon`. Tambah komponen:
 
 ```bash
 npx @react-native-reusables/cli@latest add

@@ -41,6 +41,23 @@ final class ProductController extends Controller
             $query->where('brand_id', $brandId);
         }
 
+        $featured = $request->boolean('featured');
+        if ($featured) {
+            $query->where('featured', true);
+        }
+
+        $promo = $request->boolean('promo');
+        if ($promo) {
+            $currency = current_currency();
+            $query->whereHas(
+                'prices',
+                fn ($q) => $q
+                    ->whereRelation('currency', 'code', $currency)
+                    ->whereNotNull('compare_amount')
+                    ->whereColumn('compare_amount', '>', 'amount'),
+            );
+        }
+
         $sort = (string) $request->string('sort', 'latest');
         $allowedSorts = ['latest', 'name', 'price_asc', 'price_desc'];
         if (! in_array($sort, $allowedSorts, true)) {
@@ -85,6 +102,8 @@ final class ProductController extends Controller
                 'search' => $search,
                 'category' => $categoryId ?: null,
                 'brand' => $brandId ?: null,
+                'featured' => $featured,
+                'promo' => $promo,
                 'sort' => $sort,
             ],
         ]);

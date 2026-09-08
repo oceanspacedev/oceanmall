@@ -156,7 +156,7 @@ function brandShopUrl(brandId: number): string {
         <ProductRail
             v-if="promoProducts.length"
             title="Promo hari ini"
-            :href="shop.index.url()"
+            :href="shop.index.url({ query: { promo: 1 } })"
             :products="promoProducts"
             tone="soft"
         />
@@ -164,7 +164,7 @@ function brandShopUrl(brandId: number): string {
         <ProductRail
             v-if="featuredProducts.length"
             title="Produk unggulan"
-            :href="shop.index.url()"
+            :href="shop.index.url({ query: { featured: 1 } })"
             :products="featuredProducts"
         />
     </div>

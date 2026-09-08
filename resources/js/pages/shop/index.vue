@@ -27,6 +27,8 @@ type Filters = {
     search: string;
     category: number | null;
     brand: number | null;
+    featured: boolean;
+    promo: boolean;
     sort: string;
 };
 
@@ -64,8 +66,21 @@ const hasActiveFilters = computed(
     () =>
         Boolean(props.filters.search) ||
         props.filters.category !== null ||
-        props.filters.brand !== null,
+        props.filters.brand !== null ||
+        props.filters.featured ||
+        props.filters.promo,
 );
+
+const pageTitle = computed(() => {
+    if (props.filters.promo) {
+        return 'Promo hari ini';
+    }
+    if (props.filters.featured) {
+        return 'Produk unggulan';
+    }
+
+    return 'Belanja';
+});
 
 watch(
     () => props.filters.brand,
@@ -160,11 +175,11 @@ function clearFilters(): void {
 </script>
 
 <template>
-    <Head title="Belanja" />
+    <Head :title="pageTitle" />
 
     <AppPageHeader
         class="lg:hidden"
-        title="Belanja"
+        :title="pageTitle"
         :back-href="home.url()"
         max-width-class="max-w-7xl"
     />
@@ -172,7 +187,7 @@ function clearFilters(): void {
     <Container class="pt-3 pb-8 lg:pt-6">
         <div class="mb-4 hidden lg:block">
             <h1 class="text-lg font-semibold tracking-tight text-foreground">
-                Belanja
+                {{ pageTitle }}
             </h1>
         </div>
 

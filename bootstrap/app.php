@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Middleware\EnsureCpanelIsStaffOnly;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\OptionalSanctumAuth;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,6 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Global: Shopper registers /cpanel outside the web group.
         $middleware->append(EnsureCpanelIsStaffOnly::class);
+
+        $middleware->alias([
+            'auth.optional' => OptionalSanctumAuth::class,
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

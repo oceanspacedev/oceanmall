@@ -27,6 +27,7 @@ const badgeVariants = cva(
           Platform.select({ web: '[a&]:hover:bg-destructive/90' })
         ),
         outline: Platform.select({ web: '[a&]:hover:bg-accent [a&]:hover:text-accent-foreground' }),
+        sale: 'bg-om-sale border-transparent',
       },
     },
     defaultVariants: {
@@ -42,6 +43,7 @@ const badgeTextVariants = cva('text-xs font-medium', {
       secondary: 'text-secondary-foreground',
       destructive: 'text-white',
       outline: 'text-foreground',
+      sale: 'text-white',
     },
   },
   defaultVariants: {

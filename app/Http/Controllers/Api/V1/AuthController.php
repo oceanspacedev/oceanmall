@@ -6,13 +6,20 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\CustomerCart;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use Spatie\Permission\Models\Role;
+use Throwable;
 
 final class AuthController extends Controller
 {
+    public function __construct(
+        private readonly CustomerCart $customerCart,
+    ) {}
+
     public function register(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -31,6 +38,13 @@ final class AuthController extends Controller
             'password' => $data['password'],
             'email_verified_at' => now(),
         ]);
+
+        $role = config('shopper.admin.roles.user');
+        if (is_string($role) && $role !== '' && Role::query()->where('name', $role)->exists()) {
+            $user->assignRole($role);
+        }
+
+        $this->absorbGuestCart($request, $user);
 
         return $this->tokenResponse($user, 201);
     }
@@ -51,6 +65,8 @@ final class AuthController extends Controller
         }
 
         $user->tokens()->where('name', 'mobile')->delete();
+
+        $this->absorbGuestCart($request, $user);
 
         return $this->tokenResponse($user);
     }
@@ -80,6 +96,20 @@ final class AuthController extends Controller
             'token_type' => 'Bearer',
             'data' => $this->userPayload($user),
         ], $status);
+    }
+
+    private function absorbGuestCart(Request $request, User $user): void
+    {
+        $token = $this->customerCart->tokenFrom($request);
+        if ($token === null) {
+            return;
+        }
+
+        try {
+            $this->customerCart->current($user, $token);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /**

@@ -143,6 +143,21 @@ final class CatalogController extends Controller
             $query->where('brand_id', $brandId);
         }
 
+        if ($request->boolean('featured')) {
+            $query->where('featured', true);
+        }
+
+        if ($request->boolean('promo')) {
+            $currency = current_currency();
+            $query->whereHas(
+                'prices',
+                fn ($q) => $q
+                    ->whereRelation('currency', 'code', $currency)
+                    ->whereNotNull('compare_amount')
+                    ->whereColumn('compare_amount', '>', 'amount'),
+            );
+        }
+
         $sort = (string) $request->string('sort', 'latest');
         $currencyId = Currency::query()->where('code', current_currency())->value('id');
         $priceableType = (new Product)->getMorphClass();
@@ -200,6 +215,13 @@ final class CatalogController extends Controller
         }
 
         $payload['reviews'] = $this->reviewsPayload($product);
+
+        $related = $product->relatedProducts()
+            ->scopes('publish')
+            ->with(['media', 'brand'])
+            ->withCurrentPrices()
+            ->get();
+        $payload['related_products'] = $this->presenter->products($related);
 
         return response()->json(['data' => $payload]);
     }

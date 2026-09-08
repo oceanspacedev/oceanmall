@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature\Api;
 
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Shopper\Core\Models\Country;
 use Shopper\Core\Models\Currency;
@@ -56,10 +58,60 @@ final class CustomerApiTest extends TestCase
 
         $this->getJson('/api/v1/catalog/home')->assertOk();
         $this->getJson('/api/v1/catalog/categories')->assertOk();
+        $this->getJson('/api/v1/catalog/brands')->assertOk();
+        $this->getJson('/api/v1/catalog/collections')->assertOk();
+        $this->getJson('/api/v1/catalog/featured')->assertOk();
         $this->getJson('/api/v1/catalog/search?q=Realme')->assertOk();
         $this->getJson('/api/v1/catalog/products/realme-buds-api')
             ->assertOk()
-            ->assertJsonStructure(['data' => ['slug', 'reviews']]);
+            ->assertJsonStructure(['data' => ['slug', 'reviews', 'related_products']]);
+    }
+
+    public function test_product_includes_related_products(): void
+    {
+        $product = Product::factory()->standard()->create([
+            'name' => 'Related Parent',
+            'slug' => 'related-parent',
+            'published_at' => now()->subDay(),
+        ]);
+        $related = Product::factory()->standard()->create([
+            'name' => 'Related Child',
+            'slug' => 'related-child',
+            'published_at' => now()->subDay(),
+        ]);
+        $product->relatedProducts()->sync([$related->id]);
+
+        $this->getJson('/api/v1/catalog/products/related-parent')
+            ->assertOk()
+            ->assertJsonPath('data.related_products.0.slug', 'related-child');
+    }
+
+    public function test_catalog_products_filter_featured_and_promo(): void
+    {
+        $this->stockedProduct([
+            'name' => 'Plain Item',
+            'slug' => 'plain-item',
+            'featured' => false,
+        ]);
+        $this->stockedProduct([
+            'name' => 'Featured Item',
+            'slug' => 'featured-item',
+            'featured' => true,
+        ]);
+        $promo = $this->stockedProduct([
+            'name' => 'Promo Item',
+            'slug' => 'promo-item',
+            'featured' => false,
+        ]);
+        $promo->prices()->update(['compare_amount' => 500000]);
+
+        $featured = collect($this->getJson('/api/v1/catalog/products?featured=1')->json('data'))->pluck('slug');
+        $this->assertTrue($featured->contains('featured-item'));
+        $this->assertFalse($featured->contains('plain-item'));
+
+        $onPromo = collect($this->getJson('/api/v1/catalog/products?promo=1')->json('data'))->pluck('slug');
+        $this->assertTrue($onPromo->contains('promo-item'));
+        $this->assertFalse($onPromo->contains('plain-item'));
     }
 
     public function test_customer_can_manage_address_book_and_profile(): void
@@ -91,12 +143,63 @@ final class CustomerApiTest extends TestCase
         ])->assertOk()->assertJsonPath('data.last_name', 'Updated');
     }
 
-    public function test_cart_requires_auth(): void
+    public function test_checkout_requires_auth_but_cart_is_public(): void
     {
-        $this->getJson('/api/v1/cart')->assertUnauthorized();
+        $this->getJson('/api/v1/cart')
+            ->assertOk()
+            ->assertJsonPath('data.lines', []);
+
         $this->postJson('/api/v1/checkout/place-order', [
             'payment_method_id' => 1,
         ])->assertUnauthorized();
+    }
+
+    public function test_guest_can_add_to_cart_with_device_token(): void
+    {
+        $product = $this->stockedProduct();
+        $token = (string) Str::uuid();
+
+        $this->withHeader('X-Cart-Token', $token)
+            ->postJson('/api/v1/cart/items', [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.lines.0.purchasable_id', $product->id)
+            ->assertJsonPath('data.lines.0.slug', $product->slug)
+            ->assertJsonPath('data.totals.total', 399000);
+
+        $this->withHeader('X-Cart-Token', $token)
+            ->getJson('/api/v1/cart')
+            ->assertOk()
+            ->assertJsonPath('data.lines.0.quantity', 1);
+    }
+
+    public function test_login_merges_guest_cart(): void
+    {
+        $product = $this->stockedProduct();
+        $token = (string) Str::uuid();
+        $user = User::factory()->create();
+
+        $this->withHeader('X-Cart-Token', $token)
+            ->postJson('/api/v1/cart/items', [
+                'product_id' => $product->id,
+                'quantity' => 2,
+            ])
+            ->assertOk();
+
+        $login = $this->withHeader('X-Cart-Token', $token)
+            ->postJson('/api/v1/auth/login', [
+                'email' => $user->email,
+                'password' => 'password',
+            ])
+            ->assertOk();
+
+        $this->withToken($login->json('token'))
+            ->getJson('/api/v1/cart')
+            ->assertOk()
+            ->assertJsonPath('data.lines.0.purchasable_id', $product->id)
+            ->assertJsonPath('data.lines.0.quantity', 2);
     }
 
     public function test_authenticated_customer_can_add_to_cart(): void
@@ -111,7 +214,66 @@ final class CustomerApiTest extends TestCase
             'quantity' => 1,
         ])
             ->assertOk()
-            ->assertJsonPath('data.lines.0.purchasable_id', $product->id);
+            ->assertJsonPath('data.lines.0.purchasable_id', $product->id)
+            ->assertJsonPath('data.lines.0.slug', $product->slug)
+            ->assertJsonPath('data.totals.total', 399000);
+    }
+
+    public function test_variant_product_requires_variant_id(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->stockedProduct();
+        $variant = ProductVariant::query()->create([
+            'product_id' => $product->id,
+            'name' => 'Hitam',
+            'sku' => 'API-BLK',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/cart/items', [
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Pilih varian produk sebelum menambah ke keranjang.');
+
+        $this->assertNotNull($variant->id);
+    }
+
+    public function test_cart_variant_line_uses_product_name(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->stockedProduct([
+            'name' => 'Realme 13 Pro 5G',
+            'slug' => 'realme-13-pro-5g',
+        ]);
+        $variant = ProductVariant::query()->create([
+            'product_id' => $product->id,
+            'name' => 'Hitam / 256 GB',
+            'sku' => 'API-BLK-256',
+        ]);
+        $inventory = Inventory::query()->where('is_default', true)->firstOrFail();
+        $variant->mutateStock($inventory->id, 10);
+        $currency = Currency::query()->where('code', shopper_currency())->firstOrFail();
+        Price::query()->create([
+            'priceable_type' => $variant->getMorphClass(),
+            'priceable_id' => $variant->id,
+            'amount' => 399000,
+            'currency_id' => $currency->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/cart/items', [
+            'product_id' => $product->id,
+            'variant_id' => $variant->id,
+            'quantity' => 1,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.lines.0.name', 'Realme 13 Pro 5G')
+            ->assertJsonPath('data.lines.0.variant', 'Hitam / 256 GB')
+            ->assertJsonPath('data.lines.0.slug', 'realme-13-pro-5g');
     }
 
     public function test_place_order_creates_komerce_payment_instructions(): void

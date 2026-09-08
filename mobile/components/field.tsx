@@ -8,7 +8,7 @@ export function Field({
 }: { label: string } & React.ComponentProps<typeof Input>) {
   return (
     <View className="gap-1.5">
-      <Label>{label}</Label>
+      <Label className="text-muted-foreground text-xs">{label}</Label>
       <Input {...props} />
     </View>
   );

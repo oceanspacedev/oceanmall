@@ -1,9 +1,56 @@
 import { API_URL } from '@/lib/config';
+import {
+  fetchWithTimeout,
+  isNetworkFailure,
+  NetworkError,
+  OFFLINE_COPY,
+  reportNetworkFailure,
+  reportNetworkSuccess,
+} from '@/lib/network';
+import { getSecureItem, setSecureItem } from '@/lib/storage';
 
 let authToken: string | null = null;
+let guestToken: string | null = null;
+let guestTokenPromise: Promise<string> | null = null;
+
+const GUEST_CART_KEY = 'oceanmall.cart-token';
 
 export function setAuthToken(token: string | null): void {
   authToken = token;
+}
+
+function newUuid(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export async function ensureGuestToken(): Promise<string> {
+  if (guestToken) {
+    return guestToken;
+  }
+  if (!guestTokenPromise) {
+    guestTokenPromise = (async () => {
+      const stored = await getSecureItem(GUEST_CART_KEY);
+      const valid =
+        typeof stored === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(stored);
+      const token = valid ? stored : newUuid();
+      if (token !== stored) {
+        await setSecureItem(GUEST_CART_KEY, token);
+      }
+      guestToken = token;
+      return token;
+    })();
+  }
+
+  return guestTokenPromise;
 }
 
 export class ApiError extends Error {
@@ -17,6 +64,10 @@ export class ApiError extends Error {
 }
 
 export function errorMessage(error: unknown, fallback = 'Terjadi kesalahan.'): string {
+  if (isNetworkFailure(error)) {
+    return OFFLINE_COPY.message;
+  }
+
   if (error instanceof ApiError) {
     const body = error.body as { message?: string; errors?: Record<string, string[] | string> };
     if (body?.errors) {
@@ -43,8 +94,17 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (authToken) {
     headers.set('Authorization', `Bearer ${authToken}`);
   }
+  headers.set('X-Cart-Token', await ensureGuestToken());
 
-  const response = await fetch(`${API_URL}${path}`, { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${API_URL}${path}`, { ...init, headers });
+    reportNetworkSuccess();
+  } catch (error) {
+    reportNetworkFailure();
+    throw error instanceof NetworkError ? error : new NetworkError();
+  }
+
   const json = (await response.json().catch(() => ({}))) as {
     message?: string;
     data?: unknown;
@@ -65,6 +125,16 @@ export type User = {
   phone_number?: string | null;
 };
 
+export type ProductReview = {
+  id: number;
+  rating: number;
+  title?: string | null;
+  content?: string | null;
+  is_recommended?: boolean;
+  created_at?: string | null;
+  author_name?: string;
+};
+
 export type Product = {
   id: number;
   name: string;
@@ -77,6 +147,12 @@ export type Product = {
   currency?: string;
   description?: string | null;
   variants?: { id: number; sku?: string | null; name?: string | null; price?: number | null }[];
+  reviews?: {
+    average: number;
+    count: number;
+    items: ProductReview[];
+  };
+  related_products?: Product[];
 };
 
 export type Collection = {
@@ -138,7 +214,7 @@ export async function fetchHome(): Promise<HomePayload> {
 }
 
 export type Cart = {
-  id: number;
+  id: number | null;
   currency: string;
   coupon_code?: string | null;
   lines: {
@@ -146,6 +222,8 @@ export type Cart = {
     quantity: number;
     unit_price: number;
     name: string;
+    variant?: string | null;
+    slug?: string | null;
     thumbnail?: string | null;
     purchasable_id: number;
   }[];
@@ -236,6 +314,17 @@ export type OrderSummary = {
   shipping_status?: string;
   amount: number;
   currency?: string;
+  created_at?: string | null;
+};
+
+export type AppNotification = {
+  id: string;
+  title: string;
+  body: string;
+  url?: string;
+  order_number?: string | null;
+  type?: string | null;
+  read_at?: string | null;
   created_at?: string | null;
 };
 

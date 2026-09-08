@@ -31,12 +31,7 @@ Route::prefix('v1')->group(function (): void {
     Route::get('catalog/categories/{slug}', [CatalogController::class, 'category']);
     Route::get('catalog/collections/{slug}', [CatalogController::class, 'collection']);
 
-    Route::middleware('auth:sanctum')->group(function (): void {
-        Route::post('auth/logout', [AuthController::class, 'logout']);
-        Route::get('auth/me', [AuthController::class, 'me']);
-        Route::patch('auth/profile', [ProfileController::class, 'update']);
-        Route::put('auth/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:6,1');
-
+    Route::middleware('auth.optional')->group(function (): void {
         Route::get('cart', [CartController::class, 'show']);
         Route::post('cart/items', [CartController::class, 'add'])->middleware('throttle:60,1');
         Route::patch('cart/items/{line}', [CartController::class, 'update'])->middleware('throttle:60,1');
@@ -44,6 +39,13 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('cart', [CartController::class, 'clear']);
         Route::post('cart/coupon', [CartController::class, 'applyCoupon']);
         Route::delete('cart/coupon', [CartController::class, 'removeCoupon']);
+    });
+
+    Route::middleware('auth:sanctum')->group(function (): void {
+        Route::post('auth/logout', [AuthController::class, 'logout']);
+        Route::get('auth/me', [AuthController::class, 'me']);
+        Route::patch('auth/profile', [ProfileController::class, 'update']);
+        Route::put('auth/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:6,1');
 
         Route::get('checkout', [CheckoutController::class, 'show']);
         Route::get('checkout/destinations', DestinationController::class)->middleware('throttle:30,1');

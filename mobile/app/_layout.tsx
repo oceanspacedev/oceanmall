@@ -1,6 +1,8 @@
 import '@/global.css';
 
 import { AuthGate, AuthProvider } from '@/lib/auth';
+import { CartProvider } from '@/lib/cart';
+import { NetworkProvider } from '@/lib/network';
 import { NAV_THEME } from '@/lib/theme';
 import { PortalHost } from '@rn-primitives/portal';
 import { Stack, ThemeProvider } from 'expo-router';
@@ -14,20 +16,34 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-      <AuthProvider>
-        <AuthGate>
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          <Stack screenOptions={{ headerBackTitle: 'Kembali' }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="login" options={{ title: 'Masuk' }} />
-            <Stack.Screen name="register" options={{ title: 'Daftar' }} />
-            <Stack.Screen name="product/[slug]" options={{ title: 'Produk' }} />
-            <Stack.Screen name="checkout" options={{ title: 'Checkout' }} />
-            <Stack.Screen name="order/[number]" options={{ title: 'Pesanan' }} />
-          </Stack>
-          <PortalHost />
-        </AuthGate>
-      </AuthProvider>
+      <NetworkProvider>
+        <AuthProvider>
+          <AuthGate>
+            <CartProvider>
+              <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+              <Stack screenOptions={{ headerShown: false, headerBackTitle: 'Kembali' }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="login" />
+                <Stack.Screen name="register" />
+                <Stack.Screen name="forgot-password" />
+                <Stack.Screen name="shop" />
+                <Stack.Screen name="promo" />
+                <Stack.Screen name="featured" />
+                <Stack.Screen name="category/[slug]" />
+                <Stack.Screen name="collection/[slug]" />
+                <Stack.Screen name="product/[slug]" />
+                <Stack.Screen name="checkout" />
+                <Stack.Screen name="orders" />
+                <Stack.Screen name="order/[number]" />
+                <Stack.Screen name="addresses" />
+                <Stack.Screen name="notifications" />
+                <Stack.Screen name="profile" />
+              </Stack>
+              <PortalHost />
+            </CartProvider>
+          </AuthGate>
+        </AuthProvider>
+      </NetworkProvider>
     </ThemeProvider>
   );
 }

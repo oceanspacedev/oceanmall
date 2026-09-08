@@ -152,11 +152,18 @@ final class CreateOrder
 
         $metadata = $this->decodeMetadata($order->getAttribute('metadata'));
         $existingAddress = data_get($metadata, 'shipping_address');
-
         $metadata['shipping_address'] = array_merge(
             is_array($existingAddress) ? $existingAddress : [],
             $metadataAddress,
         );
+
+        if (blank($metadata['shipping_address']['rajaongkir_pin_point'] ?? null)) {
+            $resolvedPin = resolve(\App\Services\Shipping\DestinationCoordinateResolver::class)
+                ->resolve($metadata['shipping_address']);
+            if ($resolvedPin !== null) {
+                $metadata['shipping_address']['rajaongkir_pin_point'] = $resolvedPin;
+            }
+        }
 
         $order->forceFill([
             'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),

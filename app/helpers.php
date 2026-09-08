@@ -115,7 +115,30 @@ if (! function_exists('zero_decimal_currencies')) {
 if (! function_exists('is_no_division_currency')) {
     function is_no_division_currency(string $currency): bool
     {
-        return in_array($currency, zero_decimal_currencies(), true);
+        return in_array(strtoupper($currency), zero_decimal_currencies(), true);
+    }
+}
+
+if (! function_exists('shopper_money_format')) {
+    function shopper_money_format(int|float $amount, ?string $currency = null): string
+    {
+        $currency = $currency ?? shopper_currency();
+        $isNoDivision = is_no_division_currency($currency);
+
+        if (strtoupper($currency) === 'IDR') {
+            return (string) \Illuminate\Support\Number::currency(
+                number: (float) $amount,
+                in: 'IDR',
+                locale: 'id_ID',
+                precision: 0
+            );
+        }
+
+        return (string) \Illuminate\Support\Number::currency(
+            number: $isNoDivision ? $amount : $amount / 100,
+            in: $currency,
+            locale: app()->getLocale()
+        );
     }
 }
 

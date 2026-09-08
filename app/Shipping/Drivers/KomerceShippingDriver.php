@@ -99,15 +99,17 @@ final class KomerceShippingDriver extends Driver
 
         $shipment->refresh();
         $awb = is_scalar($shipment->awb) ? trim((string) $shipment->awb) : '';
+        $deliveryOrderNo = is_scalar(data_get($shipment->metadata, 'komerce.order_no'))
+            ? trim((string) data_get($shipment->metadata, 'komerce.order_no'))
+            : '';
 
-        if ($awb === '') {
-            throw ShippingException::apiError($this->code(), 'Komerce delivery did not return an airway bill.');
-        }
+        $trackingNumber = $awb !== '' ? $awb : ($deliveryOrderNo !== '' ? $deliveryOrderNo : (string) $shipment->id);
 
         return new Shipment(
-            trackingNumber: $awb,
+            trackingNumber: $trackingNumber,
             carrierCode: strtolower(trim((string) ($shipment->carrier_code ?: 'komerce'))),
             serviceCode: $serviceCode !== '' ? $serviceCode : (string) $shipment->service_code,
+            labelUrl: is_string(data_get($shipment->metadata, 'komerce.label_url')) ? (string) data_get($shipment->metadata, 'komerce.label_url') : null,
         );
     }
 

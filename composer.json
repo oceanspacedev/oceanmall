@@ -67,6 +67,7 @@
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php -r \"require_once 'app/Support/ComposerAutoloadPreload.php'; App\\Support\\ComposerAutoloadPreload::prioritizeAppHelpers();\"",
             "@php artisan package:discover --ansi"
         ],
         "post-update-cmd": [

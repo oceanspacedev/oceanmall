@@ -142,4 +142,18 @@ final class CustomerCannotAccessCpanelTest extends TestCase
             ->get(route('shopper.dashboard'))
             ->assertOk();
     }
+
+    public function test_admin_credentials_can_login_to_cpanel(): void
+    {
+        $admin = $this->admin();
+
+        Livewire::test(Login::class)
+            ->set('data.email', $admin->email)
+            ->set('data.password', 'password')
+            ->call('authenticate')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('shopper.dashboard'));
+
+        $this->assertAuthenticatedAs($admin);
+    }
 }

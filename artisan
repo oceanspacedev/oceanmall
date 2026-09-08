@@ -6,6 +6,9 @@ use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
 
+// Preload application helpers before vendor packages...
+require __DIR__.'/bootstrap/pre_autoload.php';
+
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 

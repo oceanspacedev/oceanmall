@@ -70,6 +70,10 @@ final readonly class PrintShipmentLabels
         try {
             return $driver->printLabels($orderNos, $page);
         } catch (ShippingException $e) {
+            if (str_contains(strtolower($e->getMessage()), 'awb not found') || str_contains($e->getMessage(), '500')) {
+                return [];
+            }
+
             throw new RuntimeException($e->getMessage(), 0, $e);
         }
     }

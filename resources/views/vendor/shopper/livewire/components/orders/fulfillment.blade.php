@@ -72,6 +72,8 @@
                         <span class="font-semibold text-gray-900 dark:text-white">{{ implode(', ', $rajaOngkirAwbs) }}</span>
                     </p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Shopper hanya mencatat AWB resmi. Nomor resi tidak diketik manual.</p>
+                @elseif ($hasPickupRequested ?? false)
+                    <p>Pickup kurir sudah dijadwalkan (<span class="font-semibold text-amber-600 dark:text-amber-400">Sedang Dipacking</span>). Menunggu nomor resi diterbitkan kurir.</p>
                 @elseif ($orderIsPaid ?? false)
                     <p>Pembayaran lunas. Terbitkan AWB dan stiker dari RajaOngkir — bukan form resi Shopper.</p>
                 @else
@@ -89,6 +91,16 @@
                         color="primary"
                     >
                         Cetak Stiker RajaOngkir
+                    </x-filament::button>
+                @elseif ($hasPickupRequested ?? false)
+                    <x-filament::button
+                        wire:click="openShippingLabel"
+                        wire:loading.attr="disabled"
+                        icon="heroicon-o-arrow-path"
+                        color="gray"
+                    >
+                        <span wire:loading.remove wire:target="openShippingLabel">Cek / Perbarui Resi Kurir</span>
+                        <span wire:loading wire:target="openShippingLabel">Memeriksa…</span>
                     </x-filament::button>
                 @elseif ($orderIsPaid ?? false)
                     <x-filament::button

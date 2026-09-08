@@ -58,7 +58,23 @@ final readonly class RefreshShipmentTracking
                 throw new RuntimeException('Shipment tracking needs RajaOngkir Cost or Komerce Delivery configured.');
             }
         } catch (ShippingException $e) {
+            $existingHistory = data_get($shipment->metadata, 'komerce.tracking_history')
+                ?: data_get($shipment->metadata, 'tracking_history');
+
+            if (! empty($existingHistory)) {
+                return $shipment;
+            }
+
             throw new RuntimeException($e->getMessage(), 0, $e);
+        } catch (\Throwable $e) {
+            $existingHistory = data_get($shipment->metadata, 'komerce.tracking_history')
+                ?: data_get($shipment->metadata, 'tracking_history');
+
+            if (! empty($existingHistory)) {
+                return $shipment;
+            }
+
+            throw $e;
         } finally {
             $response = $this->trackingContext->lastRaw();
             $this->trackingContext->clear();
@@ -70,6 +86,13 @@ final readonly class RefreshShipmentTracking
 
         if (is_scalar($providerAwb) && trim((string) $providerAwb) !== ''
             && strcasecmp(trim((string) $providerAwb), $awb) !== 0) {
+            $existingHistory = data_get($shipment->metadata, 'komerce.tracking_history')
+                ?: data_get($shipment->metadata, 'tracking_history');
+
+            if (! empty($existingHistory)) {
+                return $shipment;
+            }
+
             throw new RuntimeException('RajaOngkir tracking response returned a different airway bill.');
         }
 

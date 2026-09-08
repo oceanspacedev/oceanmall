@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { Check, ChevronRight, Lock, ShoppingBag } from 'lucide-vue-next';
+import { Check, ChevronRight, Lock, ShoppingBag, Truck } from 'lucide-vue-next';
 import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import AuthTextField from '@/components/auth/auth-text-field.vue';
 import AppPageHeader from '@/components/shop/app-page-header.vue';
@@ -985,9 +985,20 @@ const steps = [
                                         v-model="selectedShippingServiceValue"
                                         :value="String(option.service_code)"
                                     />
+                                    <div class="flex items-center justify-center h-10 w-16 rounded-md bg-white border border-border/60 p-1.5 shrink-0 shadow-2xs">
+                                        <img
+                                            v-if="option.carrier_logo"
+                                            :src="option.carrier_logo"
+                                            :alt="option.carrier_name ?? ''"
+                                            class="max-h-full max-w-full object-contain"
+                                            loading="lazy"
+                                        />
+                                        <Truck v-else class="size-5 text-muted-foreground" />
+                                    </div>
                                     <div class="flex flex-col">
                                         <span class="text-sm font-medium text-foreground">{{ formatCourierTitle(option) }}</span>
-                                        <span class="text-xs text-muted-foreground">{{ option.estimated_days ? option.estimated_days + ' hari' : '' }}</span>
+                                        <span v-if="option.description" class="text-xs text-muted-foreground font-normal">{{ option.description }}</span>
+                                        <span v-if="option.estimated_days" class="text-[11px] text-muted-foreground/80">Estimasi: {{ option.estimated_days }} hari</span>
                                     </div>
                                 </div>
                                 <span class="text-sm font-semibold">{{ formatMoney(option.amount, option.currency) }}</span>

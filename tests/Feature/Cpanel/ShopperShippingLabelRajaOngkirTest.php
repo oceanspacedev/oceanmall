@@ -124,6 +124,40 @@ final class ShopperShippingLabelRajaOngkirTest extends TestCase
             ->assertDontSee('https://your-tracking-url.com', false);
     }
 
+    public function test_shopper_fulfillment_displays_dipacking_state_when_awb_is_pending(): void
+    {
+        $this->fakeDelivery();
+        $admin = $this->admin();
+        [$order, $shipment] = $this->paidOrderWithShipment();
+        $shipment->update([
+            'metadata' => [
+                'komerce' => [
+                    'order_no' => 'RO-SHOPPER-DIPACKING',
+                    'order_id' => '31002',
+                    'pickup_response' => ['meta' => ['status' => 'success']],
+                ],
+            ],
+        ]);
+
+        Http::fake([
+            'https://delivery.example.test/order/api/v1/orders/detail*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [
+                    'order_no' => 'RO-SHOPPER-DIPACKING',
+                    'awb' => '',
+                    'order_status' => 'Dipacking',
+                ],
+            ]),
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(OrderFulfillment::class, ['order' => $order])
+            ->assertSee('Sedang Dipacking', false)
+            ->assertSee('Cek / Perbarui Resi Kurir', false)
+            ->call('openShippingLabel')
+            ->assertNoRedirect();
+    }
+
     /**
      * @return array{0: Order, 1: OrderShipment}
      */

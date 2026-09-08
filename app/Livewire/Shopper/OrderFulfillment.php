@@ -30,11 +30,26 @@ final class OrderFulfillment extends ShopperFulfillment
         try {
             $result = resolve(IssueRajaOngkirFulfillment::class)->handle($this->order);
         } catch (RuntimeException $e) {
-            Notification::make()
-                ->title('Resi RajaOngkir belum terbit.')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
+            $hasPickup = OrderShipment::query()
+                ->where('order_id', $this->order->id)
+                ->get()
+                ->contains(
+                    static fn (OrderShipment $s): bool => is_array(data_get($s->metadata, 'komerce.pickup_response')),
+                );
+
+            if ($hasPickup) {
+                Notification::make()
+                    ->title('Paket sedang dipacking kurir.')
+                    ->body($e->getMessage())
+                    ->warning()
+                    ->send();
+            } else {
+                Notification::make()
+                    ->title('Resi RajaOngkir belum terbit.')
+                    ->body($e->getMessage())
+                    ->danger()
+                    ->send();
+            }
 
             return;
         } catch (Throwable $e) {
@@ -77,10 +92,15 @@ final class OrderFulfillment extends ShopperFulfillment
             ->values()
             ->all();
 
+        $hasPickupRequested = $shipments->contains(
+            static fn (OrderShipment $shipment): bool => is_array(data_get($shipment->metadata, 'komerce.pickup_response')),
+        );
+
         $view->with([
             'rajaOngkirEnabled' => komerce_shipping_delivery_enabled(),
             'orderIsPaid' => $this->order->payment_status === PaymentStatus::Paid,
             'rajaOngkirAwbs' => $awbs,
+            'hasPickupRequested' => $hasPickupRequested,
             'canPrintRajaOngkirLabel' => $shipments->contains(
                 static fn (OrderShipment $shipment): bool => resolve(OrderShipmentOpsPresenter::class)->canPrintLabel($shipment),
             ),

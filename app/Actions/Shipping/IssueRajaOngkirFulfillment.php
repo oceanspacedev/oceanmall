@@ -43,6 +43,19 @@ final class IssueRajaOngkirFulfillment
                 continue;
             }
 
+            if (filled(data_get($shipment->metadata, 'komerce.order_no'))) {
+                try {
+                    resolve(ReconcileKomerceShipment::class)->handle($shipment);
+                    $shipment->refresh();
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            }
+
+            if (filled($shipment->awb) || filled($shipment->tracking_number)) {
+                continue;
+            }
+
             try {
                 (new CreateRajaOngkirDeliveryForShipment((int) $shipment->id))->handle();
             } catch (Throwable $e) {
@@ -53,15 +66,25 @@ final class IssueRajaOngkirFulfillment
 
         resolve(SyncOrderShippingFromShipments::class)->handle($order->refresh());
 
-        $awbs = OrderShipment::query()
+        $freshShipments = OrderShipment::query()
             ->where('order_id', $order->id)
-            ->get()
+            ->get();
+
+        $awbs = $freshShipments
             ->map(static fn (OrderShipment $shipment): string => trim((string) ($shipment->awb ?: $shipment->tracking_number)))
             ->filter()
             ->values()
             ->all();
 
         if ($awbs === []) {
+            $hasPickup = $freshShipments->contains(
+                static fn (OrderShipment $s): bool => is_array(data_get($s->metadata, 'komerce.pickup_response')),
+            );
+
+            if ($hasPickup) {
+                throw new RuntimeException('Pickup sudah diajukan ke kurir (paket sedang dipacking). Nomor resi belum diterbitkan oleh Komerce.');
+            }
+
             throw new RuntimeException($errors[0] ?? 'RajaOngkir belum mengembalikan AWB.');
         }
 

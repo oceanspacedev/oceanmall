@@ -30,6 +30,7 @@ final class OrderShipmentOpsPresenter
                 $canPrint = $this->canPrintLabel($shipment);
                 $needsPickup = $this->needsPickup($shipment);
                 $canOverride = ! $this->isLockedForOverride($shipment);
+                $hasPickup = is_array(data_get($shipment->metadata, 'komerce.pickup_response'));
 
                 $inventory = $shipment->inventory;
                 $shipperAddress = implode(', ', array_filter([
@@ -89,9 +90,11 @@ final class OrderShipmentOpsPresenter
                     'needs_pickup' => $needsPickup,
                     'print_hint' => $canPrint
                         ? null
-                        : ($needsPickup
-                            ? 'Request pickup dulu. Stiker resi baru bisa dicetak setelah pickup Komerce berhasil.'
-                            : 'Daftarkan paket ke Komerce dulu, lalu request pickup. Setelah nomor resi terbit, stiker bisa dicetak.'),
+                        : ($hasPickup
+                            ? 'Pickup sudah diminta. Menunggu nomor resi terbit dari kurir Komerce.'
+                            : ($needsPickup
+                                ? 'Request pickup dulu. Stiker resi baru bisa dicetak setelah pickup Komerce berhasil.'
+                                : 'Daftarkan paket ke Komerce dulu, lalu request pickup. Setelah nomor resi terbit, stiker bisa dicetak.')),
                     'can_override' => $canOverride,
                     'shipper_name' => $inventory?->name ?? 'Gudang Utama',
                     'shipper_address' => $shipperAddress ?: 'Jl. Tuparev No. 109F, Cirebon',
@@ -174,6 +177,10 @@ final class OrderShipmentOpsPresenter
             return false;
         }
 
+        if (is_array(data_get($shipment->metadata, 'komerce.pickup_response'))) {
+            return false;
+        }
+
         return $this->deliveryOrderNo($shipment) !== null;
     }
 
@@ -183,11 +190,7 @@ final class OrderShipmentOpsPresenter
             return false;
         }
 
-        if ($this->filled($shipment->awb) || $this->filled($shipment->tracking_number)) {
-            return true;
-        }
-
-        return is_array(data_get($shipment->metadata, 'komerce.pickup_response'));
+        return $this->filled($shipment->awb) || $this->filled($shipment->tracking_number);
     }
 
     public function statusLabel(?string $status): string

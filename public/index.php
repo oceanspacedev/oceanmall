@@ -10,6 +10,9 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
     require $maintenance;
 }
 
+// Preload application helpers before vendor packages...
+require __DIR__.'/../bootstrap/pre_autoload.php';
+
 // Register the Composer autoloader...
 require __DIR__.'/../vendor/autoload.php';
 

@@ -11,21 +11,20 @@ import CheckoutController from './CheckoutController'
 import DestinationSearchController from './DestinationSearchController'
 import StripePaymentController from './StripePaymentController'
 import CheckoutSuccessController from './CheckoutSuccessController'
-
 const Shop = {
     HomeController: Object.assign(HomeController, HomeController),
-    ProductController: Object.assign(ProductController, ProductController),
-    ProductReviewController: Object.assign(ProductReviewController, ProductReviewController),
-    CategoryController: Object.assign(CategoryController, CategoryController),
-    CollectionController: Object.assign(CollectionController, CollectionController),
-    SearchController: Object.assign(SearchController, SearchController),
-    CartController: Object.assign(CartController, CartController),
-    CartCouponController: Object.assign(CartCouponController, CartCouponController),
-    ZoneController: Object.assign(ZoneController, ZoneController),
-    CheckoutController: Object.assign(CheckoutController, CheckoutController),
-    DestinationSearchController: Object.assign(DestinationSearchController, DestinationSearchController),
-    StripePaymentController: Object.assign(StripePaymentController, StripePaymentController),
-    CheckoutSuccessController: Object.assign(CheckoutSuccessController, CheckoutSuccessController),
+ProductController: Object.assign(ProductController, ProductController),
+ProductReviewController: Object.assign(ProductReviewController, ProductReviewController),
+CategoryController: Object.assign(CategoryController, CategoryController),
+CollectionController: Object.assign(CollectionController, CollectionController),
+SearchController: Object.assign(SearchController, SearchController),
+CartController: Object.assign(CartController, CartController),
+CartCouponController: Object.assign(CartCouponController, CartCouponController),
+ZoneController: Object.assign(ZoneController, ZoneController),
+CheckoutController: Object.assign(CheckoutController, CheckoutController),
+DestinationSearchController: Object.assign(DestinationSearchController, DestinationSearchController),
+StripePaymentController: Object.assign(StripePaymentController, StripePaymentController),
+CheckoutSuccessController: Object.assign(CheckoutSuccessController, CheckoutSuccessController),
 }
 
 export default Shop

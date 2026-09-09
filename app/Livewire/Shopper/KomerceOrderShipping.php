@@ -477,6 +477,9 @@ final class KomerceOrderShipping extends Component
         ));
 
         return view('livewire.shopper.komerce-order-shipping', [
+            'order' => $this->order,
+            'successMessage' => $this->successMessage,
+            'overrideError' => $this->overrideError,
             'shipments' => $shipments,
             'inventories' => $inventories,
             'canSimulateCourier' => app()->environment(['local', 'testing']),

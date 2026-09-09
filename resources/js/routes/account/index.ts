@@ -4,9 +4,9 @@ import notifications1ce82a from './notifications'
 import addresses2498c9 from './addresses'
 /**
 * @see \App\Http\Controllers\Account\OrderController::orders
-* @see app/Http/Controllers/Account/OrderController.php:19
-* @route '/account/orders'
-*/
+ * @see app/Http/Controllers/Account/OrderController.php:19
+ * @route '/account/orders'
+ */
 export const orders = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: orders.url(options),
     method: 'get',
@@ -19,75 +19,72 @@ orders.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\OrderController::orders
-* @see app/Http/Controllers/Account/OrderController.php:19
-* @route '/account/orders'
-*/
+ * @see app/Http/Controllers/Account/OrderController.php:19
+ * @route '/account/orders'
+ */
 orders.url = (options?: RouteQueryOptions) => {
     return orders.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Account\OrderController::orders
-* @see app/Http/Controllers/Account/OrderController.php:19
-* @route '/account/orders'
-*/
+ * @see app/Http/Controllers/Account/OrderController.php:19
+ * @route '/account/orders'
+ */
 orders.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: orders.url(options),
     method: 'get',
 })
-
 /**
 * @see \App\Http\Controllers\Account\OrderController::orders
-* @see app/Http/Controllers/Account/OrderController.php:19
-* @route '/account/orders'
-*/
+ * @see app/Http/Controllers/Account/OrderController.php:19
+ * @route '/account/orders'
+ */
 orders.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: orders.url(options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\OrderController::orders
-* @see app/Http/Controllers/Account/OrderController.php:19
-* @route '/account/orders'
-*/
-const ordersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: orders.url(options),
-    method: 'get',
-})
+ * @see app/Http/Controllers/Account/OrderController.php:19
+ * @route '/account/orders'
+ */
+    const ordersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: orders.url(options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\OrderController::orders
-* @see app/Http/Controllers/Account/OrderController.php:19
-* @route '/account/orders'
-*/
-ordersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: orders.url(options),
-    method: 'get',
-})
-
-/**
+ * @see app/Http/Controllers/Account/OrderController.php:19
+ * @route '/account/orders'
+ */
+        ordersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: orders.url(options),
+            method: 'get',
+        })
+            /**
 * @see \App\Http\Controllers\Account\OrderController::orders
-* @see app/Http/Controllers/Account/OrderController.php:19
-* @route '/account/orders'
-*/
-ordersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: orders.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-orders.form = ordersForm
-
+ * @see app/Http/Controllers/Account/OrderController.php:19
+ * @route '/account/orders'
+ */
+        ordersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: orders.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    orders.form = ordersForm
 /**
 * @see \App\Http\Controllers\Account\NotificationController::notifications
-* @see app/Http/Controllers/Account/NotificationController.php:16
-* @route '/account/notifications'
-*/
+ * @see app/Http/Controllers/Account/NotificationController.php:16
+ * @route '/account/notifications'
+ */
 export const notifications = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: notifications.url(options),
     method: 'get',
@@ -100,75 +97,72 @@ notifications.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\NotificationController::notifications
-* @see app/Http/Controllers/Account/NotificationController.php:16
-* @route '/account/notifications'
-*/
+ * @see app/Http/Controllers/Account/NotificationController.php:16
+ * @route '/account/notifications'
+ */
 notifications.url = (options?: RouteQueryOptions) => {
     return notifications.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Account\NotificationController::notifications
-* @see app/Http/Controllers/Account/NotificationController.php:16
-* @route '/account/notifications'
-*/
+ * @see app/Http/Controllers/Account/NotificationController.php:16
+ * @route '/account/notifications'
+ */
 notifications.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: notifications.url(options),
     method: 'get',
 })
-
 /**
 * @see \App\Http\Controllers\Account\NotificationController::notifications
-* @see app/Http/Controllers/Account/NotificationController.php:16
-* @route '/account/notifications'
-*/
+ * @see app/Http/Controllers/Account/NotificationController.php:16
+ * @route '/account/notifications'
+ */
 notifications.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: notifications.url(options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\NotificationController::notifications
-* @see app/Http/Controllers/Account/NotificationController.php:16
-* @route '/account/notifications'
-*/
-const notificationsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: notifications.url(options),
-    method: 'get',
-})
+ * @see app/Http/Controllers/Account/NotificationController.php:16
+ * @route '/account/notifications'
+ */
+    const notificationsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: notifications.url(options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\NotificationController::notifications
-* @see app/Http/Controllers/Account/NotificationController.php:16
-* @route '/account/notifications'
-*/
-notificationsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: notifications.url(options),
-    method: 'get',
-})
-
-/**
+ * @see app/Http/Controllers/Account/NotificationController.php:16
+ * @route '/account/notifications'
+ */
+        notificationsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: notifications.url(options),
+            method: 'get',
+        })
+            /**
 * @see \App\Http\Controllers\Account\NotificationController::notifications
-* @see app/Http/Controllers/Account/NotificationController.php:16
-* @route '/account/notifications'
-*/
-notificationsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: notifications.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-notifications.form = notificationsForm
-
+ * @see app/Http/Controllers/Account/NotificationController.php:16
+ * @route '/account/notifications'
+ */
+        notificationsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: notifications.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    notifications.form = notificationsForm
 /**
 * @see \App\Http\Controllers\Account\AddressController::addresses
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
 export const addresses = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: addresses.url(options),
     method: 'get',
@@ -181,74 +175,71 @@ addresses.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::addresses
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
 addresses.url = (options?: RouteQueryOptions) => {
     return addresses.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::addresses
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
 addresses.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: addresses.url(options),
     method: 'get',
 })
-
 /**
 * @see \App\Http\Controllers\Account\AddressController::addresses
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
 addresses.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: addresses.url(options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\AddressController::addresses
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
-const addressesForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: addresses.url(options),
-    method: 'get',
-})
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
+    const addressesForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: addresses.url(options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\AddressController::addresses
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
-addressesForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: addresses.url(options),
-    method: 'get',
-})
-
-/**
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
+        addressesForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: addresses.url(options),
+            method: 'get',
+        })
+            /**
 * @see \App\Http\Controllers\Account\AddressController::addresses
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
-addressesForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: addresses.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-addresses.form = addressesForm
-
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
+        addressesForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: addresses.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    addresses.form = addressesForm
 const account = {
     orders: Object.assign(orders, ordersB47e5f),
-    notifications: Object.assign(notifications, notifications1ce82a),
-    addresses: Object.assign(addresses, addresses2498c9),
+notifications: Object.assign(notifications, notifications1ce82a),
+addresses: Object.assign(addresses, addresses2498c9),
 }
 
 export default account

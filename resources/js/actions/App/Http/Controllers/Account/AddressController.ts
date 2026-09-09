@@ -1,9 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Account\AddressController::index
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(options),
     method: 'get',
@@ -16,75 +16,72 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::index
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
 index.url = (options?: RouteQueryOptions) => {
     return index.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::index
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(options),
     method: 'get',
 })
-
 /**
 * @see \App\Http\Controllers\Account\AddressController::index
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index.url(options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\AddressController::index
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
-const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url(options),
-    method: 'get',
-})
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
+    const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: index.url(options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\AddressController::index
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
-indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url(options),
-    method: 'get',
-})
-
-/**
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
+        indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: index.url(options),
+            method: 'get',
+        })
+            /**
 * @see \App\Http\Controllers\Account\AddressController::index
-* @see app/Http/Controllers/Account/AddressController.php:21
-* @route '/account/addresses'
-*/
-indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-index.form = indexForm
-
+ * @see app/Http/Controllers/Account/AddressController.php:21
+ * @route '/account/addresses'
+ */
+        indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: index.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    index.form = indexForm
 /**
 * @see \App\Http\Controllers\Account\AddressController::store
-* @see app/Http/Controllers/Account/AddressController.php:42
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:42
+ * @route '/account/addresses'
+ */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
     method: 'post',
@@ -97,50 +94,49 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::store
-* @see app/Http/Controllers/Account/AddressController.php:42
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:42
+ * @route '/account/addresses'
+ */
 store.url = (options?: RouteQueryOptions) => {
     return store.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::store
-* @see app/Http/Controllers/Account/AddressController.php:42
-* @route '/account/addresses'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:42
+ * @route '/account/addresses'
+ */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
     method: 'post',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\AddressController::store
-* @see app/Http/Controllers/Account/AddressController.php:42
-* @route '/account/addresses'
-*/
-const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: store.url(options),
-    method: 'post',
-})
+ * @see app/Http/Controllers/Account/AddressController.php:42
+ * @route '/account/addresses'
+ */
+    const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: store.url(options),
+        method: 'post',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\AddressController::store
-* @see app/Http/Controllers/Account/AddressController.php:42
-* @route '/account/addresses'
-*/
-storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: store.url(options),
-    method: 'post',
-})
-
-store.form = storeForm
-
+ * @see app/Http/Controllers/Account/AddressController.php:42
+ * @route '/account/addresses'
+ */
+        storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: store.url(options),
+            method: 'post',
+        })
+    
+    store.form = storeForm
 /**
 * @see \App\Http\Controllers\Account\AddressController::update
-* @see app/Http/Controllers/Account/AddressController.php:56
-* @route '/account/addresses/{address}'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:56
+ * @route '/account/addresses/{address}'
+ */
 export const update = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
@@ -153,31 +149,31 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::update
-* @see app/Http/Controllers/Account/AddressController.php:56
-* @route '/account/addresses/{address}'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:56
+ * @route '/account/addresses/{address}'
+ */
 update.url = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { address: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { address: args.id }
-    }
-
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { address: args.id }
+        }
+    
     if (Array.isArray(args)) {
         args = {
-            address: args[0],
-        }
+                    address: args[0],
+                }
     }
 
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-        address: typeof args.address === 'object'
-        ? args.address.id
-        : args.address,
-    }
+                        address: typeof args.address === 'object'
+                ? args.address.id
+                : args.address,
+                }
 
     return update.definition.url
             .replace('{address}', parsedArgs.address.toString())
@@ -186,51 +182,50 @@ update.url = (args: { address: number | { id: number } } | [address: number | { 
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::update
-* @see app/Http/Controllers/Account/AddressController.php:56
-* @route '/account/addresses/{address}'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:56
+ * @route '/account/addresses/{address}'
+ */
 update.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\AddressController::update
-* @see app/Http/Controllers/Account/AddressController.php:56
-* @route '/account/addresses/{address}'
-*/
-const updateForm = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: update.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'PATCH',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
+ * @see app/Http/Controllers/Account/AddressController.php:56
+ * @route '/account/addresses/{address}'
+ */
+    const updateForm = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: update.url(args, {
+                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                        _method: 'PATCH',
+                        ...(options?.query ?? options?.mergeQuery ?? {}),
+                    }
+                }),
+        method: 'post',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\AddressController::update
-* @see app/Http/Controllers/Account/AddressController.php:56
-* @route '/account/addresses/{address}'
-*/
-updateForm.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: update.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'PATCH',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
-
-update.form = updateForm
-
+ * @see app/Http/Controllers/Account/AddressController.php:56
+ * @route '/account/addresses/{address}'
+ */
+        updateForm.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: update.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'PATCH',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'post',
+        })
+    
+    update.form = updateForm
 /**
 * @see \App\Http\Controllers\Account\AddressController::destroy
-* @see app/Http/Controllers/Account/AddressController.php:72
-* @route '/account/addresses/{address}'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:72
+ * @route '/account/addresses/{address}'
+ */
 export const destroy = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
@@ -243,31 +238,31 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::destroy
-* @see app/Http/Controllers/Account/AddressController.php:72
-* @route '/account/addresses/{address}'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:72
+ * @route '/account/addresses/{address}'
+ */
 destroy.url = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { address: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { address: args.id }
-    }
-
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { address: args.id }
+        }
+    
     if (Array.isArray(args)) {
         args = {
-            address: args[0],
-        }
+                    address: args[0],
+                }
     }
 
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-        address: typeof args.address === 'object'
-        ? args.address.id
-        : args.address,
-    }
+                        address: typeof args.address === 'object'
+                ? args.address.id
+                : args.address,
+                }
 
     return destroy.definition.url
             .replace('{address}', parsedArgs.address.toString())
@@ -276,51 +271,50 @@ destroy.url = (args: { address: number | { id: number } } | [address: number | {
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::destroy
-* @see app/Http/Controllers/Account/AddressController.php:72
-* @route '/account/addresses/{address}'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:72
+ * @route '/account/addresses/{address}'
+ */
 destroy.delete = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\AddressController::destroy
-* @see app/Http/Controllers/Account/AddressController.php:72
-* @route '/account/addresses/{address}'
-*/
-const destroyForm = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: destroy.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'DELETE',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
+ * @see app/Http/Controllers/Account/AddressController.php:72
+ * @route '/account/addresses/{address}'
+ */
+    const destroyForm = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: destroy.url(args, {
+                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                        _method: 'DELETE',
+                        ...(options?.query ?? options?.mergeQuery ?? {}),
+                    }
+                }),
+        method: 'post',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\AddressController::destroy
-* @see app/Http/Controllers/Account/AddressController.php:72
-* @route '/account/addresses/{address}'
-*/
-destroyForm.delete = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: destroy.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'DELETE',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
-
-destroy.form = destroyForm
-
+ * @see app/Http/Controllers/Account/AddressController.php:72
+ * @route '/account/addresses/{address}'
+ */
+        destroyForm.delete = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: destroy.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'DELETE',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'post',
+        })
+    
+    destroy.form = destroyForm
 /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultShipping
-* @see app/Http/Controllers/Account/AddressController.php:86
-* @route '/account/addresses/{address}/default-shipping'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:86
+ * @route '/account/addresses/{address}/default-shipping'
+ */
 export const setDefaultShipping = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: setDefaultShipping.url(args, options),
     method: 'patch',
@@ -333,31 +327,31 @@ setDefaultShipping.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultShipping
-* @see app/Http/Controllers/Account/AddressController.php:86
-* @route '/account/addresses/{address}/default-shipping'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:86
+ * @route '/account/addresses/{address}/default-shipping'
+ */
 setDefaultShipping.url = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { address: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { address: args.id }
-    }
-
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { address: args.id }
+        }
+    
     if (Array.isArray(args)) {
         args = {
-            address: args[0],
-        }
+                    address: args[0],
+                }
     }
 
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-        address: typeof args.address === 'object'
-        ? args.address.id
-        : args.address,
-    }
+                        address: typeof args.address === 'object'
+                ? args.address.id
+                : args.address,
+                }
 
     return setDefaultShipping.definition.url
             .replace('{address}', parsedArgs.address.toString())
@@ -366,51 +360,50 @@ setDefaultShipping.url = (args: { address: number | { id: number } } | [address:
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultShipping
-* @see app/Http/Controllers/Account/AddressController.php:86
-* @route '/account/addresses/{address}/default-shipping'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:86
+ * @route '/account/addresses/{address}/default-shipping'
+ */
 setDefaultShipping.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: setDefaultShipping.url(args, options),
     method: 'patch',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultShipping
-* @see app/Http/Controllers/Account/AddressController.php:86
-* @route '/account/addresses/{address}/default-shipping'
-*/
-const setDefaultShippingForm = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: setDefaultShipping.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'PATCH',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
+ * @see app/Http/Controllers/Account/AddressController.php:86
+ * @route '/account/addresses/{address}/default-shipping'
+ */
+    const setDefaultShippingForm = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: setDefaultShipping.url(args, {
+                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                        _method: 'PATCH',
+                        ...(options?.query ?? options?.mergeQuery ?? {}),
+                    }
+                }),
+        method: 'post',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultShipping
-* @see app/Http/Controllers/Account/AddressController.php:86
-* @route '/account/addresses/{address}/default-shipping'
-*/
-setDefaultShippingForm.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: setDefaultShipping.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'PATCH',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
-
-setDefaultShipping.form = setDefaultShippingForm
-
+ * @see app/Http/Controllers/Account/AddressController.php:86
+ * @route '/account/addresses/{address}/default-shipping'
+ */
+        setDefaultShippingForm.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: setDefaultShipping.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'PATCH',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'post',
+        })
+    
+    setDefaultShipping.form = setDefaultShippingForm
 /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultBilling
-* @see app/Http/Controllers/Account/AddressController.php:100
-* @route '/account/addresses/{address}/default-billing'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:100
+ * @route '/account/addresses/{address}/default-billing'
+ */
 export const setDefaultBilling = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: setDefaultBilling.url(args, options),
     method: 'patch',
@@ -423,31 +416,31 @@ setDefaultBilling.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultBilling
-* @see app/Http/Controllers/Account/AddressController.php:100
-* @route '/account/addresses/{address}/default-billing'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:100
+ * @route '/account/addresses/{address}/default-billing'
+ */
 setDefaultBilling.url = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { address: args }
     }
 
-    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
-        args = { address: args.id }
-    }
-
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { address: args.id }
+        }
+    
     if (Array.isArray(args)) {
         args = {
-            address: args[0],
-        }
+                    address: args[0],
+                }
     }
 
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-        address: typeof args.address === 'object'
-        ? args.address.id
-        : args.address,
-    }
+                        address: typeof args.address === 'object'
+                ? args.address.id
+                : args.address,
+                }
 
     return setDefaultBilling.definition.url
             .replace('{address}', parsedArgs.address.toString())
@@ -456,46 +449,45 @@ setDefaultBilling.url = (args: { address: number | { id: number } } | [address: 
 
 /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultBilling
-* @see app/Http/Controllers/Account/AddressController.php:100
-* @route '/account/addresses/{address}/default-billing'
-*/
+ * @see app/Http/Controllers/Account/AddressController.php:100
+ * @route '/account/addresses/{address}/default-billing'
+ */
 setDefaultBilling.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: setDefaultBilling.url(args, options),
     method: 'patch',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultBilling
-* @see app/Http/Controllers/Account/AddressController.php:100
-* @route '/account/addresses/{address}/default-billing'
-*/
-const setDefaultBillingForm = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: setDefaultBilling.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'PATCH',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
+ * @see app/Http/Controllers/Account/AddressController.php:100
+ * @route '/account/addresses/{address}/default-billing'
+ */
+    const setDefaultBillingForm = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: setDefaultBilling.url(args, {
+                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                        _method: 'PATCH',
+                        ...(options?.query ?? options?.mergeQuery ?? {}),
+                    }
+                }),
+        method: 'post',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Account\AddressController::setDefaultBilling
-* @see app/Http/Controllers/Account/AddressController.php:100
-* @route '/account/addresses/{address}/default-billing'
-*/
-setDefaultBillingForm.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: setDefaultBilling.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'PATCH',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
-
-setDefaultBilling.form = setDefaultBillingForm
-
+ * @see app/Http/Controllers/Account/AddressController.php:100
+ * @route '/account/addresses/{address}/default-billing'
+ */
+        setDefaultBillingForm.patch = (args: { address: number | { id: number } } | [address: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: setDefaultBilling.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'PATCH',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'post',
+        })
+    
+    setDefaultBilling.form = setDefaultBillingForm
 const AddressController = { index, store, update, destroy, setDefaultShipping, setDefaultBilling }
 
 export default AddressController

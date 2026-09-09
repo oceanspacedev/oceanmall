@@ -2,9 +2,9 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 import fulfillment from './fulfillment'
 /**
 * @see \Shopper\Livewire\Pages\Order\Index::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
-* @route '/cpanel/orders'
-*/
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+ * @route '/cpanel/orders'
+ */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(options),
     method: 'get',
@@ -17,75 +17,72 @@ index.definition = {
 
 /**
 * @see \Shopper\Livewire\Pages\Order\Index::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
-* @route '/cpanel/orders'
-*/
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+ * @route '/cpanel/orders'
+ */
 index.url = (options?: RouteQueryOptions) => {
     return index.definition.url + queryParams(options)
 }
 
 /**
 * @see \Shopper\Livewire\Pages\Order\Index::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
-* @route '/cpanel/orders'
-*/
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+ * @route '/cpanel/orders'
+ */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(options),
     method: 'get',
 })
-
 /**
 * @see \Shopper\Livewire\Pages\Order\Index::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
-* @route '/cpanel/orders'
-*/
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+ * @route '/cpanel/orders'
+ */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index.url(options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \Shopper\Livewire\Pages\Order\Index::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
-* @route '/cpanel/orders'
-*/
-const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url(options),
-    method: 'get',
-})
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+ * @route '/cpanel/orders'
+ */
+    const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: index.url(options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \Shopper\Livewire\Pages\Order\Index::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
-* @route '/cpanel/orders'
-*/
-indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url(options),
-    method: 'get',
-})
-
-/**
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+ * @route '/cpanel/orders'
+ */
+        indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: index.url(options),
+            method: 'get',
+        })
+            /**
 * @see \Shopper\Livewire\Pages\Order\Index::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
-* @route '/cpanel/orders'
-*/
-indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-index.form = indexForm
-
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+ * @route '/cpanel/orders'
+ */
+        indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: index.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    index.form = indexForm
 /**
 * @see \App\Livewire\Shopper\Pages\OrderShipments::__invoke
-* @see app/Livewire/Shopper/Pages/OrderShipments.php:7
-* @route '/cpanel/orders/shipments'
-*/
+ * @see app/Livewire/Shopper/Pages/OrderShipments.php:7
+ * @route '/cpanel/orders/shipments'
+ */
 export const shipments = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: shipments.url(options),
     method: 'get',
@@ -98,75 +95,72 @@ shipments.definition = {
 
 /**
 * @see \App\Livewire\Shopper\Pages\OrderShipments::__invoke
-* @see app/Livewire/Shopper/Pages/OrderShipments.php:7
-* @route '/cpanel/orders/shipments'
-*/
+ * @see app/Livewire/Shopper/Pages/OrderShipments.php:7
+ * @route '/cpanel/orders/shipments'
+ */
 shipments.url = (options?: RouteQueryOptions) => {
     return shipments.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Livewire\Shopper\Pages\OrderShipments::__invoke
-* @see app/Livewire/Shopper/Pages/OrderShipments.php:7
-* @route '/cpanel/orders/shipments'
-*/
+ * @see app/Livewire/Shopper/Pages/OrderShipments.php:7
+ * @route '/cpanel/orders/shipments'
+ */
 shipments.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: shipments.url(options),
     method: 'get',
 })
-
 /**
 * @see \App\Livewire\Shopper\Pages\OrderShipments::__invoke
-* @see app/Livewire/Shopper/Pages/OrderShipments.php:7
-* @route '/cpanel/orders/shipments'
-*/
+ * @see app/Livewire/Shopper/Pages/OrderShipments.php:7
+ * @route '/cpanel/orders/shipments'
+ */
 shipments.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: shipments.url(options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \App\Livewire\Shopper\Pages\OrderShipments::__invoke
-* @see app/Livewire/Shopper/Pages/OrderShipments.php:7
-* @route '/cpanel/orders/shipments'
-*/
-const shipmentsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: shipments.url(options),
-    method: 'get',
-})
+ * @see app/Livewire/Shopper/Pages/OrderShipments.php:7
+ * @route '/cpanel/orders/shipments'
+ */
+    const shipmentsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: shipments.url(options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \App\Livewire\Shopper\Pages\OrderShipments::__invoke
-* @see app/Livewire/Shopper/Pages/OrderShipments.php:7
-* @route '/cpanel/orders/shipments'
-*/
-shipmentsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: shipments.url(options),
-    method: 'get',
-})
-
-/**
+ * @see app/Livewire/Shopper/Pages/OrderShipments.php:7
+ * @route '/cpanel/orders/shipments'
+ */
+        shipmentsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: shipments.url(options),
+            method: 'get',
+        })
+            /**
 * @see \App\Livewire\Shopper\Pages\OrderShipments::__invoke
-* @see app/Livewire/Shopper/Pages/OrderShipments.php:7
-* @route '/cpanel/orders/shipments'
-*/
-shipmentsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: shipments.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-shipments.form = shipmentsForm
-
+ * @see app/Livewire/Shopper/Pages/OrderShipments.php:7
+ * @route '/cpanel/orders/shipments'
+ */
+        shipmentsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: shipments.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    shipments.form = shipmentsForm
 /**
 * @see \Shopper\Livewire\Pages\Order\AbandonedCarts::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
-* @route '/cpanel/orders/abandoned-carts'
-*/
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
+ * @route '/cpanel/orders/abandoned-carts'
+ */
 export const abandonedCarts = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: abandonedCarts.url(options),
     method: 'get',
@@ -179,75 +173,72 @@ abandonedCarts.definition = {
 
 /**
 * @see \Shopper\Livewire\Pages\Order\AbandonedCarts::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
-* @route '/cpanel/orders/abandoned-carts'
-*/
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
+ * @route '/cpanel/orders/abandoned-carts'
+ */
 abandonedCarts.url = (options?: RouteQueryOptions) => {
     return abandonedCarts.definition.url + queryParams(options)
 }
 
 /**
 * @see \Shopper\Livewire\Pages\Order\AbandonedCarts::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
-* @route '/cpanel/orders/abandoned-carts'
-*/
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
+ * @route '/cpanel/orders/abandoned-carts'
+ */
 abandonedCarts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: abandonedCarts.url(options),
     method: 'get',
 })
-
 /**
 * @see \Shopper\Livewire\Pages\Order\AbandonedCarts::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
-* @route '/cpanel/orders/abandoned-carts'
-*/
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
+ * @route '/cpanel/orders/abandoned-carts'
+ */
 abandonedCarts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: abandonedCarts.url(options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \Shopper\Livewire\Pages\Order\AbandonedCarts::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
-* @route '/cpanel/orders/abandoned-carts'
-*/
-const abandonedCartsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: abandonedCarts.url(options),
-    method: 'get',
-})
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
+ * @route '/cpanel/orders/abandoned-carts'
+ */
+    const abandonedCartsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: abandonedCarts.url(options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \Shopper\Livewire\Pages\Order\AbandonedCarts::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
-* @route '/cpanel/orders/abandoned-carts'
-*/
-abandonedCartsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: abandonedCarts.url(options),
-    method: 'get',
-})
-
-/**
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
+ * @route '/cpanel/orders/abandoned-carts'
+ */
+        abandonedCartsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: abandonedCarts.url(options),
+            method: 'get',
+        })
+            /**
 * @see \Shopper\Livewire\Pages\Order\AbandonedCarts::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
-* @route '/cpanel/orders/abandoned-carts'
-*/
-abandonedCartsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: abandonedCarts.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-abandonedCarts.form = abandonedCartsForm
-
+ * @see vendor/shopper/framework/src/Livewire/Pages/Order/AbandonedCarts.php:7
+ * @route '/cpanel/orders/abandoned-carts'
+ */
+        abandonedCartsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: abandonedCarts.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    abandonedCarts.form = abandonedCartsForm
 /**
-* @see \Shopper\Livewire\Pages\Order\Detail::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Detail.php:7
-* @route '/cpanel/orders/{order}/detail'
-*/
+* @see \App\Livewire\Shopper\Pages\OrderDetail::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderDetail.php:7
+ * @route '/cpanel/orders/{order}/detail'
+ */
 export const detail = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: detail.url(args, options),
     method: 'get',
@@ -259,26 +250,27 @@ detail.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Order\Detail::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Detail.php:7
-* @route '/cpanel/orders/{order}/detail'
-*/
+* @see \App\Livewire\Shopper\Pages\OrderDetail::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderDetail.php:7
+ * @route '/cpanel/orders/{order}/detail'
+ */
 detail.url = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { order: args }
     }
 
+    
     if (Array.isArray(args)) {
         args = {
-            order: args[0],
-        }
+                    order: args[0],
+                }
     }
 
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-        order: args.order,
-    }
+                        order: args.order,
+                }
 
     return detail.definition.url
             .replace('{order}', parsedArgs.order.toString())
@@ -286,68 +278,65 @@ detail.url = (args: { order: string | number } | [order: string | number ] | str
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Order\Detail::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Detail.php:7
-* @route '/cpanel/orders/{order}/detail'
-*/
+* @see \App\Livewire\Shopper\Pages\OrderDetail::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderDetail.php:7
+ * @route '/cpanel/orders/{order}/detail'
+ */
 detail.get = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: detail.url(args, options),
     method: 'get',
 })
-
 /**
-* @see \Shopper\Livewire\Pages\Order\Detail::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Detail.php:7
-* @route '/cpanel/orders/{order}/detail'
-*/
+* @see \App\Livewire\Shopper\Pages\OrderDetail::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderDetail.php:7
+ * @route '/cpanel/orders/{order}/detail'
+ */
 detail.head = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: detail.url(args, options),
     method: 'head',
 })
 
-/**
-* @see \Shopper\Livewire\Pages\Order\Detail::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Detail.php:7
-* @route '/cpanel/orders/{order}/detail'
-*/
-const detailForm = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: detail.url(args, options),
-    method: 'get',
-})
+    /**
+* @see \App\Livewire\Shopper\Pages\OrderDetail::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderDetail.php:7
+ * @route '/cpanel/orders/{order}/detail'
+ */
+    const detailForm = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: detail.url(args, options),
+        method: 'get',
+    })
 
-/**
-* @see \Shopper\Livewire\Pages\Order\Detail::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Detail.php:7
-* @route '/cpanel/orders/{order}/detail'
-*/
-detailForm.get = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: detail.url(args, options),
-    method: 'get',
-})
-
-/**
-* @see \Shopper\Livewire\Pages\Order\Detail::__invoke
-* @see vendor/shopper/framework/src/Livewire/Pages/Order/Detail.php:7
-* @route '/cpanel/orders/{order}/detail'
-*/
-detailForm.head = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: detail.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-detail.form = detailForm
-
+            /**
+* @see \App\Livewire\Shopper\Pages\OrderDetail::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderDetail.php:7
+ * @route '/cpanel/orders/{order}/detail'
+ */
+        detailForm.get = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: detail.url(args, options),
+            method: 'get',
+        })
+            /**
+* @see \App\Livewire\Shopper\Pages\OrderDetail::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderDetail.php:7
+ * @route '/cpanel/orders/{order}/detail'
+ */
+        detailForm.head = (args: { order: string | number } | [order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: detail.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    detail.form = detailForm
 const orders = {
     index: Object.assign(index, index),
-    shipments: Object.assign(shipments, shipments),
-    abandonedCarts: Object.assign(abandonedCarts, abandonedCarts),
-    detail: Object.assign(detail, detail),
-    fulfillment: Object.assign(fulfillment, fulfillment),
+shipments: Object.assign(shipments, shipments),
+abandonedCarts: Object.assign(abandonedCarts, abandonedCarts),
+detail: Object.assign(detail, detail),
+fulfillment: Object.assign(fulfillment, fulfillment),
 }
 
 export default orders

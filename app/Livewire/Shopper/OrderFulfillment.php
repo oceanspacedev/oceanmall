@@ -17,6 +17,17 @@ use Throwable;
 
 final class OrderFulfillment extends ShopperFulfillment
 {
+    public bool $onlyActions = false;
+
+    public bool $onlySteps = false;
+
+    public function mount(\Shopper\Core\Models\Contracts\Order $order, bool $onlyActions = false, bool $onlySteps = false): void
+    {
+        $this->order = $order;
+        $this->onlyActions = $onlyActions;
+        $this->onlySteps = $onlySteps;
+    }
+
     public function openShippingLabel(): void
     {
         if (! komerce_shipping_delivery_enabled()) {
@@ -97,6 +108,8 @@ final class OrderFulfillment extends ShopperFulfillment
         );
 
         $view->with([
+            'onlyActions' => $this->onlyActions,
+            'onlySteps' => $this->onlySteps,
             'rajaOngkirEnabled' => komerce_shipping_delivery_enabled(),
             'orderIsPaid' => $this->order->payment_status === PaymentStatus::Paid,
             'rajaOngkirAwbs' => $awbs,

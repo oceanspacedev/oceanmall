@@ -69,6 +69,33 @@ final class OrderShipmentOpsPresenter
                     $carrier = strtoupper((string) ($shipment->carrier_code ?: $carrier));
                 }
 
+                $carrierCode = strtolower(trim((string) ($shipment->carrier_code ?: $shipment->carrier_name)));
+                $serviceCode = strtoupper(trim($service));
+                $serviceDesc = CourierServiceExplainer::explain($carrierCode, $serviceCode);
+
+                $carrierLogo = KomerceCourierAssets::logoUrl($carrierCode);
+                if ($carrierLogo === null) {
+                    if (file_exists(public_path("images/couriers/{$carrierCode}.svg"))) {
+                        $carrierLogo = asset("images/couriers/{$carrierCode}.svg");
+                    } elseif (file_exists(public_path("images/couriers/{$carrierCode}.png"))) {
+                        $carrierLogo = asset("images/couriers/{$carrierCode}.png");
+                    }
+                }
+
+                $carrierNameDisplay = match ($carrierCode) {
+                    'jnt', 'j&t' => 'J&T Express',
+                    'jne' => 'JNE Express',
+                    'sicepat' => 'SiCepat Ekspres',
+                    'anteraja' => 'Anteraja',
+                    'pos' => 'POS Indonesia',
+                    'tiki' => 'TIKI',
+                    'lion' => 'Lion Parcel',
+                    'ninja' => 'Ninja Xpress',
+                    'ide', 'idexpress' => 'ID Express',
+                    'wahana' => 'Wahana Express',
+                    default => strtoupper($carrier),
+                };
+
                 return [
                     'id' => $shipment->id,
                     'inventory_id' => $shipment->inventory_id,
@@ -77,9 +104,12 @@ final class OrderShipmentOpsPresenter
                     'status_label' => $this->statusLabel(is_string($shipment->status) ? $shipment->status : null),
                     'awb' => $shipment->awb,
                     'tracking_number' => $shipment->tracking_number,
+                    'carrier_code' => $carrierCode,
                     'carrier' => $carrier,
-                    'service' => strtoupper($service),
-                    'carrier_logo' => KomerceCourierAssets::logoUrl($shipment->carrier_code),
+                    'carrier_name_display' => $carrierNameDisplay,
+                    'service' => $serviceCode,
+                    'service_description' => $serviceDesc,
+                    'carrier_logo' => $carrierLogo,
                     'cost' => (int) $shipment->cost,
                     'currency' => $shipment->currency_code,
                     'delivery_order_no' => $deliveryOrderNo,

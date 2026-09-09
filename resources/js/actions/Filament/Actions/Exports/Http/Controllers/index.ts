@@ -1,5 +1,4 @@
 import DownloadExport from './DownloadExport'
-
 const Controllers = {
     DownloadExport: Object.assign(DownloadExport, DownloadExport),
 }

@@ -1,9 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \Livewire\Features\SupportFileUploads\FilePreviewController::handle
-* @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
-* @route '/livewire/preview-file/{filename}'
-*/
+ * @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
+ * @route '/livewire/preview-file/{filename}'
+ */
 export const handle = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: handle.url(args, options),
     method: 'get',
@@ -16,25 +16,26 @@ handle.definition = {
 
 /**
 * @see \Livewire\Features\SupportFileUploads\FilePreviewController::handle
-* @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
-* @route '/livewire/preview-file/{filename}'
-*/
+ * @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
+ * @route '/livewire/preview-file/{filename}'
+ */
 handle.url = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { filename: args }
     }
 
+    
     if (Array.isArray(args)) {
         args = {
-            filename: args[0],
-        }
+                    filename: args[0],
+                }
     }
 
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-        filename: args.filename,
-    }
+                        filename: args.filename,
+                }
 
     return handle.definition.url
             .replace('{filename}', parsedArgs.filename.toString())
@@ -43,61 +44,58 @@ handle.url = (args: { filename: string | number } | [filename: string | number ]
 
 /**
 * @see \Livewire\Features\SupportFileUploads\FilePreviewController::handle
-* @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
-* @route '/livewire/preview-file/{filename}'
-*/
+ * @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
+ * @route '/livewire/preview-file/{filename}'
+ */
 handle.get = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: handle.url(args, options),
     method: 'get',
 })
-
 /**
 * @see \Livewire\Features\SupportFileUploads\FilePreviewController::handle
-* @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
-* @route '/livewire/preview-file/{filename}'
-*/
+ * @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
+ * @route '/livewire/preview-file/{filename}'
+ */
 handle.head = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: handle.url(args, options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \Livewire\Features\SupportFileUploads\FilePreviewController::handle
-* @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
-* @route '/livewire/preview-file/{filename}'
-*/
-const handleForm = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: handle.url(args, options),
-    method: 'get',
-})
+ * @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
+ * @route '/livewire/preview-file/{filename}'
+ */
+    const handleForm = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: handle.url(args, options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \Livewire\Features\SupportFileUploads\FilePreviewController::handle
-* @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
-* @route '/livewire/preview-file/{filename}'
-*/
-handleForm.get = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: handle.url(args, options),
-    method: 'get',
-})
-
-/**
+ * @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
+ * @route '/livewire/preview-file/{filename}'
+ */
+        handleForm.get = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: handle.url(args, options),
+            method: 'get',
+        })
+            /**
 * @see \Livewire\Features\SupportFileUploads\FilePreviewController::handle
-* @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
-* @route '/livewire/preview-file/{filename}'
-*/
-handleForm.head = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: handle.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-handle.form = handleForm
-
+ * @see vendor/livewire/livewire/src/Features/SupportFileUploads/FilePreviewController.php:18
+ * @route '/livewire/preview-file/{filename}'
+ */
+        handleForm.head = (args: { filename: string | number } | [filename: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: handle.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    handle.form = handleForm
 const FilePreviewController = { handle }
 
 export default FilePreviewController

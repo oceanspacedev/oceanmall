@@ -1,9 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Shop\SearchController::__invoke
-* @see app/Http/Controllers/Shop/SearchController.php:16
-* @route '/search'
-*/
+ * @see app/Http/Controllers/Shop/SearchController.php:16
+ * @route '/search'
+ */
 const SearchController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: SearchController.url(options),
     method: 'get',
@@ -16,68 +16,65 @@ SearchController.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\SearchController::__invoke
-* @see app/Http/Controllers/Shop/SearchController.php:16
-* @route '/search'
-*/
+ * @see app/Http/Controllers/Shop/SearchController.php:16
+ * @route '/search'
+ */
 SearchController.url = (options?: RouteQueryOptions) => {
     return SearchController.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Shop\SearchController::__invoke
-* @see app/Http/Controllers/Shop/SearchController.php:16
-* @route '/search'
-*/
+ * @see app/Http/Controllers/Shop/SearchController.php:16
+ * @route '/search'
+ */
 SearchController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: SearchController.url(options),
     method: 'get',
 })
-
 /**
 * @see \App\Http\Controllers\Shop\SearchController::__invoke
-* @see app/Http/Controllers/Shop/SearchController.php:16
-* @route '/search'
-*/
+ * @see app/Http/Controllers/Shop/SearchController.php:16
+ * @route '/search'
+ */
 SearchController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: SearchController.url(options),
     method: 'head',
 })
 
-/**
+    /**
 * @see \App\Http\Controllers\Shop\SearchController::__invoke
-* @see app/Http/Controllers/Shop/SearchController.php:16
-* @route '/search'
-*/
-const SearchControllerForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: SearchController.url(options),
-    method: 'get',
-})
+ * @see app/Http/Controllers/Shop/SearchController.php:16
+ * @route '/search'
+ */
+    const SearchControllerForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: SearchController.url(options),
+        method: 'get',
+    })
 
-/**
+            /**
 * @see \App\Http\Controllers\Shop\SearchController::__invoke
-* @see app/Http/Controllers/Shop/SearchController.php:16
-* @route '/search'
-*/
-SearchControllerForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: SearchController.url(options),
-    method: 'get',
-})
-
-/**
+ * @see app/Http/Controllers/Shop/SearchController.php:16
+ * @route '/search'
+ */
+        SearchControllerForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: SearchController.url(options),
+            method: 'get',
+        })
+            /**
 * @see \App\Http\Controllers\Shop\SearchController::__invoke
-* @see app/Http/Controllers/Shop/SearchController.php:16
-* @route '/search'
-*/
-SearchControllerForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: SearchController.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-SearchController.form = SearchControllerForm
-
+ * @see app/Http/Controllers/Shop/SearchController.php:16
+ * @route '/search'
+ */
+        SearchControllerForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: SearchController.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    SearchController.form = SearchControllerForm
 export default SearchController

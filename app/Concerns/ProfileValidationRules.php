@@ -42,10 +42,15 @@ trait ProfileValidationRules
      */
     protected function emailRules(?int $userId = null): array
     {
+        // The DNS check confirms the email domain really exists, but it needs
+        // network access and rejects reserved domains such as example.com, so
+        // it is skipped while running the test suite.
+        $emailRule = app()->runningUnitTests() ? 'email:rfc' : 'email:rfc,dns';
+
         return [
             'required',
             'string',
-            'email:rfc,dns', // Memastikan format email valid secara RFC dan mengecek apakah domain (DNS) emailnya nyata/aktif
+            $emailRule,
             'max:255',
             $userId === null
                 ? Rule::unique(User::class)

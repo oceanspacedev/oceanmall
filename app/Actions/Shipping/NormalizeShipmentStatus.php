@@ -42,14 +42,19 @@ final class NormalizeShipmentStatus
         $upper = strtoupper($candidate);
         $lower = strtolower($candidate);
 
+        // Only explicit cancellations are terminal. A failed/undelivered
+        // attempt means the courier will retry, so it must not lock the
+        // shipment into CANCELLED (ReconcileKomerceShipment treats that as sticky).
         if (
             str_contains($lower, 'cancel')
             || str_contains($lower, 'batal')
-            || str_contains($lower, 'failed')
-            || str_contains($lower, 'undeliver')
             || in_array($upper, ['CANCELLED', 'CANCELED', 'DIBATALKAN'], true)
         ) {
             return self::CANCELLED;
+        }
+
+        if (str_contains($lower, 'failed') || str_contains($lower, 'undeliver')) {
+            return $this->stableOrNull($fallback);
         }
 
         if (

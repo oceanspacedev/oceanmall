@@ -43,10 +43,17 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
 - **Tests need built assets.** Feature tests render Inertia views and fail with "Vite manifest not
   found" unless `npm run build` has been run (or the Vite dev server is up). Run `npm run build`
   before `composer test`.
-- **Known pre-existing test failures on this branch** (app-level, not environment issues): ~15 of
-  93 fail — Inertia page-name casing mismatches in tests (e.g. expected `settings/Security` vs
-  actual `settings/security`), checkout endpoints returning 409, and profile update field-name
-  mismatches (`first_name`/`last_name`). The environment itself runs the full suite fine.
+- **Test suite is green as of 2026-10-12 (347 tests).** Tests use kebab-case Inertia page names
+  (`settings/security`, `auth/confirm-password`), `first_name`/`last_name` profile fields, and
+  `@example.com` addresses. The `email:rfc,dns` rule is skipped under `runningUnitTests()` because
+  the DNS validator rejects reserved domains and needs network access.
+- **IDR money handling is a vendor patch.** Shopper core treats IDR as a 2-decimal currency; the fix
+  lives in `patches/shopper-core-idr-zero-decimal.patch`, applied by `cweagans/composer-patches` on
+  `composer install`. Do NOT reintroduce `function_exists` helper overrides loaded before Composer
+  (the old `bootstrap/pre_autoload.php`): Octane/FrankenPHP requires `vendor/autoload.php` directly
+  and bypasses them. After bumping `shopper/core`, confirm the patch still applies.
+- **Run the suite with `php -d memory_limit=1G vendor/bin/phpunit`.** At the default 128M the run
+  dies with a Blade/icon-manifest memory exhaustion around the Auth tests (pre-existing).
 - **Payment/shipping (Komerce / RajaOngkir).** Full checkout needs sandbox creds
   (`KOMERCE_PAYMENT_API_KEY`, `KOMERCE_SHIPPING_*_API_KEY`, `KOMERCE_WEBHOOK_SECRET`, RajaOngkir base URLs). Storefront browsing, cart,
   and the admin panel work without them. Stripe stays disabled (`PAYMENT_STRIPE_ENABLED=false`).

@@ -213,7 +213,7 @@ final class WarehouseOpsE2ETest extends TestCase
         $this->actingAs($admin)
             ->get(route('shopper.orders.detail', $order))
             ->assertOk()
-            ->assertSee('RajaOngkir / Komerce shipping', false)
+            ->assertSee('Pengiriman RajaOngkir / Komerce', false)
             ->assertSee('RO-WH-1', false)
             ->assertSee('Cetak Stiker Resi', false);
 

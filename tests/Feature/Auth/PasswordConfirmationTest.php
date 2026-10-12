@@ -23,7 +23,7 @@ class PasswordConfirmationTest extends TestCase
 
         $response->assertInertia(
             fn (Assert $page) => $page
-                ->component('auth/ConfirmPassword'),
+                ->component('auth/confirm-password'),
         );
     }
 

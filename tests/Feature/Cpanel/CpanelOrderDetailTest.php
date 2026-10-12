@@ -73,7 +73,7 @@ final class CpanelOrderDetailTest extends TestCase
         $this->actingAs($admin)
             ->get(route('shopper.orders.detail', $order))
             ->assertOk()
-            ->assertSee('RajaOngkir / Komerce shipping', false)
+            ->assertSee('Pengiriman RajaOngkir / Komerce', false)
             ->assertSee('QRIS Komerce', false);
 
         Livewire::actingAs($admin)

@@ -6,6 +6,7 @@ namespace App\Livewire\Shopper;
 
 use App\Actions\Checkout\SyncKomercePaymentStatus;
 use App\Actions\Shipping\EnsureOrderShipments;
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\ReconcileKomerceShipment;
 use App\Actions\Shipping\RefreshShipmentTracking;
 use App\Actions\Shipping\SyncOrderShippingFromShipments;
@@ -309,20 +310,25 @@ final class KomerceOrderShipping extends Component
         }
 
         $courier = strtoupper((string) ($shipment->carrier_code ?: 'JNT'));
-        $awb = $courier . mt_rand(100000000, 999999999);
-        $orderNo = 'KOM-' . $this->order->number . '-' . $shipment->id;
+        $awb = $courier.mt_rand(100000000, 999999999);
+        $orderNo = 'KOM-'.$this->order->number.'-'.$shipment->id;
 
         $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
         $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
-        $komerce['order_no'] = $orderNo;
-        $komerce['order_id'] = mt_rand(100000, 999999);
+
+        // Never overwrite a real Komerce order_no/order_id: the shipment must
+        // keep pointing at the provider record so reconcile/cancel still match.
+        if (! is_scalar($komerce['order_no'] ?? null) || trim((string) $komerce['order_no']) === '') {
+            $komerce['order_no'] = $orderNo;
+            $komerce['order_id'] = mt_rand(100000, 999999);
+        }
         $komerce['awb'] = $awb;
 
         $history = [
             [
                 'description' => "[TERDAFTAR] Nomor resi {$awb} berhasil diterbitkan oleh {$courier}. Paket sedang dikemas oleh penjual.",
                 'datetime' => now()->format('Y-m-d H:i:s'),
-                'location' => 'Gudang Penjual (' . ($shipment->inventory?->name ?? 'Gudang Utama') . ')',
+                'location' => 'Gudang Penjual ('.($shipment->inventory?->name ?? 'Gudang Utama').')',
             ],
         ];
 
@@ -335,7 +341,7 @@ final class KomerceOrderShipping extends Component
         $shipment->forceFill([
             'awb' => $awb,
             'tracking_number' => $awb,
-            'status' => \App\Actions\Shipping\NormalizeShipmentStatus::LABELED,
+            'status' => NormalizeShipmentStatus::LABELED,
             'metadata' => $metadata,
         ])->save();
 
@@ -375,7 +381,7 @@ final class KomerceOrderShipping extends Component
         $history[] = [
             'description' => "[PICKED_UP] Paket telah diserahkan oleh penjual ke kurir {$courierName}. Sedang dalam perjalanan ke alamat tujuan.",
             'datetime' => now()->format('Y-m-d H:i:s'),
-            'location' => 'Pusat Drop Point ' . $courierName,
+            'location' => 'Pusat Drop Point '.$courierName,
         ];
 
         $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
@@ -387,7 +393,7 @@ final class KomerceOrderShipping extends Component
         $metadata['last_tracking_status'] = 'IN_TRANSIT';
 
         $shipment->forceFill([
-            'status' => \App\Actions\Shipping\NormalizeShipmentStatus::PICKED_UP,
+            'status' => NormalizeShipmentStatus::PICKED_UP,
             'metadata' => $metadata,
         ])->save();
 
@@ -397,7 +403,7 @@ final class KomerceOrderShipping extends Component
 
         $this->seedOverrideDefaults();
         $this->dispatch('order.updated');
-        $this->successMessage = "Kurir berhasil men-scan jemput paket! Status pengiriman kini DIANTAR (Shipped).";
+        $this->successMessage = 'Kurir berhasil men-scan jemput paket! Status pengiriman kini DIANTAR (Shipped).';
     }
 
     public function simulateScanDelivered(int $shipmentId): void
@@ -439,7 +445,7 @@ final class KomerceOrderShipping extends Component
         $metadata['last_tracking_status'] = 'DELIVERED';
 
         $shipment->forceFill([
-            'status' => \App\Actions\Shipping\NormalizeShipmentStatus::DELIVERED,
+            'status' => NormalizeShipmentStatus::DELIVERED,
             'metadata' => $metadata,
         ])->save();
 
@@ -449,7 +455,7 @@ final class KomerceOrderShipping extends Component
 
         $this->seedOverrideDefaults();
         $this->dispatch('order.updated');
-        $this->successMessage = "Kurir berhasil men-scan paket diterima! Karena pembayaran lunas & barang terkirim, status pesanan otomatis menjadi COMPLETED.";
+        $this->successMessage = 'Kurir berhasil men-scan paket diterima! Karena pembayaran lunas & barang terkirim, status pesanan otomatis menjadi COMPLETED.';
     }
 
     private function ensureCourierSimulationAllowed(): void

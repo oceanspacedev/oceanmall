@@ -257,10 +257,15 @@
     "message": "Generate Print Label Success"
   },
   "data": {
-    "path": "https://api-sandbox.collaborator.komerce.id/storage/label/RO-ORDER-001.pdf"
+    "path": "/storage/label-2026-08-01-10-00-00-xxxxx.pdf",
+    "base_64": "JVBERi0xLjQK..."
   }
 }
 ```
+
+> Sesuai https://rajaongkir.com/docs/delivery-order-api/label_order: `data.path` bersifat relatif dan
+> untuk mengunduhnya **wajib menambahkan prefix `/order`** di depan path
+> (`{base_url}/order/storage/label-….pdf`). `data.base_64` berisi PDF yang sama dalam base64.
 
 ---
 
@@ -318,9 +323,15 @@
 {
   "order_no": "RO-ORDER-001",
   "cnote": "JNE123456789",
-  "status": "DELIVERED"
+  "status": "Dikirim"
 }
 ```
+
+- **Nilai `status`** (sesuai https://www.rajaongkir.com/docs/delivery-order-api/webhook, daftar tidak lengkap
+  dan disebut "etc." oleh provider): `Diajukan`, `Dijemput`, `Dikirim`, `Dibatalkan`, `Selesai`.
+  Endpoint History AWB memakai kode kurir seperti `ON_PROCESS` dan `DELIVERED`. Normalisasi di
+  `app/Actions/Shipping/NormalizeShipmentStatus.php` memetakan kedua kosakata ini; string di luar
+  daftar resmi tidak boleh ditebak menjadi status terminal.
 
 - **Response Required**: Merchant HTTP `200 OK` JSON acknowledgement:
 

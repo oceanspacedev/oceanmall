@@ -50,7 +50,7 @@ final readonly class PrintShipmentLabels
 
             throw new RuntimeException(
                 $registered
-                    ? 'Request pickup Komerce dulu. Stiker resi baru bisa dicetak setelah pickup berhasil.'
+                    ? 'Menunggu nomor resi (AWB) dari Komerce. Stiker baru bisa dicetak setelah kurir menerbitkan AWB; tekan Refresh Tracking untuk mengecek.'
                     : 'Daftarkan paket ke Komerce dan request pickup dulu sebelum mencetak stiker resi.',
             );
         }

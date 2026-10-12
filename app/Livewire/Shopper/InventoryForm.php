@@ -32,12 +32,12 @@ final class InventoryForm extends ShopperInventoryForm
                         ->minValue(1),
                     TextInput::make('latitude')
                         ->label(__('shopper::forms.label.latitude'))
-                        ->helperText('Koordinat lintang gudang. Wajib untuk penerbitan resi RajaOngkir. Contoh: -6.7366')
+                        ->helperText(__('shopper::pages/settings/global.location.latitude_helper'))
                         ->numeric()
                         ->rules(['nullable', 'numeric', 'between:-90,90']),
                     TextInput::make('longitude')
                         ->label(__('shopper::forms.label.longitude'))
-                        ->helperText('Koordinat bujur gudang. Wajib untuk penerbitan resi RajaOngkir. Contoh: 108.5414')
+                        ->helperText(__('shopper::pages/settings/global.location.longitude_helper'))
                         ->numeric()
                         ->rules(['nullable', 'numeric', 'between:-180,180']),
                 ]),

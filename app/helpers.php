@@ -98,50 +98,6 @@ if (! function_exists('qrisly_enabled')) {
     }
 }
 
-if (! function_exists('zero_decimal_currencies')) {
-    /**
-     * @return array<int, string>
-     */
-    function zero_decimal_currencies(): array
-    {
-        return [
-            'IDR', 'BIF', 'CLP', 'DJF', 'GNF', 'HTG', 'JPY', 'KMF', 'KRW',
-            'MGA', 'PYG', 'RWF', 'VND', 'VUV', 'XAF', 'XAG', 'XAU',
-            'XDR', 'XOF', 'XPF',
-        ];
-    }
-}
-
-if (! function_exists('is_no_division_currency')) {
-    function is_no_division_currency(string $currency): bool
-    {
-        return in_array(strtoupper($currency), zero_decimal_currencies(), true);
-    }
-}
-
-if (! function_exists('shopper_money_format')) {
-    function shopper_money_format(int|float $amount, ?string $currency = null): string
-    {
-        $currency = $currency ?? shopper_currency();
-        $isNoDivision = is_no_division_currency($currency);
-
-        if (strtoupper($currency) === 'IDR') {
-            return (string) \Illuminate\Support\Number::currency(
-                number: (float) $amount,
-                in: 'IDR',
-                locale: 'id_ID',
-                precision: 0
-            );
-        }
-
-        return (string) \Illuminate\Support\Number::currency(
-            number: $isNoDivision ? $amount : $amount / 100,
-            in: $currency,
-            locale: app()->getLocale()
-        );
-    }
-}
-
 if (! function_exists('current_currency')) {
     function current_currency(): string
     {

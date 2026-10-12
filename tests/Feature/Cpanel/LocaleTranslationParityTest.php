@@ -66,6 +66,14 @@ final class LocaleTranslationParityTest extends TestCase
         $enData = require $enPath;
         $idData = require $idPath;
 
+        // Laravel merges lang/vendor/shopper/en/* on top of the package strings,
+        // so app-specific keys added there are part of the English source too.
+        $enOverridePath = base_path("lang/vendor/shopper/en/{$relativePath}");
+
+        if (is_file($enOverridePath)) {
+            $enData = array_replace_recursive($enData, require $enOverridePath);
+        }
+
         $this->assertIsArray($enData);
         $this->assertIsArray($idData);
 

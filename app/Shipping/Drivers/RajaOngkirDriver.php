@@ -97,7 +97,9 @@ final class RajaOngkirDriver extends Driver
         $cacheKey = 'shipping_rates:'.sha1("{$originId}:{$destinationId}:{$weightGrams}:".implode(',', $couriers));
 
         try {
-            $response = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($originId, $destinationId, $weightGrams, $couriers): array {
+            // Free Collaborator plan allows 100 Shipping Cost requests/day; tariffs
+            // change rarely, so keep a route+weight quote for hours.
+            $response = Cache::remember($cacheKey, now()->addHours(12), function () use ($originId, $destinationId, $weightGrams, $couriers): array {
                 return $this->costClient->calculate(
                     origin: ['id' => $originId],
                     destination: ['id' => $destinationId],

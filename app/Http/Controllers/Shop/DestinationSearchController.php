@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Komerce\ShippingCostClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 final class DestinationSearchController extends Controller
@@ -23,10 +24,16 @@ final class DestinationSearchController extends Controller
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
+        $query = mb_strtolower(trim((string) $validated['q']));
+        $limit = (int) ($validated['limit'] ?? 10);
+
         try {
-            $results = $client->searchDomestic(
-                $validated['q'],
-                (int) ($validated['limit'] ?? 10),
+            // Destination data is static and the free Collaborator plan allows
+            // only 100 Shipping Cost requests/day, so remember each search.
+            $results = Cache::remember(
+                'rajaongkir:destinations:v1:'.sha1("{$query}|{$limit}"),
+                now()->addDays(30),
+                fn (): array => $client->searchDomestic($query, $limit),
             );
         } catch (Throwable $e) {
             report($e);

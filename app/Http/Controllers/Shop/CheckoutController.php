@@ -18,6 +18,7 @@ use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
 use App\Enums\OrderNotificationType;
 use App\Http\Controllers\Controller;
+use App\Support\RajaOngkirQuoteContext;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -214,6 +215,16 @@ final class CheckoutController extends Controller
             return __('Stok produk di keranjang tidak dapat dipenuhi oleh lokasi gudang toko saat ini.');
         }
 
+        $failure = resolve(RajaOngkirQuoteContext::class)->lastFailure();
+
+        if (is_string($failure) && str_starts_with($failure, 'quota:')) {
+            return __('Kuota cek ongkir harian RajaOngkir untuk toko ini sudah habis. Silakan coba lagi setelah :time WIB atau hubungi kami untuk menyelesaikan pesanan.', ['time' => trim(substr($failure, 6)) ?: '00:00']);
+        }
+
+        if ($failure !== null) {
+            return __('Gagal mengambil tarif ongkir dari RajaOngkir (gangguan koneksi ke provider). Silakan muat ulang halaman atau coba lagi beberapa saat.');
+        }
+
         return __('Tidak ada opsi kurir yang tersedia untuk rute tujuan ini. Silakan periksa kembali kecamatan alamat pengiriman.');
     }
 
@@ -333,8 +344,15 @@ final class CheckoutController extends Controller
             'service_name' => $selected['service_name'],
             'carrier_code' => $selected['carrier_code'],
             'carrier_name' => $selected['carrier_name'] ?? null,
-            'shipping_name' => $selected['carrier_name'] ?? null,
-            'shipping_cost' => (int) $selected['amount'],
+            'shipping_name' => $selected['shipping_name'] ?? $selected['carrier_name'] ?? null,
+            'shipping_cost' => (int) ($selected['shipping_cost'] ?? $selected['amount']),
+            // Official Komerce Delivery tariff fields (null when quoted via Shipping Cost).
+            'provider' => $selected['provider'] ?? null,
+            'group' => $selected['group'] ?? null,
+            'shipping_cashback' => isset($selected['shipping_cashback']) ? (int) $selected['shipping_cashback'] : null,
+            'shipping_cost_net' => isset($selected['shipping_cost_net']) ? (int) $selected['shipping_cost_net'] : null,
+            'service_fee' => isset($selected['service_fee']) ? (int) $selected['service_fee'] : null,
+            'grandtotal' => isset($selected['grandtotal']) ? (int) $selected['grandtotal'] : null,
             'amount' => (int) $selected['amount'],
             'currency' => $selected['currency'],
             'estimated_days' => $selected['estimated_days'],

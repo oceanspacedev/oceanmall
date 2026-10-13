@@ -6,7 +6,9 @@ namespace App\Actions\Checkout;
 
 use App\Support\CourierServiceExplainer;
 use App\Support\EnabledCarriers;
+use App\Support\KomerceCapabilities;
 use App\Support\KomerceCourierAssets;
+use App\Support\RajaOngkirCouriers;
 use App\Support\RajaOngkirQuoteContext;
 use Illuminate\Support\Collection;
 use Shopper\Core\Models\Carrier;
@@ -29,6 +31,14 @@ final class FetchDeliveryRates
      */
     public function handle(array $shippingAddress, array $packages, ?int $originInventoryId = null): array
     {
+        // Primary: Komerce Delivery tariff (what Store Order needs, only active couriers).
+        $deliveryRates = resolve(FetchKomerceDeliveryRates::class)->handle($shippingAddress, $packages, $originInventoryId);
+
+        if ($deliveryRates !== null) {
+            return $deliveryRates;
+        }
+
+        // Fallback: RajaOngkir Shipping Cost (no Delivery key, or no pin points yet).
         $rajaOngkirRates = $this->rajaOngkirRates($shippingAddress, $packages, $originInventoryId);
 
         if ($rajaOngkirRates !== null) {
@@ -89,13 +99,24 @@ final class FetchDeliveryRates
             return [];
         }
 
+        $capabilities = resolve(KomerceCapabilities::class);
+
+        if ($capabilities->quotaExhausted('shipping_cost')) {
+            resolve(RajaOngkirQuoteContext::class)->markFailure(
+                'quota:'.($capabilities->quotaExhaustedUntil('shipping_cost')?->setTimezone('Asia/Jakarta')->format('d M Y H:i') ?? ''),
+            );
+
+            return [];
+        }
+
         $countryId = isset($shippingAddress['country_id']) ? (int) $shippingAddress['country_id'] : null;
         $allSlugs = $this->couriers($countryId > 0 ? $countryId : null);
         /** @var list<string> $validKomerceCouriers */
         $validKomerceCouriers = array_map('strtolower', (array) config('komerce.couriers', []));
-        $courierSlugs = array_values(array_filter(
+        // RAJAONGKIR_COURIERS is only an optional override; empty means "no filter".
+        $courierSlugs = RajaOngkirCouriers::filter(array_filter(
             $allSlugs,
-            static fn (string $slug): bool => in_array(strtolower($slug), $validKomerceCouriers, true),
+            static fn (string $slug): bool => $validKomerceCouriers === [] || in_array(strtolower($slug), $validKomerceCouriers, true),
         ));
 
         if ($courierSlugs === []) {
@@ -113,6 +134,7 @@ final class FetchDeliveryRates
             );
         } catch (Throwable $e) {
             report($e);
+            $context->markFailure($e->getMessage());
 
             return [];
         } finally {

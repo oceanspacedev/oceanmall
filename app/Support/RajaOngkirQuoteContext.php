@@ -19,6 +19,8 @@ final class RajaOngkirQuoteContext
     /** @var list<string> */
     private array $couriers = [];
 
+    private ?string $lastFailure = null;
+
     /**
      * @param  list<string>  $couriers
      */
@@ -63,5 +65,19 @@ final class RajaOngkirQuoteContext
         $this->originId = null;
         $this->destinationId = null;
         $this->couriers = [];
+    }
+
+    /**
+     * Record that the last quote attempt failed on transport/provider error
+     * (as opposed to the provider legitimately returning no services).
+     */
+    public function markFailure(string $message): void
+    {
+        $this->lastFailure = $message;
+    }
+
+    public function lastFailure(): ?string
+    {
+        return $this->lastFailure;
     }
 }

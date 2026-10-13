@@ -19,12 +19,25 @@ final class HomeController extends Controller
         $currency = current_currency();
 
         return Inertia::render('shop/home', [
+            // Newest published products, independent of flags, discounts, or
+            // the queued collection sync, so a plain new product shows up here.
+            'latestProducts' => fn () => Product::query()
+                ->select('id', 'name', 'slug', 'brand_id', 'published_at')
+                ->with(['media', 'brand'])
+                ->withCurrentPrices()
+                ->scopes('publish')
+                ->orderByDesc('published_at')
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get(),
             'featuredProducts' => fn () => Product::query()
-                ->select('id', 'name', 'slug', 'brand_id')
+                ->select('id', 'name', 'slug', 'brand_id', 'updated_at')
                 ->with(['media', 'brand'])
                 ->withCurrentPrices()
                 ->where('featured', true)
                 ->scopes('publish')
+                ->orderByDesc('updated_at')
+                ->orderByDesc('id')
                 ->limit(10)
                 ->get(),
             'promoProducts' => fn () => Product::query()
@@ -61,6 +74,7 @@ final class HomeController extends Controller
             'categories' => fn () => Category::query()
                 ->scopes('enabled')
                 ->whereNull('parent_id')
+                ->whereHas('products', fn ($q) => $q->scopes('publish'))
                 ->with('media')
                 ->orderBy('position')
                 ->limit(8)

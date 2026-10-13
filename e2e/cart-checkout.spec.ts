@@ -1,10 +1,28 @@
 import { expect, test } from '@playwright/test';
+import type { Locator } from '@playwright/test';
 import {
     expectNoCriticalA11y,
     gotoFirstProduct,
     loginAsCustomer,
     selectFirstAvailableVariantIfNeeded,
 } from './helpers/qa';
+
+/**
+ * Rate radios are visually hidden (`sr-only`) behind the courier card, so a
+ * pointer click on the input is intercepted by the logo; click the card label
+ * like a user would, falling back to a forced check.
+ */
+async function chooseRate(radio: Locator): Promise<void> {
+    const label = radio.locator('xpath=ancestor::label[1]');
+
+    if (await label.count()) {
+        await label.first().click();
+
+        return;
+    }
+
+    await radio.check({ force: true });
+}
 
 test.describe('TC-UI-CART — Cart & checkout (browser)', () => {
     test('TC-UI-CART-001 empty cart empty-state @smoke', async ({ page }) => {
@@ -63,7 +81,7 @@ test.describe('TC-UI-CART — Cart & checkout (browser)', () => {
         const rate = page.locator('main').getByRole('radio').first();
 
         if (await rate.isVisible().catch(() => false)) {
-            await rate.click();
+            await chooseRate(rate);
             await expect(
                 page.getByText(/pengiriman|kurir|ongkir|pembayaran|qris|transfer|lanjut/i).first(),
             ).toBeVisible({ timeout: 15_000 });
@@ -99,11 +117,14 @@ await street.fill('Jl. Melawai Raya No. 1');
 }
         }
 
+        // Picking a saved address auto-advances to the rates step, where the
+        // "Lanjut ke pembayaran" button stays disabled until a rate is chosen.
+        // Only submit the address form when its own button is enabled.
         const continueBtn = page.locator('main').getByRole('button', {
-            name: /lanjut|simpan|pakai alamat|kirim/i,
+            name: /lanjut ke pengiriman|simpan|pakai alamat|kirim/i,
         }).first();
 
-        if (await continueBtn.isVisible().catch(() => false)) {
+        if (await continueBtn.isEnabled().catch(() => false)) {
             await continueBtn.click();
         }
 
@@ -111,11 +132,10 @@ await street.fill('Jl. Melawai Raya No. 1');
             page.getByText(/pengiriman|kurir|ongkir|pembayaran|qris|transfer|metode pengiriman/i).first(),
         ).toBeVisible({ timeout: 30_000 });
 
+        // RajaOngkir quotes are fetched live and can take a while.
         const shippingRate = page.locator('main').getByRole('radio').first();
-
-        if (await shippingRate.isVisible().catch(() => false)) {
-            await shippingRate.click();
-        }
+        await expect(shippingRate).toBeVisible({ timeout: 60_000 });
+        await chooseRate(shippingRate);
 
         await expectNoCriticalA11y(page, 'checkout');
     });

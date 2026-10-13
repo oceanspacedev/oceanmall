@@ -75,6 +75,7 @@ const pageTitle = computed(() => {
     if (props.filters.promo) {
         return 'Promo hari ini';
     }
+
     if (props.filters.featured) {
         return 'Produk unggulan';
     }

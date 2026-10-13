@@ -207,8 +207,26 @@ const selectedVariant = computed(() =>
         : null,
 );
 
+// Before a variant is chosen, show the lowest variant price (same rule as
+// the catalog card) instead of "Harga belum tersedia".
+const lowestVariantPrice = computed(() => {
+    const prices = (props.product.variants ?? [])
+        .flatMap((variant) => variant.prices ?? [])
+        .filter((price) => price && price.amount != null);
+
+    if (prices.length === 0) {
+        return null;
+    }
+
+    return [...prices].sort((a, b) => (a.amount ?? 0) - (b.amount ?? 0))[0];
+});
+
 const displayPrice = computed(
-    () => selectedVariant.value?.prices?.[0] ?? props.product.prices?.[0],
+    () =>
+        selectedVariant.value?.prices?.[0] ??
+        props.product.prices?.[0] ??
+        lowestVariantPrice.value ??
+        undefined,
 );
 
 const salePercentage = computed<number | null>(() => {

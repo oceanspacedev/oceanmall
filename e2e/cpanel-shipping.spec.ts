@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 const admin = {
     email: process.env.PLAYWRIGHT_ADMIN_EMAIL || 'admin@oceanmall.test',
     password: process.env.PLAYWRIGHT_ADMIN_PASSWORD || 'password123',
 };
 
-async function loginAsAdmin(page: import('@playwright/test').Page): Promise<void> {
+async function loginAsAdmin(page: Page): Promise<void> {
     await page.goto('/cpanel/login');
     await expect(page.getByRole('textbox', { name: /email/i })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('textbox', { name: /email/i }).fill(admin.email);

@@ -12,6 +12,7 @@ import * as shop from '@/routes/shop';
 import type { Brand, Category, Collection, Product } from '@/types/shop';
 
 defineProps<{
+    latestProducts: Product[];
     featuredProducts: Product[];
     promoProducts: Product[];
     featuredCollections: Collection[];
@@ -152,6 +153,13 @@ function brandShopUrl(brandId: number): string {
                 </div>
             </Container>
         </section>
+
+        <ProductRail
+            v-if="latestProducts.length"
+            title="Baru datang"
+            :href="shop.index.url({ query: { sort: 'latest' } })"
+            :products="latestProducts"
+        />
 
         <ProductRail
             v-if="promoProducts.length"

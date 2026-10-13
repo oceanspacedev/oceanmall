@@ -4,6 +4,11 @@
   "singleQuote": true,
   "bracketSameLine": true,
   "trailingComma": "es5",
-  "plugins": ["prettier-plugin-tailwindcss"],
-  "tailwindFunctions": ["cva"]
+  "plugins": [
+    "prettier-plugin-tailwindcss"
+  ],
+  "tailwindFunctions": [
+    "cva"
+  ],
+  "tailwindConfig": "./tailwind.config.js"
 }

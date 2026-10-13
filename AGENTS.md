@@ -43,7 +43,7 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
 - **Tests need built assets.** Feature tests render Inertia views and fail with "Vite manifest not
   found" unless `npm run build` has been run (or the Vite dev server is up). Run `npm run build`
   before `composer test`.
-- **Test suite is green as of 2026-10-12 (347 tests).** Tests use kebab-case Inertia page names
+- **Test suite is green as of 2026-10-13 (387 tests).** Tests use kebab-case Inertia page names
   (`settings/security`, `auth/confirm-password`), `first_name`/`last_name` profile fields, and
   `@example.com` addresses. The `email:rfc,dns` rule is skipped under `runningUnitTests()` because
   the DNS validator rejects reserved domains and needs network access.
@@ -81,6 +81,11 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   cached 30 days, `komerce:sync-carriers` enables whatever Cost quotes, and cpanel falls back to
   Shopper's manual AWB entry (`CreateShippingLabel::save()` → `parent::save()`), with tracking via
   Cost `track/waybill`. Keep an eye on the daily quota; upgrading the plan re-enables Delivery.
+- **Mobile QA on sandbox.** The sandbox payment page cannot be completed and webhooks cannot reach a
+  laptop: `php artisan komerce:simulate-payment ORD-...` (local env + sandbox host only) marks an order
+  paid through the real `MarkOrderPaidFromKomerce` path. Paid orders need `queue:listen` to reach
+  Delivery. Tester checklist and accounts: `mobile/TESTING.md`. Metro without watchman can miss newly
+  created files ("Unable to resolve module") — restart with `npx expo start -c`.
 - **Payment/shipping (Komerce / RajaOngkir).** Full checkout needs sandbox creds
   (`KOMERCE_PAYMENT_API_KEY`, `KOMERCE_SHIPPING_*_API_KEY`, `KOMERCE_WEBHOOK_SECRET`, RajaOngkir base URLs). Storefront browsing, cart,
   and the admin panel work without them. Stripe stays disabled (`PAYMENT_STRIPE_ENABLED=false`).

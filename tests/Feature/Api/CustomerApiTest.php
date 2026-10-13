@@ -118,6 +118,8 @@ final class CustomerApiTest extends TestCase
     {
         $user = User::factory()->create();
         $country = Country::factory()->create(['cca2' => 'ID']);
+        // Addresses only accept countries the store ships to.
+        Zone::factory()->create(['is_enabled' => true])->countries()->attach($country->id);
         Sanctum::actingAs($user);
 
         $this->postJson('/api/v1/addresses', [

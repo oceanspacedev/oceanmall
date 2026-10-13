@@ -20,6 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        // Reject spoofed Host headers (password-reset links, absolute URLs).
+        // Laravel skips this check in the local environment and in tests.
+        $middleware->trustHosts();
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 

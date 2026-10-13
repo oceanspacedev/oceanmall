@@ -139,7 +139,7 @@ final class CustomerCatalogPresenter
         return $variant;
     }
 
-    private function purchasableSlug(mixed $purchasable): ?string
+    public function purchasableSlug(mixed $purchasable): ?string
     {
         if ($purchasable instanceof Product) {
             $slug = $purchasable->slug;
@@ -157,7 +157,7 @@ final class CustomerCatalogPresenter
         return null;
     }
 
-    private function purchasableThumbnail(mixed $purchasable): mixed
+    public function purchasableThumbnail(mixed $purchasable): mixed
     {
         if (is_object($purchasable) && method_exists($purchasable, 'getAttribute')) {
             $thumbnail = $purchasable->thumbnail ?? null;

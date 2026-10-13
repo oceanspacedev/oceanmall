@@ -11,6 +11,7 @@ use App\Support\KomerceCourierAssets;
 use App\Support\RajaOngkirCouriers;
 use App\Support\RajaOngkirQuoteContext;
 use Illuminate\Support\Facades\Cache;
+use Shopper\Cart\CartSessionManager;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\Inventory;
 use Shopper\Shipping\DataTransferObjects\Package;
@@ -162,10 +163,23 @@ final class FetchKomerceDeliveryRates
         return round(max(0.01, $grams / 1000), 3);
     }
 
+    /**
+     * Legacy fallback for callers that did not pass an item value. Read-only:
+     * never create a cart here — on the stateless API cartSession() would mint
+     * a fresh empty cart for the user and hide their real one.
+     */
     private function cartItemValue(): int
     {
         try {
-            $cart = cartSession();
+            if (! request()->hasSession()) {
+                return 0;
+            }
+
+            $cart = resolve(CartSessionManager::class)->current();
+            if ($cart === null) {
+                return 0;
+            }
+
             $total = 0;
 
             foreach ($cart->lines as $line) {

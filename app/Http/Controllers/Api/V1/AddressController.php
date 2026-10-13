@@ -47,7 +47,7 @@ final class AddressController extends Controller
     {
         $user = $this->customer($request);
         $row = $this->owned($user, $address);
-        $row->update($this->validated($request));
+        $row->update($this->validated($request, $row));
 
         return response()->json(['data' => $this->payload($row->fresh())]);
     }
@@ -80,8 +80,10 @@ final class AddressController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validated(Request $request): array
+    private function validated(Request $request, ?Address $existing = null): array
     {
+        $allowedCountries = resolve(GetCountriesByZone::class)->handle()->pluck('countryId')->filter()->all();
+
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
@@ -91,23 +93,42 @@ final class AddressController extends Controller
             'city' => ['required', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
             'phone_number' => ['nullable', 'string', 'max:30'],
-            'country_id' => ['required', 'integer', 'exists:'.(new Country)->getTable().',id'],
+            'country_id' => ['required', 'integer', Rule::in($allowedCountries)],
             'type' => ['required', Rule::enum(AddressType::class)],
             'rajaongkir_destination_id' => ['nullable', 'string', 'max:50'],
             'rajaongkir_destination_label' => ['nullable', 'string', 'max:255'],
             'rajaongkir_pin_point' => ['nullable', 'string', 'max:64'],
         ]);
 
-        $metadata = array_filter([
-            'rajaongkir_destination_id' => $data['rajaongkir_destination_id'] ?? null,
-            'rajaongkir_destination_label' => $data['rajaongkir_destination_label'] ?? null,
-            'rajaongkir_pin_point' => $data['rajaongkir_pin_point'] ?? null,
-        ], static fn (mixed $value): bool => is_string($value) && $value !== '');
+        // On update, keys the client did not send keep their stored value
+        // (a partial edit must not erase the RajaOngkir destination or pin).
+        $current = $existing ? $this->metadataOf($existing) : [];
+        $metadata = [];
+        foreach (['rajaongkir_destination_id', 'rajaongkir_destination_label', 'rajaongkir_pin_point'] as $key) {
+            $metadata[$key] = $request->exists($key) ? ($data[$key] ?? null) : ($current[$key] ?? null);
+        }
+        $metadata = array_filter(
+            [...$current, ...$metadata],
+            static fn (mixed $value): bool => $value !== null && $value !== '',
+        );
 
         unset($data['rajaongkir_destination_id'], $data['rajaongkir_destination_label'], $data['rajaongkir_pin_point']);
         $data['metadata'] = $metadata === [] ? null : json_encode($metadata, JSON_THROW_ON_ERROR);
 
         return $data;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function metadataOf(Address $address): array
+    {
+        $raw = $address->getAttribute('metadata');
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        return is_array($raw) ? $raw : [];
     }
 
     private function owned(User $user, int $id): Address

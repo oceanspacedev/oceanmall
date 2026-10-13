@@ -29,10 +29,10 @@ final class FetchDeliveryRates
      * @param  array<int, Package>  $packages
      * @return array<int, array<string, mixed>>
      */
-    public function handle(array $shippingAddress, array $packages, ?int $originInventoryId = null): array
+    public function handle(array $shippingAddress, array $packages, ?int $originInventoryId = null, ?int $itemValue = null): array
     {
         // Primary: Komerce Delivery tariff (what Store Order needs, only active couriers).
-        $deliveryRates = resolve(FetchKomerceDeliveryRates::class)->handle($shippingAddress, $packages, $originInventoryId);
+        $deliveryRates = resolve(FetchKomerceDeliveryRates::class)->handle($shippingAddress, $packages, $originInventoryId, $itemValue);
 
         if ($deliveryRates !== null) {
             return $deliveryRates;

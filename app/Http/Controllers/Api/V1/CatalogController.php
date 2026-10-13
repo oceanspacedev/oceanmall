@@ -12,9 +12,12 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Support\CustomerCatalogPresenter;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Shopper\Core\Models\Contracts\Stockable;
 use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Price;
 
@@ -42,13 +45,7 @@ final class CatalogController extends Controller
             ->with(['media', 'brand'])
             ->withCurrentPrices()
             ->scopes('publish')
-            ->whereHas(
-                'prices',
-                fn ($q) => $q
-                    ->whereRelation('currency', 'code', $currency)
-                    ->whereNotNull('compare_amount')
-                    ->whereColumn('compare_amount', '>', 'amount'),
-            )
+            ->where(fn (Builder $q) => $this->whereDiscounted($q, $currency))
             ->latest()
             ->limit(10)
             ->get();
@@ -131,8 +128,9 @@ final class CatalogController extends Controller
 
         $search = trim((string) $request->string('search', ''));
         if ($search !== '') {
-            $escaped = str_replace(['%', '_'], ['\%', '\_'], $search);
-            $query->where('name', 'like', "%{$escaped}%");
+            // Explicit ESCAPE: SQLite has no default LIKE escape character.
+            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search);
+            $query->whereRaw("name like ? escape '!'", ["%{$escaped}%"]);
         }
 
         if ($categoryId = $request->integer('category')) {
@@ -149,29 +147,15 @@ final class CatalogController extends Controller
 
         if ($request->boolean('promo')) {
             $currency = current_currency();
-            $query->whereHas(
-                'prices',
-                fn ($q) => $q
-                    ->whereRelation('currency', 'code', $currency)
-                    ->whereNotNull('compare_amount')
-                    ->whereColumn('compare_amount', '>', 'amount'),
-            );
+            $query->where(fn (Builder $q) => $this->whereDiscounted($q, $currency));
         }
 
         $sort = (string) $request->string('sort', 'latest');
-        $currencyId = Currency::query()->where('code', current_currency())->value('id');
-        $priceableType = (new Product)->getMorphClass();
-        $priceSubquery = fn () => Price::query()
-            ->select('amount')
-            ->whereColumn('priceable_id', shopper_table('products').'.id')
-            ->where('priceable_type', $priceableType)
-            ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
-            ->limit(1);
 
         $query = match ($sort) {
             'name' => $query->orderBy('name'),
-            'price_asc' => $query->orderBy($priceSubquery())->orderBy('name'),
-            'price_desc' => $query->orderByDesc($priceSubquery())->orderBy('name'),
+            'price_asc' => $this->orderByPrice($query, 'asc')->orderBy('name'),
+            'price_desc' => $this->orderByPrice($query, 'desc')->orderBy('name'),
             default => $query->latest(),
         };
 
@@ -205,8 +189,12 @@ final class CatalogController extends Controller
                 'sku' => $variant->sku,
                 'name' => $variant->name,
                 'price' => $variant->prices->first()?->amount,
+                'compare_price' => $variant->prices->first()?->compare_amount,
+                'stock' => self::availableStock($variant),
             ];
         })->values()->all();
+        // Null = stock is not tracked (unlimited); the app caps quantity with it.
+        $payload['stock'] = $product->variants->isEmpty() ? self::availableStock($product) : null;
 
         try {
             $payload['options'] = resolve(BuildVariantOptions::class)->handle($product);
@@ -229,7 +217,8 @@ final class CatalogController extends Controller
     public function search(Request $request): JsonResponse
     {
         $request->validate([
-            'q' => ['nullable', 'string', 'min:2', 'max:100'],
+            // Short queries return an empty page below instead of a 422.
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
 
         $query = trim((string) $request->string('q', ''));
@@ -328,6 +317,67 @@ final class CatalogController extends Controller
         ], 201);
     }
 
+    private static function availableStock(object $stockable): ?int
+    {
+        if (! $stockable instanceof Stockable || ! $stockable->tracksInventory()) {
+            return null;
+        }
+
+        return max(0, $stockable->getStock());
+    }
+
+    /**
+     * Discounted at product level, or (for variant products, which carry no
+     * product-level price) on any variant — matching what the presenter shows.
+     *
+     * @param  Builder<Product>  $query
+     */
+    private function whereDiscounted(Builder $query, string $currency): void
+    {
+        $discounted = static fn ($q) => $q
+            ->whereRelation('currency', 'code', $currency)
+            ->whereNotNull('compare_amount')
+            ->whereColumn('compare_amount', '>', 'amount');
+
+        $query->whereHas('prices', $discounted)
+            ->orWhereHas('variants', static fn ($variants) => $variants->whereHas('prices', $discounted));
+    }
+
+    /**
+     * Sort by the price customers see: the product price, or the cheapest
+     * variant when the product only has variant prices. Unpriced rows go last.
+     *
+     * @param  Builder<Product>  $query
+     * @return Builder<Product>
+     */
+    private function orderByPrice(Builder $query, string $direction): Builder
+    {
+        $currencyId = Currency::query()->where('code', current_currency())->value('id');
+        $products = shopper_table('products');
+
+        $productPrice = Price::query()
+            ->select('amount')
+            ->whereColumn('priceable_id', "{$products}.id")
+            ->where('priceable_type', (new Product)->getMorphClass())
+            ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
+            ->limit(1)
+            ->toBase();
+
+        $variantPrice = Price::query()
+            ->selectRaw('min(amount)')
+            ->where('priceable_type', (new ProductVariant)->getMorphClass())
+            ->whereIn('priceable_id', ProductVariant::query()->select('id')->whereColumn('product_id', "{$products}.id"))
+            ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
+            ->toBase();
+
+        $price = "coalesce(({$productPrice->toSql()}), ({$variantPrice->toSql()}))";
+        $bindings = [...$productPrice->getBindings(), ...$variantPrice->getBindings()];
+
+        return $query
+            ->orderByRaw("{$price} is null", $bindings)
+            ->orderByRaw("{$price} {$direction}", $bindings);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -415,13 +465,7 @@ final class CatalogController extends Controller
             ->with(['media', 'brand'])
             ->withCurrentPrices()
             ->scopes('publish')
-            ->whereHas(
-                'prices',
-                fn ($q) => $q
-                    ->whereRelation('currency', 'code', $currency)
-                    ->whereNotNull('compare_amount')
-                    ->whereColumn('compare_amount', '>', 'amount'),
-            )
+            ->where(fn (Builder $q) => $this->whereDiscounted($q, $currency))
             ->latest()
             ->limit(10)
             ->get();

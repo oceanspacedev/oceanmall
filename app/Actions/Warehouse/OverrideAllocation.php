@@ -11,6 +11,7 @@ use App\DTO\ShipmentDraft;
 use App\Models\OrderShipment;
 use App\Models\OrderShipmentLine;
 use App\Models\User;
+use App\Support\ShipmentItemValue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
@@ -375,10 +376,12 @@ final class OverrideAllocation
                 continue;
             }
 
+            $lines = $this->shipmentLines($shipment);
             $rates = resolve(FetchDeliveryRates::class)->handle(
                 $this->shippingAddress($order),
-                resolve(BuildShippingPackages::class)->handleFromLines($this->shipmentLines($shipment)),
+                resolve(BuildShippingPackages::class)->handleFromLines($lines),
                 (int) $shipment->inventory_id,
+                ShipmentItemValue::forOrder($order, $lines),
             );
 
             $rate = $this->selectRate($rates, $shipment);

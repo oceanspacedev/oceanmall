@@ -12,24 +12,40 @@ use App\Actions\Shipping\RefreshShipmentTracking;
 use App\Http\Controllers\Controller;
 use App\Models\OrderShipment;
 use App\Models\User;
+use App\Support\CustomerCatalogPresenter;
 use App\Support\KomerceCourierAssets;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Order;
 use Throwable;
 
 final class OrderController extends Controller
 {
+    /** Marketplace-style order tabs: key => query constraint. */
+    private const TABS = ['unpaid', 'processing', 'shipped', 'completed', 'cancelled'];
+
     public function index(Request $request): JsonResponse
     {
         $user = $this->customer($request);
+        $tab = in_array($request->query('status'), self::TABS, true) ? (string) $request->query('status') : null;
+
         $orders = Order::query()
             ->where('customer_id', $user->id)
-            ->with(['items'])
+            ->when($tab !== null, fn (Builder $query) => $this->applyTab($query, (string) $tab))
+            ->with(['items.product', 'paymentMethod'])
             ->latest()
             ->paginate(10);
+
+        $counts = [];
+        foreach (self::TABS as $key) {
+            $counts[$key] = $this->applyTab(Order::query()->where('customer_id', $user->id), $key)->count();
+        }
 
         return response()->json([
             'data' => $orders->getCollection()->map(fn (Order $order): array => $this->orderSummary($order))->values()->all(),
@@ -37,14 +53,38 @@ final class OrderController extends Controller
                 'current_page' => $orders->currentPage(),
                 'last_page' => $orders->lastPage(),
                 'total' => $orders->total(),
+                'counts' => $counts,
             ],
         ]);
+    }
+
+    /**
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    private function applyTab(Builder $query, string $tab): Builder
+    {
+        $closedPayment = [PaymentStatus::Voided, PaymentStatus::Refunded];
+
+        return match ($tab) {
+            'unpaid' => $query->whereIn('payment_status', [PaymentStatus::Pending, PaymentStatus::Authorized])
+                ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Archived]),
+            'processing' => $query->where('payment_status', PaymentStatus::Paid)
+                ->whereIn('status', [OrderStatus::New, OrderStatus::Processing])
+                ->where('shipping_status', ShippingStatus::Unfulfilled),
+            'shipped' => $query->where('payment_status', PaymentStatus::Paid)
+                ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Completed])
+                ->whereIn('shipping_status', [ShippingStatus::Shipped, ShippingStatus::PartiallyShipped, ShippingStatus::PartiallyDelivered, ShippingStatus::Delivered]),
+            'completed' => $query->where('status', OrderStatus::Completed),
+            'cancelled' => $query->where(fn (Builder $q) => $q->where('status', OrderStatus::Cancelled)->orWhereIn('payment_status', $closedPayment)),
+            default => $query,
+        };
     }
 
     public function show(Request $request, string $number): JsonResponse
     {
         $order = $this->ownedOrder($request, $number);
-        $order->load(['items.product.media', 'shippingAddress']);
+        $order->load(['items.product', 'shippingAddress', 'paymentMethod']);
 
         $shipments = OrderShipment::query()
             ->where('order_id', $order->id)
@@ -69,6 +109,9 @@ final class OrderController extends Controller
             ->all();
 
         $resolve = resolve(ResolveKomercePaymentInstructions::class);
+        $presenter = resolve(CustomerCatalogPresenter::class);
+        $subtotal = (int) $order->items->sum(static fn ($item): int => (int) $item->unit_price_amount * (int) $item->quantity);
+        $shippingTotal = (int) collect($shipments)->sum(static fn (array $shipment): int => (int) ($shipment['cost'] ?? 0));
 
         return response()->json([
             'data' => [
@@ -78,7 +121,17 @@ final class OrderController extends Controller
                     'sku' => $item->sku,
                     'quantity' => (int) $item->quantity,
                     'unit_price' => (int) $item->unit_price_amount,
+                    'thumbnail' => $presenter->purchasableThumbnail($item->product),
+                    'slug' => $presenter->purchasableSlug($item->product),
                 ])->values()->all(),
+                'shipping_address' => $this->shippingAddressPayload($order),
+                'totals' => [
+                    'subtotal' => $subtotal,
+                    'shipping' => $shippingTotal,
+                    // Discounts/taxes are whatever remains between the lines and the charged amount.
+                    'adjustment' => (int) $order->price_amount - $subtotal - $shippingTotal,
+                    'total' => (int) $order->price_amount,
+                ],
                 'shipments' => $shipments,
                 'payment' => $resolve->handle($order),
                 'can_retry_payment' => $resolve->canRetry($order),
@@ -93,7 +146,17 @@ final class OrderController extends Controller
         try {
             $instructions = resolve(RetryKomercePayment::class)->handle($order);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            report($e);
+
+            // RetryKomercePayment messages are English and may carry gateway
+            // details; show the customer something actionable instead.
+            $message = match (true) {
+                str_contains($e->getMessage(), 'already paid') => 'Pesanan ini sudah dibayar. Tarik untuk memperbarui status.',
+                str_contains($e->getMessage(), 'not eligible'), str_contains($e->getMessage(), 'no Komerce payment') => 'Pembayaran pesanan ini tidak bisa diulang.',
+                default => 'Belum bisa membuat ulang pembayaran. Coba lagi sebentar.',
+            };
+
+            return response()->json(['message' => $message], 422);
         }
 
         return response()->json(['data' => ['payment' => $instructions]]);
@@ -164,6 +227,9 @@ final class OrderController extends Controller
      */
     private function orderSummary(Order $order): array
     {
+        $first = $order->items->first();
+        $presenter = resolve(CustomerCatalogPresenter::class);
+
         return [
             'id' => $order->id,
             'number' => $order->number,
@@ -173,6 +239,46 @@ final class OrderController extends Controller
             'amount' => (int) $order->price_amount,
             'currency' => $order->currency_code,
             'created_at' => optional($order->created_at)?->toIso8601String(),
+            'item_count' => (int) $order->items->sum('quantity'),
+            'line_count' => $order->items->count(),
+            'first_item' => $first ? [
+                'name' => $first->name,
+                'quantity' => (int) $first->quantity,
+                'thumbnail' => $presenter->purchasableThumbnail($first->product),
+            ] : null,
+            'payment_method' => $order->paymentMethod?->title,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function shippingAddressPayload(Order $order): ?array
+    {
+        $address = $order->shippingAddress;
+        if ($address !== null) {
+            return [
+                'name' => trim($address->first_name.' '.$address->last_name),
+                'phone' => $address->phone,
+                'street_address' => $address->street_address,
+                'area' => implode(', ', array_filter([$address->city, $address->state, $address->postal_code])),
+            ];
+        }
+
+        // Mobile checkout keeps the address on the order metadata.
+        $metadata = $order->getAttribute('metadata');
+        $metadata = is_string($metadata) ? json_decode($metadata, true) : $metadata;
+        $stored = data_get($metadata, 'shipping_address');
+        if (! is_array($stored)) {
+            return null;
+        }
+
+        return [
+            'name' => trim(($stored['first_name'] ?? '').' '.($stored['last_name'] ?? '')),
+            'phone' => $stored['phone_number'] ?? null,
+            'street_address' => $stored['street_address'] ?? '',
+            'area' => $stored['rajaongkir_destination_label']
+                ?? implode(', ', array_filter([$stored['city'] ?? null, $stored['state'] ?? null, $stored['postal_code'] ?? null])),
         ];
     }
 

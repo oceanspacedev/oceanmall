@@ -54,13 +54,19 @@ final class CartController extends Controller
         $data = $request->validate([
             'product_id' => ['required', 'integer', 'exists:'.shopper_table('products').',id'],
             'variant_id' => ['nullable', 'integer', 'exists:'.shopper_table('product_variants').',id'],
-            'quantity' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:'.CustomerCart::MAX_LINE_QUANTITY],
+            // "Buy now": set the line to exactly this quantity instead of adding to it.
+            'replace' => ['nullable', 'boolean'],
         ]);
 
         $product = Product::query()->scopes('publish')->findOrFail($data['product_id']);
         $variant = isset($data['variant_id'])
-            ? ProductVariant::query()->where('product_id', $product->id)->findOrFail($data['variant_id'])
+            ? ProductVariant::query()->where('product_id', $product->id)->find($data['variant_id'])
             : null;
+
+        if (isset($data['variant_id']) && $variant === null) {
+            return response()->json(['message' => 'Varian tidak ditemukan untuk produk ini.'], 422);
+        }
 
         if ($variant === null && $product->variants()->exists()) {
             return response()->json(['message' => 'Pilih varian produk sebelum menambah ke keranjang.'], 422);
@@ -71,8 +77,25 @@ final class CartController extends Controller
             return $this->missingCartToken();
         }
 
+        $purchasable = $variant ?? $product;
+        $quantity = (int) ($data['quantity'] ?? 1);
+        $existing = $cart->lines()
+            ->where('purchasable_type', $purchasable->getMorphClass())
+            ->where('purchasable_id', $purchasable->getKey())
+            ->first();
+
+        if (! ($data['replace'] ?? false) && $existing && $existing->quantity + $quantity > CustomerCart::MAX_LINE_QUANTITY) {
+            return response()->json([
+                'message' => 'Maksimal '.CustomerCart::MAX_LINE_QUANTITY.' per produk dalam keranjang.',
+            ], 422);
+        }
+
         try {
-            resolve(CartManager::class)->add($cart, $variant ?? $product, (int) ($data['quantity'] ?? 1));
+            if (($data['replace'] ?? false) && $existing) {
+                resolve(CartManager::class)->update($cart, $existing->id, ['quantity' => $quantity]);
+            } else {
+                resolve(CartManager::class)->add($cart, $purchasable, $quantity);
+            }
         } catch (InsufficientStockException) {
             return response()->json(['message' => 'Stok tidak mencukupi.'], 422);
         } catch (\InvalidArgumentException $e) {
@@ -87,7 +110,7 @@ final class CartController extends Controller
     public function update(Request $request, int $line): JsonResponse
     {
         $data = $request->validate([
-            'quantity' => ['required', 'integer', 'min:1', 'max:10'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.CustomerCart::MAX_LINE_QUANTITY],
         ]);
 
         $cart = $this->existingCart($request);
@@ -123,7 +146,8 @@ final class CartController extends Controller
     {
         $cart = $this->existingCart($request);
         if (! $cart instanceof Cart) {
-            return $this->missingCart();
+            // Nothing to clear is still a successful "empty cart".
+            return response()->json(['data' => $this->presenter->emptyCart()]);
         }
 
         resolve(CartManager::class)->clear($cart);
@@ -228,7 +252,7 @@ final class CartController extends Controller
     {
         $user = $this->actor($request);
         if ($user instanceof User) {
-            $this->checkoutState->forget($user);
+            $this->checkoutState->forgetQuote($user);
         }
     }
 

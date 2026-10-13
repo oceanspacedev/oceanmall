@@ -20,12 +20,14 @@ use App\Models\User;
 use App\Support\CustomerCart;
 use App\Support\CustomerCatalogPresenter;
 use App\Support\CustomerCheckoutState;
+use App\Support\ShipmentItemValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Enum\AddressType;
 use Shopper\Core\Models\PaymentMethod;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 final class CheckoutController extends Controller
@@ -238,34 +240,84 @@ final class CheckoutController extends Controller
             return response()->json(['message' => 'Keranjang kosong.'], 422);
         }
 
+        if (! is_array(data_get($checkout, 'shipping_option.0'))) {
+            return response()->json(['message' => 'Pilih kurir pengiriman dulu.'], 422);
+        }
+
+        // Reject a method the gateway would refuse for this amount *before*
+        // the order exists (e.g. QRIS above its maximum).
+        $payable = (int) (resolve(CartManager::class)->calculate($cart)->total ?? 0)
+            + (int) data_get($checkout, 'shipping_option.0.amount', data_get($checkout, 'shipping_option.0.price', 0));
+        if ($message = $this->amountOutOfRange($selected, $payable)) {
+            return response()->json(['message' => $message], 422);
+        }
+
         try {
             $order = resolve(CreateOrder::class)->handle($checkout, $cart);
-            resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
-
-            $instructions = null;
-            if (($selected['driver'] ?? null) === 'komerce') {
-                $instructions = resolve(CreateKomercePayment::class)->handle($order, $selected);
-            }
-
-            $this->checkoutState->forget($user);
-
+        } catch (HttpExceptionInterface $e) {
             return response()->json([
-                'data' => [
-                    'order_id' => $order->id,
-                    'number' => $order->number,
-                    'amount' => (int) $order->price_amount,
-                    'currency' => $order->currency_code,
-                    'payment_status' => $order->payment_status->value,
-                    'payment' => $instructions,
-                ],
-            ], 201);
+                'message' => $e->getMessage() !== '' ? $e->getMessage() : 'Gagal membuat pesanan.',
+            ], $e->getStatusCode());
         } catch (Throwable $e) {
             report($e);
 
-            return response()->json([
-                'message' => $e->getMessage() !== '' ? $e->getMessage() : 'Gagal membuat pesanan.',
-            ], 422);
+            return response()->json(['message' => 'Gagal membuat pesanan. Coba lagi sebentar.'], 422);
         }
+
+        // From here the order exists and the cart is completed: always answer
+        // with the order number, even if the payment step fails, so the app can
+        // open the order and offer "retry payment" instead of a dead end.
+        $this->checkoutState->forget($user);
+
+        try {
+            resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        $instructions = null;
+        $paymentError = null;
+        if (($selected['driver'] ?? null) === 'komerce') {
+            try {
+                $instructions = resolve(CreateKomercePayment::class)->handle($order, $selected);
+            } catch (Throwable $e) {
+                report($e);
+                $paymentError = 'Pesanan dibuat, tetapi pembayaran belum bisa dibuat. Coba bayar ulang dari halaman pesanan.';
+            }
+        }
+
+        return response()->json([
+            'data' => [
+                'order_id' => $order->id,
+                'number' => $order->number,
+                'amount' => (int) $order->price_amount,
+                'currency' => $order->currency_code,
+                'payment_status' => $order->refresh()->payment_status->value,
+                'payment' => $instructions,
+                'payment_error' => $paymentError,
+                'can_retry_payment' => $paymentError !== null,
+            ],
+        ], 201);
+    }
+
+    /**
+     * @param  array<string, mixed>  $method
+     */
+    private function amountOutOfRange(array $method, int $amount): ?string
+    {
+        $min = $method['min_amount'] ?? null;
+        $max = $method['max_amount'] ?? null;
+        $title = (string) ($method['title'] ?? 'Metode ini');
+
+        if (is_int($min) && $min > 0 && $amount < $min) {
+            return "{$title} hanya untuk total minimal Rp".number_format($min, 0, ',', '.').'. Pilih metode lain.';
+        }
+
+        if (is_int($max) && $max > 0 && $amount > $max) {
+            return "{$title} hanya untuk total maksimal Rp".number_format($max, 0, ',', '.').'. Pilih metode lain.';
+        }
+
+        return null;
     }
 
     /**
@@ -284,13 +336,20 @@ final class CheckoutController extends Controller
             return [];
         }
 
-        $packages = resolve(BuildShippingPackages::class)->handleFromLines($plan->shipments[0]->lines);
+        $lines = $plan->shipments[0]->lines;
+        $packages = resolve(BuildShippingPackages::class)->handleFromLines($lines);
 
-        return resolve(FetchDeliveryRates::class)->handle(
+        $rates = resolve(FetchDeliveryRates::class)->handle(
             $address,
             $packages,
             $plan->shipments[0]->inventory_id,
+            ShipmentItemValue::forCart($cart, $lines),
         );
+
+        // Cheapest first; a stable sort keeps the provider order for ties.
+        usort($rates, static fn (array $a, array $b): int => (int) ($a['amount'] ?? 0) <=> (int) ($b['amount'] ?? 0));
+
+        return $rates;
     }
 
     private function normalizeDestinationId(mixed $value): ?string

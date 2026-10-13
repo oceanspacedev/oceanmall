@@ -40,6 +40,21 @@ final class CustomerCheckoutState
     }
 
     /**
+     * The cart changed: courier quote, allocation and payment are stale, but the
+     * address the customer typed is still valid — keep it.
+     */
+    public function forgetQuote(User $user): void
+    {
+        $state = $this->get($user);
+        if ($state === []) {
+            return;
+        }
+
+        unset($state['shipping_option'], $state['shipping_options_by_shipment'], $state['allocation_plan'], $state['payment']);
+        $this->put($user, $state);
+    }
+
+    /**
      * @param  array<string, mixed>  $address
      */
     public function putShippingAddress(User $user, array $address): void

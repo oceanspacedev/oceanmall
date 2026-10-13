@@ -22,10 +22,15 @@ final class AuthController extends Controller
 
     public function register(Request $request): JsonResponse
     {
+        $request->merge(['email' => User::normalizeEmail((string) $request->input('email'))]);
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'email', 'max:255', static function (string $attribute, mixed $value, \Closure $fail): void {
+                if (is_string($value) && User::emailTaken($value)) {
+                    $fail('Email sudah terdaftar.');
+                }
+            }],
             'phone_number' => ['nullable', 'string', 'max:20'],
             'password' => ['required', 'string', Password::default(), 'confirmed'],
         ]);
@@ -56,7 +61,7 @@ final class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $user = User::query()->where('email', $data['email'])->first();
+        $user = User::findByEmail($data['email']);
 
         if (! $user || ! Hash::check($data['password'], (string) $user->password)) {
             return response()->json([

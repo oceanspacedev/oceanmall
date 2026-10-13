@@ -24,10 +24,14 @@ use App\Support\KomercePaymentLookupContext;
 use App\Support\KomerceTrackingContext;
 use App\Support\RajaOngkirQuoteContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -79,6 +83,7 @@ class AppServiceProvider extends ServiceProvider
         Inventory::observe(InventoryObserver::class);
 
         $this->configureDefaults();
+        $this->configureRateLimits();
         $this->configureAuthorization();
         $this->configureShopperPayment();
         $this->configureShopperShipping();
@@ -114,6 +119,10 @@ class AppServiceProvider extends ServiceProvider
             app()->isProduction(),
         );
 
+        // Customer reset links always point at APP_URL, never at the request Host.
+        ResetPassword::createUrlUsing(static fn (object $notifiable, string $token): string => rtrim((string) config('app.url'), '/')
+            .route('password.reset', ['token' => $token, 'email' => $notifiable->getEmailForPasswordReset()], false));
+
         Password::defaults(
             fn (): ?Password => app()->isProduction()
             ? Password::min(12)
@@ -124,6 +133,34 @@ class AppServiceProvider extends ServiceProvider
                 ->uncompromised()
             : null,
         );
+    }
+
+    /**
+     * Mobile API limiters. Each one is named so routes never share a counter:
+     * unnamed `throttle:N,1` keys only by user/IP, so a burst of searches used
+     * to lock the same device out of login and password reset.
+     */
+    protected function configureRateLimits(): void
+    {
+        $byUserOrIp = static fn (Request $request): string => (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+        $byIp = static fn (Request $request): string => (string) $request->ip();
+
+        $limits = [
+            'mobile-register' => [10, $byIp],
+            'mobile-login' => [10, $byIp],
+            'mobile-password-reset' => [5, $byIp],
+            'mobile-search' => [60, $byIp],
+            'mobile-cart' => [60, $byUserOrIp],
+            'mobile-password-change' => [6, $byUserOrIp],
+            'mobile-destinations' => [30, $byUserOrIp],
+            'mobile-place-order' => [20, $byUserOrIp],
+            'mobile-sync-payment' => [12, $byUserOrIp],
+            'mobile-review' => [10, $byUserOrIp],
+        ];
+
+        foreach ($limits as $name => [$perMinute, $key]) {
+            RateLimiter::for($name, static fn (Request $request): Limit => Limit::perMinute($perMinute)->by($key($request)));
+        }
     }
 
     protected function configureAuthorization(): void

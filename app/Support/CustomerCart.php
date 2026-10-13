@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Shopper\Cart\CartManager;
+use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Contracts\Priceable;
 use Throwable;
@@ -23,6 +24,9 @@ use Throwable;
  */
 final class CustomerCart
 {
+    /** Upper bound for one cart line, shared by add, update and guest-cart merge. */
+    public const MAX_LINE_QUANTITY = 10;
+
     public function current(User $user, ?string $guestToken = null): Cart
     {
         $existing = $this->findCustomer($user);
@@ -83,9 +87,16 @@ final class CustomerCart
 
     private function findCustomer(User $user): ?Cart
     {
+        // Prefer the newest open cart that still has lines: a stray empty cart
+        // (e.g. created by a session-only code path) must not hide the real one.
         $cart = Cart::query()
             ->where('customer_id', $user->id)
             ->whereNull('completed_at')
+            ->orderByRaw(sprintf(
+                'exists (select 1 from %1$s where %1$s.cart_id = %2$s.id) desc',
+                shopper_table('cart_lines'),
+                shopper_table('carts'),
+            ))
             ->latest('id')
             ->first();
 
@@ -118,11 +129,7 @@ final class CustomerCart
                 continue;
             }
 
-            try {
-                $manager->add($target, $purchasable, (int) $line->quantity);
-            } catch (Throwable $e) {
-                report($e);
-            }
+            $this->absorbLine($manager, $target, $purchasable, (int) $line->quantity);
         }
 
         $target->refresh();
@@ -137,6 +144,40 @@ final class CustomerCart
         $source->lines()->delete();
         $source->addresses()->delete();
         $source->delete();
+    }
+
+    /**
+     * Move one guest line into the user cart, clamped to the per-line limit and
+     * to available stock, so a merge never silently drops the whole line.
+     */
+    private function absorbLine(CartManager $manager, Cart $target, Model&Priceable $purchasable, int $quantity): void
+    {
+        $existing = (int) $target->lines()
+            ->where('purchasable_type', $purchasable->getMorphClass())
+            ->where('purchasable_id', $purchasable->getKey())
+            ->value('quantity');
+
+        $quantity = min($quantity, self::MAX_LINE_QUANTITY - $existing);
+        if ($quantity < 1) {
+            return;
+        }
+
+        try {
+            $manager->add($target, $purchasable, $quantity);
+        } catch (InsufficientStockException $e) {
+            $room = $e->available - $existing;
+            if ($room < 1) {
+                return;
+            }
+
+            try {
+                $manager->add($target, $purchasable, min($quantity, $room));
+            } catch (Throwable $retry) {
+                report($retry);
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /**

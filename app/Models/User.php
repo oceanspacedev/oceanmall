@@ -7,6 +7,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Unguarded;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -36,6 +37,25 @@ final class User extends Authenticatable implements ShopperUser
     use Notifiable;
     use TwoFactorAuthenticatable;
 
+    public static function normalizeEmail(string $email): string
+    {
+        return Str::lower(trim($email));
+    }
+
+    /** Case-insensitive lookup, so mixed-case rows from before normalisation still match. */
+    public static function findByEmail(string $email): ?self
+    {
+        return self::query()->whereRaw('lower(email) = ?', [self::normalizeEmail($email)])->first();
+    }
+
+    public static function emailTaken(string $email, ?int $ignoreId = null): bool
+    {
+        return self::query()
+            ->whereRaw('lower(email) = ?', [self::normalizeEmail($email)])
+            ->when($ignoreId !== null, static fn ($query) => $query->whereKeyNot($ignoreId))
+            ->exists();
+    }
+
     public function initials(): string
     {
         return Str::of($this->full_name ?? $this->name ?? '')
@@ -43,6 +63,12 @@ final class User extends Authenticatable implements ShopperUser
             ->take(2)
             ->map(fn ($word): string => Str::substr($word, 0, 1))
             ->implode('');
+    }
+
+    /** @return Attribute<string, string> */
+    protected function email(): Attribute
+    {
+        return Attribute::make(set: static fn (?string $value): ?string => $value === null ? null : self::normalizeEmail($value));
     }
 
     /**

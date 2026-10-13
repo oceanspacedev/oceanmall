@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
 final class ProfileController extends Controller
@@ -17,10 +16,15 @@ final class ProfileController extends Controller
     public function update(Request $request): JsonResponse
     {
         $user = $request->user();
+        $request->merge(['email' => User::normalizeEmail((string) $request->input('email'))]);
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'email' => ['required', 'string', 'email', 'max:255', static function (string $attribute, mixed $value, \Closure $fail) use ($user): void {
+                if (is_string($value) && User::emailTaken($value, (int) $user->id)) {
+                    $fail('Email sudah dipakai akun lain.');
+                }
+            }],
             'phone_number' => ['nullable', 'string', 'max:20'],
         ]);
         $user->fill($data);
@@ -38,9 +42,12 @@ final class ProfileController extends Controller
             'password' => ['required', 'string', PasswordRule::default(), 'confirmed'],
         ]);
 
-        $request->user()->update([
+        $user = $request->user();
+        $user->update([
             'password' => $request->password,
         ]);
+        // Sign out every other device; keep the session that changed the password.
+        $user->tokens()->whereKeyNot($user->currentAccessToken()?->getKey())->delete();
 
         return response()->json(['message' => 'Kata sandi diperbarui.']);
     }
@@ -51,7 +58,10 @@ final class ProfileController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        Password::sendResetLink($request->only('email'));
+        $user = User::findByEmail((string) $request->input('email'));
+        if ($user instanceof User) {
+            Password::sendResetLink(['email' => $user->email]);
+        }
 
         return response()->json([
             'message' => 'Jika email terdaftar, tautan reset kata sandi sudah dikirim.',
@@ -67,7 +77,7 @@ final class ProfileController extends Controller
         ]);
 
         $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
+            [...$request->only('password', 'password_confirmation', 'token'), 'email' => User::findByEmail((string) $request->input('email'))?->email ?? User::normalizeEmail((string) $request->input('email'))],
             static function (User $user, string $password): void {
                 $user->forceFill(['password' => $password])->save();
                 $user->tokens()->delete();

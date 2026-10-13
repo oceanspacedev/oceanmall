@@ -54,6 +54,33 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   and bypasses them. After bumping `shopper/core`, confirm the patch still applies.
 - **Run the suite with `php -d memory_limit=1G vendor/bin/phpunit`.** At the default 128M the run
   dies with a Blade/icon-manifest memory exhaustion around the Auth tests (pre-existing).
+- **Checkout quotes come from Komerce Delivery, not RajaOngkir Cost.** `FetchDeliveryRates` first
+  calls `FetchKomerceDeliveryRates` (`GET /tariff/api/v1/calculate`, needs warehouse + destination
+  pin points and `item_value > 0`); the selected row is persisted on the shipment with
+  `provider=shipping_delivery` so `CreateRajaOngkirDeliveryForShipment` reuses it for Store Order
+  without re-quoting. RajaOngkir Shipping Cost is only the fallback (no Delivery key / no pin
+  points) plus destination search and waybill tracking.
+- **Courier and payment lists come from the providers, not from config.** `php artisan
+  komerce:sync-carriers` (scheduled daily) probes Komerce Delivery (and RajaOngkir Cost for
+  information) for the warehouse → reference route (`komerce.sync.*`) and enables the couriers
+  Delivery offers; the storefront footer and checkout read that carriers table.
+  `RAJAONGKIR_COURIERS` is an optional override and should stay empty. Payment methods in the footer/checkout are matched against the
+  official Komerce catalog (`GET /api/v1/user/methods`) and use its `display_name`/`logo_url`;
+  `channel_code` in `sh_payment_methods` metadata must equal the catalog `bank_code` (e.g. `BRI`).
+- **Plan tier is detected at runtime, never configured.** `App\Support\KomerceCapabilities`
+  learns entitlements from the APIs (2xx = entitled, "Invalid API key" 400/401/403 = not on the
+  plan), counts Shipping Cost requests per WIB day, remembers 429/"limit" answers until midnight,
+  and infers the tier (starter / pro / komship). `php artisan komerce:capabilities` probes and
+  prints it (scheduled 00:05, before `komerce:sync-carriers`); every real API response is also
+  observed passively via `UsesKomerceHttp`, so a rejected product switches off within one call.
+  All `komerce_*_enabled()` helpers = key configured AND entitled.
+- **The Collaborator account is currently on the free (Starter) plan**: Shipping Cost Check (100
+  requests/day, 17 domestic couriers), Payment API and QRISLY only — **no Shipping Delivery API in
+  production** (sandbox keys do have it). Everything degrades by `komerce_shipping_delivery_enabled()`:
+  checkout quotes via RajaOngkir Cost (cached 12 h per route+weight), destination searches are
+  cached 30 days, `komerce:sync-carriers` enables whatever Cost quotes, and cpanel falls back to
+  Shopper's manual AWB entry (`CreateShippingLabel::save()` → `parent::save()`), with tracking via
+  Cost `track/waybill`. Keep an eye on the daily quota; upgrading the plan re-enables Delivery.
 - **Payment/shipping (Komerce / RajaOngkir).** Full checkout needs sandbox creds
   (`KOMERCE_PAYMENT_API_KEY`, `KOMERCE_SHIPPING_*_API_KEY`, `KOMERCE_WEBHOOK_SECRET`, RajaOngkir base URLs). Storefront browsing, cart,
   and the admin panel work without them. Stripe stays disabled (`PAYMENT_STRIPE_ENABLED=false`).

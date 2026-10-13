@@ -17,6 +17,10 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        // Capability verdicts and request counters live in the cache; never let
+        // one test's observed 401/429 leak into the next.
+        Cache::flush();
+
         // Keep Feature tests hermetic: local UAT credentials in `.env` must not
         // enable a product-specific integration and change test behavior.
         config([

@@ -9,6 +9,7 @@ use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Models\Cart;
@@ -110,6 +111,10 @@ final class SuggestAllocationTest extends TestCase
     {
         config()->set('komerce.enabled', true);
         config()->set('komerce.shipping_cost_api_key', 'test-key');
+        // InventoryObserver looks the origin up via RajaOngkir on save; never
+        // let that reach the real API from a test (an "Invalid API key" answer
+        // would correctly switch the product off via KomerceCapabilities).
+        Http::fake(['*/destination/domestic-destination*' => Http::response(['meta' => ['code' => 200, 'status' => 'success'], 'data' => []])]);
 
         $cart = $this->cart();
         $withoutOrigin = Inventory::factory()->create([

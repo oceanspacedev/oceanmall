@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\ZoneSessionManager;
 use App\DTO\CountryByZoneData;
 use App\Models\Channel;
+use App\Support\KomerceCapabilities;
 use Shopper\Cart\CartSessionManager;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Models\TaxZone;
@@ -43,7 +44,15 @@ if (! function_exists('komerce_service_enabled')) {
             return false;
         }
 
-        return trim((string) config($apiKeyConfig, '')) !== '';
+        if (trim((string) config($apiKeyConfig, '')) === '') {
+            return false;
+        }
+
+        // A configured key is not enough: the Collaborator plan must include
+        // the product. KomerceCapabilities learns that from the API itself.
+        $product = KomerceCapabilities::productForConfig($apiKeyConfig);
+
+        return $product === null || resolve(KomerceCapabilities::class)->entitled($product);
     }
 }
 

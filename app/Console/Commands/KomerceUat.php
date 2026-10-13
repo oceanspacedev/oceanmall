@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\OrderShipment;
+use App\Support\KomerceCapabilities;
 use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
@@ -157,6 +158,13 @@ final class KomerceUat extends Command
      */
     private function scoreProductionKeysAndWebhook(array $probes): void
     {
+        $capabilities = resolve(KomerceCapabilities::class);
+        $plan = sprintf(
+            'plan=%s (inferred) delivery_entitled=%s cost_quota=%s',
+            $capabilities->plan(),
+            $capabilities->entitled('shipping_delivery') ? 'yes' : 'no',
+            $capabilities->dailyQuota('shipping_cost') ?? 'n/a',
+        );
         $appUrl = (string) config('app.url');
         $public = $this->isPublicHttpsUrl($appUrl);
         $paymentSandbox = $this->isSandboxUrl((string) config('komerce.payment_base_url'));
@@ -195,7 +203,7 @@ final class KomerceUat extends Command
             'production_keys_and_webhook',
             'Key production + webhook URL publik terdaftar di Collaborator',
             'FAIL',
-            'keys payment='.$this->yn($keys['payment'])
+            $plan.'; keys payment='.$this->yn($keys['payment'])
             .' cost='.$this->yn($keys['cost'])
             .' delivery='.$this->yn($keys['delivery'])
             .' webhook_secret='.$this->yn($keys['webhook_secret'])

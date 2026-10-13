@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Komerce\Concerns;
 
 use App\Exceptions\KomerceNotConfiguredException;
+use App\Support\KomerceCapabilities;
+use Closure;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Throwable;
 
 trait UsesKomerceHttp
 {
@@ -15,6 +19,7 @@ trait UsesKomerceHttp
         $this->ensureServiceEnabled(komerce_payment_enabled());
 
         return Http::baseUrl($this->baseUrl('komerce.payment_base_url'))
+            ->withResponseMiddleware(resolve(KomerceCapabilities::class)->responseObserver('payment'))
             ->connectTimeout($this->connectTimeout())
             ->timeout($this->timeout())
             ->acceptJson()
@@ -44,6 +49,7 @@ trait UsesKomerceHttp
         $this->ensureServiceEnabled(komerce_service_enabled('komerce.qrisly_api_key'));
 
         return Http::baseUrl($this->baseUrl('komerce.qrisly_base_url'))
+            ->withResponseMiddleware(resolve(KomerceCapabilities::class)->responseObserver('qrisly'))
             ->connectTimeout($this->connectTimeout())
             ->timeout($this->timeout())
             ->acceptJson()
@@ -57,8 +63,10 @@ trait UsesKomerceHttp
         $this->ensureServiceEnabled(komerce_shipping_cost_enabled());
 
         return Http::baseUrl($this->baseUrl('komerce.rajaongkir.cost_base_url'))
+            ->withResponseMiddleware(resolve(KomerceCapabilities::class)->responseObserver('shipping_cost'))
             ->connectTimeout($this->connectTimeout())
             ->timeout($this->timeout())
+            ->retry(2, 300, $this->retryOnConnectionFailure(), throw: true)
             ->acceptJson()
             ->asForm()
             ->withHeaders([
@@ -71,8 +79,10 @@ trait UsesKomerceHttp
         $this->ensureServiceEnabled(komerce_shipping_delivery_enabled());
 
         return Http::baseUrl($this->baseUrl('komerce.rajaongkir.delivery_base_url'))
+            ->withResponseMiddleware(resolve(KomerceCapabilities::class)->responseObserver('shipping_delivery'))
             ->connectTimeout($this->connectTimeout())
             ->timeout($this->timeout())
+            ->retry(2, 300, $this->retryOnConnectionFailure(), throw: true)
             ->acceptJson()
             ->asJson()
             ->withHeaders([
@@ -101,6 +111,15 @@ trait UsesKomerceHttp
     private function baseUrl(string $key): string
     {
         return rtrim((string) config($key, ''), '/');
+    }
+
+    /**
+     * RajaOngkir hosts intermittently refuse/stall TCP connects; retry only
+     * those (never HTTP 4xx/5xx responses, which are provider decisions).
+     */
+    protected function retryOnConnectionFailure(): Closure
+    {
+        return static fn (Throwable $exception): bool => $exception instanceof ConnectionException;
     }
 
     protected function timeout(): int

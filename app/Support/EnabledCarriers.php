@@ -36,11 +36,19 @@ final class EnabledCarriers
             ->values()
             ->all();
 
-        if ($slugs === []) {
-            return (array) config('komerce.couriers', ['jne', 'jnt', 'sicepat', 'anteraja', 'pos', 'tiki']);
+        if ($slugs !== []) {
+            return $slugs;
         }
 
-        return $slugs;
+        // No synced carriers yet (fresh install): honour a manual override if
+        // set, otherwise ask RajaOngkir for every official courier — the Cost
+        // API only returns the ones that actually serve the route.
+        $override = array_values(array_filter(array_map(
+            static fn (mixed $code): string => strtolower(trim((string) $code)),
+            (array) config('komerce.couriers', []),
+        )));
+
+        return $override !== [] ? $override : array_keys(RajaOngkirCouriers::OFFICIAL);
     }
 
     /**

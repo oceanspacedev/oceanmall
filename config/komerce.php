@@ -59,7 +59,36 @@ return [
         'delivery_base_url' => env('RAJAONGKIR_DELIVERY_BASE_URL', 'https://api-sandbox.collaborator.komerce.id'),
     ],
 
-    'couriers' => array_values(array_filter(array_map('trim', explode(',', env('RAJAONGKIR_COURIERS', 'jne,jnt,sicepat,ide,anteraja,pos,tiki,lion,ninja,wahana,rpx,ncs'))))),
+    /*
+    | Optional manual override. Leave empty (default) so the courier set comes
+    | from the provider via `komerce:sync-carriers` (RajaOngkir Cost + Komerce
+    | Delivery responses) instead of a hand-typed list.
+    */
+    'couriers' => array_values(array_filter(array_map('trim', explode(',', (string) env('RAJAONGKIR_COURIERS', ''))))),
+
+    /*
+    | Reference route used by `komerce:sync-carriers` to ask the provider which
+    | couriers are active for this account. Origin is the default warehouse.
+    */
+    'sync' => [
+        'destination_id' => (int) env('KOMERCE_SYNC_DESTINATION_ID', 17601), // GAMBIR, JAKARTA PUSAT
+        'destination_pin_point' => env('KOMERCE_SYNC_DESTINATION_PIN_POINT', '-6.1754,106.8272'),
+        'weight_grams' => max(1, (int) env('KOMERCE_SYNC_WEIGHT_GRAMS', 1000)),
+        'item_value' => max(0, (int) env('KOMERCE_SYNC_ITEM_VALUE', 100000)),
+    ],
+
+    /*
+    | Collaborator plan facts. The tier itself is inferred at runtime by
+    | KomerceCapabilities; these are the published quotas per tier plus an
+    | optional explicit override for the Shipping Cost daily quota.
+    */
+    'plan' => [
+        'quotas' => [
+            'starter' => (int) env('KOMERCE_PLAN_STARTER_QUOTA', 100),
+            'pro' => (int) env('KOMERCE_PLAN_PRO_QUOTA', 20000),
+        ],
+        'shipping_cost_daily_quota' => (int) env('KOMERCE_SHIPPING_COST_DAILY_QUOTA', 0),
+    ],
 
     'webhook_secret' => env('KOMERCE_WEBHOOK_SECRET', ''),
 

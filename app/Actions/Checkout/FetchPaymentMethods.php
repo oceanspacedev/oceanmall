@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Actions\Checkout;
 
-use App\Services\Komerce\PaymentClient;
+use App\Support\KomercePaymentCatalog;
 use InvalidArgumentException;
 use Shopper\Core\Models\PaymentMethod;
 use Shopper\Payment\Facades\Payment;
 use Shopper\Payment\Services\PaymentProcessingService;
-use Throwable;
 
 final class FetchPaymentMethods
 {
@@ -26,7 +25,7 @@ final class FetchPaymentMethods
 
         $stripeEnabled = (bool) config('shopper.payment.drivers.stripe.enabled', false);
         $service = resolve(PaymentProcessingService::class);
-        $official = $this->officialKomerceMethods();
+        $official = resolve(KomercePaymentCatalog::class)->official();
 
         return $zone->paymentMethods()
             ->where('is_enabled', true)
@@ -54,7 +53,7 @@ final class FetchPaymentMethods
      */
     private function komerceMethodAvailable(PaymentMethod $method, ?array $official): bool
     {
-        $meta = $this->decodeMeta($method->metadata);
+        $meta = KomercePaymentCatalog::decodeMeta($method->metadata);
         $paymentType = strtolower((string) ($meta['payment_type'] ?? 'bank_transfer'));
 
         $locallyReady = $paymentType === 'qris'
@@ -69,7 +68,7 @@ final class FetchPaymentMethods
             return true;
         }
 
-        return $this->officialMatch($meta, $official) !== null;
+        return resolve(KomercePaymentCatalog::class)->match($meta, $official) !== null;
     }
 
     /**
@@ -78,7 +77,7 @@ final class FetchPaymentMethods
      */
     private function toArray(PaymentMethod $method, PaymentProcessingService $service, ?array $official): array
     {
-        $meta = $this->decodeMeta($method->metadata);
+        $meta = KomercePaymentCatalog::decodeMeta($method->metadata);
 
         try {
             $logo = $service->getLogoUrl($method);
@@ -86,7 +85,7 @@ final class FetchPaymentMethods
             $logo = null;
         }
 
-        $match = $official !== null ? $this->officialMatch($meta, $official) : null;
+        $match = $official !== null ? resolve(KomercePaymentCatalog::class)->match($meta, $official) : null;
 
         return [
             'id' => $method->id,
@@ -102,75 +101,5 @@ final class FetchPaymentMethods
             'min_amount' => is_numeric($match['min_amount'] ?? null) ? (int) $match['min_amount'] : null,
             'max_amount' => is_numeric($match['max_amount'] ?? null) ? (int) $match['max_amount'] : null,
         ];
-    }
-
-    /**
-     * @return list<array<string, mixed>>|null Null = official catalog unavailable
-     */
-    private function officialKomerceMethods(): ?array
-    {
-        if (! komerce_payment_enabled()) {
-            return null;
-        }
-
-        try {
-            $response = resolve(PaymentClient::class)->listMethods();
-        } catch (Throwable) {
-            return null;
-        }
-
-        $rows = data_get($response, 'data', []);
-        if (! is_array($rows)) {
-            return [];
-        }
-
-        return array_values(array_filter($rows, static fn (mixed $row): bool => is_array($row)));
-    }
-
-    /**
-     * @param  array<string, mixed>  $meta
-     * @param  list<array<string, mixed>>  $official
-     * @return array<string, mixed>|null
-     */
-    private function officialMatch(array $meta, array $official): ?array
-    {
-        $paymentType = strtolower((string) ($meta['payment_type'] ?? 'bank_transfer'));
-        $channel = strtoupper(trim((string) ($meta['channel_code'] ?? '')));
-
-        foreach ($official as $row) {
-            $officialType = strtolower(trim((string) ($row['payment_type'] ?? '')));
-            $officialType = $officialType === 'va' ? 'bank_transfer' : $officialType;
-            $officialBank = strtoupper(trim((string) ($row['bank_code'] ?? '')));
-
-            if ($paymentType === 'qris' && $officialType === 'qris') {
-                return $row;
-            }
-
-            if ($paymentType === 'bank_transfer' && $officialType === 'bank_transfer' && $channel !== '' && $officialBank === $channel) {
-                return $row;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Decode metadata that may be stored as a JSON string or already decoded array.
-     *
-     * @return array<string, mixed>
-     */
-    private function decodeMeta(mixed $metadata): array
-    {
-        if (is_array($metadata)) {
-            return $metadata;
-        }
-
-        if (is_string($metadata) && $metadata !== '') {
-            $decoded = json_decode($metadata, true);
-
-            return is_array($decoded) ? $decoded : [];
-        }
-
-        return [];
     }
 }

@@ -8,6 +8,8 @@ use App\Actions\GetCountriesByZone;
 use App\Actions\ZoneSessionManager;
 use App\Models\Channel;
 use App\Support\EnabledCarriers;
+use App\Support\KomercePaymentCatalog;
+use App\Support\RajaOngkirCouriers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
@@ -96,30 +98,49 @@ class HandleInertiaRequests extends Middleware
         $komerceEnabled = komerce_payment_enabled() || qrisly_enabled();
 
         return Cache::remember(
-            'footer.payment_methods.v4.'.$this->commerceCatalogSignature($stripeEnabled, $komerceEnabled),
+            'footer.payment_methods.v5.'.$this->commerceCatalogSignature($stripeEnabled, $komerceEnabled),
             600,
             function () use ($stripeEnabled, $komerceEnabled): array {
                 $service = resolve(PaymentProcessingService::class);
+                $catalog = resolve(KomercePaymentCatalog::class);
+                // Official Komerce catalog (null = provider unreachable → local fallback).
+                $official = $komerceEnabled ? $catalog->official() : null;
 
                 return PaymentMethod::query()
                     ->where('is_enabled', true)
                     ->orderBy('id')
                     ->get()
                     ->filter(fn (PaymentMethod $method): bool => $this->paymentMethodAvailable($method, $stripeEnabled, $komerceEnabled))
-                    ->map(function (PaymentMethod $method) use ($service): array {
+                    ->map(function (PaymentMethod $method) use ($service, $catalog, $official): ?array {
                         try {
                             $logo = $service->getLogoUrl($method);
                         } catch (\InvalidArgumentException) {
                             $logo = null;
                         }
 
+                        $title = (string) $method->title;
+                        $driver = (string) ($method->driver ?? 'manual');
+
+                        if ($driver === 'komerce' && $official !== null) {
+                            $row = $catalog->match(KomercePaymentCatalog::decodeMeta($method->metadata), $official);
+
+                            // Not in the provider catalog → never offered at checkout, so not advertised.
+                            if ($row === null) {
+                                return null;
+                            }
+
+                            $title = $catalog->displayName($row) ?? $title;
+                            $logo = $catalog->logoUrl($row) ?? $logo;
+                        }
+
                         return [
                             'key' => (string) $method->slug,
-                            'title' => (string) $method->title,
+                            'title' => $title,
                             'logo' => $logo,
-                            'driver' => (string) ($method->driver ?? 'manual'),
+                            'driver' => $driver,
                         ];
                     })
+                    ->filter()
                     ->values()
                     ->all();
             },
@@ -136,7 +157,10 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Shipping courier logos from enabled cpanel carriers.
+     * Couriers advertised in the footer. With Komerce/RajaOngkir enabled this is
+     * exactly the set checkout quotes (enabled carriers ∩ RAJAONGKIR_COURIERS ∩
+     * the official RajaOngkir courier list), labelled with the official names.
+     * Without it, only the manual store courier is shown.
      *
      * @return array<int, array{code: string, label: string, logo: string|null}>
      */
@@ -147,31 +171,45 @@ class HandleInertiaRequests extends Middleware
         $logoResolver = app('shopper.carrier.logo');
 
         return Cache::remember(
-            'footer.shipping_couriers.v2.'.$this->commerceCatalogSignature(
+            'footer.shipping_couriers.v3.'.$this->commerceCatalogSignature(
                 (bool) config('shopper.payment.drivers.stripe.enabled', false),
                 $komerceEnabled,
             ),
             600,
             function () use ($komerceEnabled, $logoResolver): array {
-                return EnabledCarriers::forDisplay()
-                    ->filter(function (Carrier $carrier) use ($komerceEnabled): bool {
-                        if (($carrier->driver ?? 'manual') === 'manual') {
-                            return true;
-                        }
+                $carriers = EnabledCarriers::forDisplay()->keyBy(
+                    static fn (Carrier $carrier): string => strtolower((string) $carrier->slug),
+                );
 
-                        return $komerceEnabled;
-                    })
-                    ->map(function (Carrier $carrier) use ($logoResolver): array {
-                        $code = strtolower((string) $carrier->slug);
-
-                        return [
-                            'code' => $code,
+                if (! $komerceEnabled) {
+                    return $carriers
+                        ->filter(static fn (Carrier $carrier): bool => ($carrier->driver ?? 'manual') === 'manual')
+                        ->map(static fn (Carrier $carrier): array => [
+                            'code' => strtolower((string) $carrier->slug),
                             'label' => (string) $carrier->name,
                             'logo' => $logoResolver($carrier),
-                        ];
-                    })
-                    ->values()
-                    ->all();
+                        ])
+                        ->values()
+                        ->all();
+                }
+
+                $rows = [];
+
+                foreach (RajaOngkirCouriers::quotable() as $code) {
+                    $carrier = $carriers->get($code);
+
+                    if (! $carrier instanceof Carrier) {
+                        continue;
+                    }
+
+                    $rows[] = [
+                        'code' => $code,
+                        'label' => RajaOngkirCouriers::name($code) ?? (string) $carrier->name,
+                        'logo' => $logoResolver($carrier),
+                    ];
+                }
+
+                return $rows;
             },
         );
     }

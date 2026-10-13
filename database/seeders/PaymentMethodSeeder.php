@@ -48,7 +48,7 @@ class PaymentMethodSeeder extends Seeder
                 'driver' => 'komerce',
                 'metadata' => json_encode([
                     'payment_type' => 'bank_transfer',
-                    'channel_code' => 'BRIVA',
+                    'channel_code' => 'BRI',
                 ], JSON_THROW_ON_ERROR),
             ],
         );

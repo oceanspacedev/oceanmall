@@ -10,10 +10,7 @@ export function formatIdr(amount: number | null | undefined): string {
   }).format(value);
 }
 
-export function discountPercent(
-  price?: number | null,
-  compare?: number | null
-): number | null {
+export function discountPercent(price?: number | null, compare?: number | null): number | null {
   if (price == null || compare == null || compare <= price) {
     return null;
   }
@@ -25,11 +22,17 @@ export function mediaUrl(url?: string | null): string | undefined {
   if (!url) {
     return undefined;
   }
+  const origin = API_URL.replace(/\/api\/v1\/?$/, '');
+
   if (/^https?:\/\//i.test(url)) {
-    return url;
+    // A dev backend often renders media against APP_URL=localhost (wrong port,
+    // and unreachable from an emulator or phone): serve it from the API origin.
+    const loopback = url.match(
+      /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(\/.*)?$/i
+    );
+    return loopback ? `${origin}${loopback[1] ?? ''}` : url;
   }
 
-  const origin = API_URL.replace(/\/api\/v1\/?$/, '');
   return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
@@ -50,7 +53,10 @@ export function formatDate(value?: string | null): string {
 }
 
 const STATUS_LABELS: Record<string, string> = {
+  new: 'Baru',
   pending: 'Menunggu',
+  labeled: 'Menunggu pickup',
+  picked_up: 'Dijemput kurir',
   confirmed: 'Dikonfirmasi',
   processing: 'Diproses',
   completed: 'Selesai',
@@ -81,10 +87,47 @@ export function statusLabel(status?: string | null): string {
   return STATUS_LABELS[status] ?? status.split('_').join(' ');
 }
 
+const PAYMENT_TYPE_LABELS: Record<string, string> = {
+  bank_transfer: 'Transfer virtual account',
+  va: 'Transfer virtual account',
+  qris: 'QRIS',
+  ewallet: 'E-wallet',
+};
+
+export function paymentTypeLabel(type?: string | null): string {
+  if (!type) {
+    return '';
+  }
+
+  return PAYMENT_TYPE_LABELS[type.toLowerCase()] ?? type.split('_').join(' ');
+}
+
+/** e.g. "14 Okt 2026, 09.37" for gateway expiry timestamps. */
+export function formatDateTime(value?: string | null): string {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 export function stripHtml(value?: string | null): string {
   if (!value) {
     return '';
   }
 
-  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

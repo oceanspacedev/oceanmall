@@ -1,10 +1,24 @@
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LogoImage, OptionCard, Section, StickyBar, SummaryRow } from '@/components/shop';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/ui/text';
-import { CircleAlert, ShoppingBag, User } from 'lucide-react-native';
+import {
+  CircleAlert,
+  CreditCard,
+  Landmark,
+  MapPin,
+  Plus,
+  QrCode,
+  Receipt,
+  Search,
+  ShoppingBag,
+  Store,
+  Truck,
+  User,
+} from 'lucide-react-native';
 import {
   api,
   errorMessage,
@@ -19,8 +33,9 @@ import { useCart } from '@/lib/cart';
 import { formatIdr, mediaUrl } from '@/lib/format';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -28,13 +43,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CheckoutScreen() {
   const { user } = useAuth();
   const { applyCart } = useCart();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [checkout, setCheckout] = useState<CheckoutPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -49,25 +62,38 @@ export default function CheckoutScreen() {
   const [destHint, setDestHint] = useState<string | null>(null);
   const [selectedRate, setSelectedRate] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<number | null>(null);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [newAddressOpen, setNewAddressOpen] = useState(false);
 
-  const applyCheckout = useCallback((data: CheckoutPayload) => {
-    setCheckout(data);
-    applyCart(data.cart);
-    const address = data.shipping_address;
-    if (address) {
-      setFirstName(address.first_name ?? '');
-      setLastName(address.last_name ?? '');
-      setStreet(address.street_address ?? '');
-      setPhone(address.phone_number ?? '');
-      if (address.rajaongkir_destination_id) {
-        setDestination({
-          id: address.rajaongkir_destination_id,
-          label: address.rajaongkir_destination_label ?? address.city ?? address.rajaongkir_destination_id,
-        });
+  const applyCheckout = useCallback(
+    (data: CheckoutPayload) => {
+      setCheckout(data);
+      applyCart(data.cart);
+      const address = data.shipping_address;
+      if (!address && user) {
+        setFirstName((value) => value || user.first_name || '');
+        setLastName((value) => value || user.last_name || '');
+        setPhone((value) => value || user.phone_number || '');
       }
-    }
-    setSelectedRate(data.shipping_option?.service_code ?? null);
-  }, [applyCart]);
+      if (address) {
+        setFirstName(address.first_name ?? '');
+        setLastName(address.last_name ?? '');
+        setStreet(address.street_address ?? '');
+        setPhone(address.phone_number ?? '');
+        if (address.rajaongkir_destination_id) {
+          setDestination({
+            id: address.rajaongkir_destination_id,
+            label:
+              address.rajaongkir_destination_label ??
+              address.city ??
+              address.rajaongkir_destination_id,
+          });
+        }
+      }
+      setSelectedRate(data.shipping_option?.service_code ?? null);
+    },
+    [applyCart, user]
+  );
 
   const load = useCallback(async () => {
     if (!user) {
@@ -77,6 +103,21 @@ export default function CheckoutScreen() {
     setError(null);
     try {
       const res = await api<{ data: CheckoutPayload }>('/checkout');
+      const saved = res.data.saved_addresses ?? [];
+      if (!res.data.shipping_address && saved.length > 0 && res.data.cart.lines.length > 0) {
+        // Like marketplace apps: start from the primary saved address.
+        const primary = saved.find((row) => row.shipping_default) ?? saved[0];
+        try {
+          const applied = await api<{ data: CheckoutPayload }>('/checkout/shipping-address/saved', {
+            method: 'POST',
+            body: JSON.stringify({ address_id: primary.id }),
+          });
+          applyCheckout(applied.data);
+          return;
+        } catch {
+          // Fall back to manual selection below.
+        }
+      }
       applyCheckout(res.data);
     } catch (e) {
       setError(errorMessage(e, 'Gagal memuat checkout'));
@@ -95,11 +136,15 @@ export default function CheckoutScreen() {
       setDestHint(null);
       return;
     }
+    let stale = false;
     const handle = setTimeout(() => {
       void api<{ data: Destination[] }>(
         `/checkout/destinations?q=${encodeURIComponent(destinationQuery.trim())}`
       )
         .then((res) => {
+          if (stale) {
+            return;
+          }
           const rows = res.data ?? [];
           setDestinations(rows);
           setDestHint(
@@ -107,11 +152,18 @@ export default function CheckoutScreen() {
           );
         })
         .catch(() => {
+          if (stale) {
+            return;
+          }
           setDestinations([]);
           setDestHint('Gagal mencari kecamatan. Cek koneksi atau kredensial RajaOngkir.');
         });
     }, 350);
-    return () => clearTimeout(handle);
+    return () => {
+      // Ignore a response for an older query that lands after a newer one.
+      stale = true;
+      clearTimeout(handle);
+    };
   }, [destinationQuery]);
 
   async function saveAddress() {
@@ -142,6 +194,7 @@ export default function CheckoutScreen() {
         }),
       });
       applyCheckout(res.data);
+      setEditingAddress(false);
     } catch (e) {
       setError(errorMessage(e, 'Gagal menyimpan alamat'));
     } finally {
@@ -158,6 +211,7 @@ export default function CheckoutScreen() {
         body: JSON.stringify({ address_id: address.id }),
       });
       applyCheckout(res.data);
+      setEditingAddress(false);
     } catch (e) {
       setError(errorMessage(e, 'Alamat belum bisa dipakai'));
     } finally {
@@ -190,12 +244,21 @@ export default function CheckoutScreen() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api<{ data: { number: string } }>('/checkout/place-order', {
-        method: 'POST',
-        body: JSON.stringify({ payment_method_id: selectedPayment }),
-      });
+      const res = await api<{ data: { number: string; payment_error?: string | null } }>(
+        '/checkout/place-order',
+        {
+          method: 'POST',
+          body: JSON.stringify({ payment_method_id: selectedPayment }),
+        }
+      );
       applyCart(null);
-      router.replace(`/order/${res.data.number}`);
+      router.replace({
+        pathname: '/order/[number]',
+        params: {
+          number: res.data.number,
+          ...(res.data.payment_error ? { notice: res.data.payment_error } : {}),
+        },
+      });
     } catch (e) {
       setError(errorMessage(e, 'Gagal membuat pesanan'));
     } finally {
@@ -223,7 +286,12 @@ export default function CheckoutScreen() {
   if (error && !checkout) {
     return (
       <Screen title="Checkout">
-        <EmptyState icon={CircleAlert} message={error} actionLabel="Coba lagi" onAction={() => void load()} />
+        <EmptyState
+          icon={CircleAlert}
+          message={error}
+          actionLabel="Coba lagi"
+          onAction={() => void load()}
+        />
       </Screen>
     );
   }
@@ -244,197 +312,316 @@ export default function CheckoutScreen() {
   const shippingAmount = checkout.shipping_option?.amount ?? 0;
   const goodsTotal = checkout.cart.totals.total;
   const payable = goodsTotal + shippingAmount;
-  const canPlace = Boolean(selectedRate && selectedPayment && !busy);
+  const discount = checkout.cart.totals.discount ?? 0;
+  const itemCount = checkout.cart.lines.reduce((sum, line) => sum + line.quantity, 0);
+  const chosenMethod = checkout.payment_methods?.find((method) => method.id === selectedPayment);
+  const canPlace = Boolean(
+    selectedRate && chosenMethod && paymentLimitNote(chosenMethod, payable) === null && !busy
+  );
+  const address = checkout.shipping_address;
+  const showAddressEditor = editingAddress || !address;
+  const saved = checkout.saved_addresses ?? [];
 
   return (
-    <Screen title="Checkout">
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerClassName="px-3 pb-8 pt-3" keyboardShouldPersistTaps="handled">
-        {error ? (
-          <Alert icon={CircleAlert} variant="destructive" className="mb-3">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <Section title="Barang">
-          {checkout.cart.lines.map((line) => (
-            <View key={line.id} className="mb-3 flex-row gap-3 last:mb-0">
-              <Image
-                source={{ uri: mediaUrl(line.thumbnail) }}
-                style={{ width: 56, height: 56, borderRadius: 8, backgroundColor: '#f4f4f5' }}
-              />
-              <View className="flex-1">
-                <Text className="text-[13px] font-medium" numberOfLines={2}>
-                  {line.name}
+    <Screen title="Checkout" surface>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerClassName="pb-4"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets>
+          {/* Address */}
+          <Section
+            title="Alamat pengiriman"
+            icon={MapPin}
+            action={address && !editingAddress ? 'Ganti' : address ? 'Batal' : undefined}
+            onAction={() => setEditingAddress((value) => !value)}>
+            {address && !editingAddress ? (
+              <View>
+                <Text className="text-[14px] font-bold">
+                  {address.first_name} {address.last_name}
+                  <Text className="text-[13px] font-normal text-muted-foreground">
+                    {address.phone_number ? `  ·  ${address.phone_number}` : ''}
+                  </Text>
                 </Text>
-                <Text className="mt-0.5 text-[12px] text-muted-foreground">
-                  {line.variant ? `${line.variant} · ` : ''}× {line.quantity}
+                <Text className="mt-1 text-[13px] leading-5">{address.street_address}</Text>
+                <Text className="text-[12px] leading-5 text-muted-foreground">
+                  {address.rajaongkir_destination_label ?? address.city}
                 </Text>
               </View>
-              <Text className="text-[13px] font-semibold">{formatIdr(line.unit_price * line.quantity)}</Text>
-            </View>
-          ))}
-          <Text className="mt-1 text-right text-[13px] text-muted-foreground">
-            Subtotal {formatIdr(goodsTotal)}
-          </Text>
-        </Section>
+            ) : null}
 
-        {(checkout.saved_addresses ?? []).length > 0 ? (
-          <Section title="Alamat tersimpan">
-            {checkout.saved_addresses.map((address) => {
-              const active =
-                checkout.shipping_address?.street_address === address.street_address &&
-                checkout.shipping_address?.city === address.city;
+            {showAddressEditor ? (
+              <View>
+                {saved.length > 0 ? (
+                  <View className="mb-3">
+                    <Text className="mb-2 text-[12px] font-semibold text-muted-foreground">
+                      ALAMAT TERSIMPAN
+                    </Text>
+                    {saved.map((row) => {
+                      const active =
+                        address?.street_address === row.street_address &&
+                        address?.city === row.city;
+                      return (
+                        <OptionCard
+                          key={row.id}
+                          selected={active}
+                          disabled={busy}
+                          onPress={() => void useSavedAddress(row)}
+                          title={`${row.first_name} ${row.last_name}`}
+                          subtitle={`${row.street_address}, ${row.rajaongkir_destination_label ?? row.city}`}
+                        />
+                      );
+                    })}
+                  </View>
+                ) : null}
+
+                {saved.length > 0 && !newAddressOpen ? (
+                  <Pressable
+                    onPress={() => setNewAddressOpen(true)}
+                    className="flex-row items-center justify-center gap-2 rounded-sm border border-dashed border-om-navy py-3">
+                    <Icon as={Plus} size={15} className="text-om-navy" />
+                    <Text className="text-[13px] font-bold text-om-navy">Tambah alamat baru</Text>
+                  </Pressable>
+                ) : null}
+                {saved.length === 0 || newAddressOpen ? (
+                  <View className="gap-3">
+                    <View className="flex-row gap-2.5">
+                      <View className="flex-1">
+                        <Field label="Nama depan" value={firstName} onChangeText={setFirstName} />
+                      </View>
+                      <View className="flex-1">
+                        <Field label="Nama belakang" value={lastName} onChangeText={setLastName} />
+                      </View>
+                    </View>
+                    <Field
+                      label="Nomor HP"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                    />
+                    <Field
+                      label="Alamat lengkap"
+                      value={street}
+                      onChangeText={setStreet}
+                      placeholder="Nama jalan, nomor rumah, RT/RW, patokan"
+                    />
+                    <View className="gap-1">
+                      <Text className="text-[12px] text-muted-foreground">
+                        Kecamatan / kode pos
+                      </Text>
+                      <View className="h-11 flex-row items-center rounded-sm border border-border bg-white px-3">
+                        <Icon as={Search} size={15} className="text-muted-foreground" />
+                        <TextInput
+                          placeholder="Cari kecamatan atau kode pos..."
+                          placeholderTextColor="#94a3b8"
+                          value={destination ? destination.label : destinationQuery}
+                          onChangeText={(value) => {
+                            setDestination(null);
+                            setDestinationQuery(value);
+                          }}
+                          className="ml-2 flex-1 text-[14px] text-foreground"
+                        />
+                      </View>
+                      {destHint ? (
+                        <Text className="text-[12px] text-muted-foreground">{destHint}</Text>
+                      ) : null}
+                      {destinations.length > 0 ? (
+                        <View className="mt-1 overflow-hidden rounded-sm border border-border bg-white">
+                          {destinations.map((row, index) => (
+                            <Pressable
+                              key={row.id}
+                              onPress={() => {
+                                Keyboard.dismiss();
+                                setDestination(row);
+                                setDestinationQuery('');
+                                setDestinations([]);
+                                setDestHint(null);
+                              }}
+                              className={`flex-row items-start gap-2 px-3 py-2.5 active:bg-om-surface ${
+                                index < destinations.length - 1 ? 'border-b border-border' : ''
+                              }`}>
+                              <Icon
+                                as={MapPin}
+                                size={14}
+                                className="mt-0.5 text-muted-foreground"
+                              />
+                              <Text className="flex-1 text-[13px] leading-5">{row.label}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                    <Button
+                      disabled={
+                        busy || !firstName || !lastName || !street || !phone || !destination
+                      }
+                      onPress={() => void saveAddress()}
+                      className="rounded-sm">
+                      <Text className="font-bold">
+                        {busy ? 'Menyimpan...' : 'Simpan & hitung ongkir'}
+                      </Text>
+                    </Button>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+          </Section>
+
+          {/* Items */}
+          <Section title="OceanMall Official" icon={Store}>
+            {checkout.cart.lines.map((line) => (
+              <View key={line.id} className="mb-3 flex-row gap-3 last:mb-0">
+                <Image
+                  source={{ uri: mediaUrl(line.thumbnail) }}
+                  style={{ width: 60, height: 60, borderRadius: 4, backgroundColor: '#f4f4f5' }}
+                />
+                <View className="flex-1">
+                  <Text className="text-[13px] leading-5" numberOfLines={2}>
+                    {line.name}
+                  </Text>
+                  {line.variant ? (
+                    <Text className="text-[12px] text-muted-foreground">{line.variant}</Text>
+                  ) : null}
+                  <Text className="mt-0.5 text-[13px] font-bold">
+                    {line.quantity} × {formatIdr(line.unit_price)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </Section>
+
+          {/* Courier */}
+          <Section title="Pilih pengiriman" icon={Truck}>
+            {(checkout.shipping_rates ?? []).length === 0 ? (
+              <Text className="text-[13px] text-muted-foreground">
+                {address
+                  ? 'Ongkir belum tersedia untuk alamat ini. Coba kecamatan lain.'
+                  : 'Isi alamat dulu untuk melihat pilihan kurir dan ongkir.'}
+              </Text>
+            ) : (
+              checkout.shipping_rates.map((rate) => (
+                <OptionCard
+                  key={rate.service_code}
+                  selected={selectedRate === rate.service_code}
+                  disabled={busy}
+                  onPress={() => void chooseRate(rate)}
+                  icon={<LogoImage uri={rate.carrier_logo} fallback={Truck} />}
+                  title={`${rate.carrier_name ?? rate.carrier_code} ${rate.service_name}`}
+                  subtitle={etaLabel(rate.estimated_days)}
+                  trailing={<Text className="text-[14px] font-bold">{formatIdr(rate.amount)}</Text>}
+                />
+              ))
+            )}
+          </Section>
+
+          {/* Payment */}
+          <Section title="Metode pembayaran" icon={CreditCard}>
+            {(checkout.payment_methods ?? []).length === 0 ? (
+              <Text className="text-[13px] text-muted-foreground">
+                Metode pembayaran belum tersedia.
+              </Text>
+            ) : null}
+            {(checkout.payment_methods ?? []).map((method: PaymentMethodOption) => {
+              const limit = paymentLimitNote(method, payable);
+              const isQris = /qris/i.test(method.title) || method.payment_type === 'qris';
               return (
-                <Pressable
-                  key={address.id}
-                  onPress={() => void useSavedAddress(address)}
-                  className={`mb-2 rounded-lg border p-3 last:mb-0 ${
-                    active ? 'border-om-navy bg-accent' : 'border-border bg-white'
-                  }`}>
-                  <Text className="font-medium">
-                    {address.first_name} {address.last_name}
-                  </Text>
-                  <Text className="mt-0.5 text-[12px] text-muted-foreground">
-                    {address.street_address}, {address.city}
-                  </Text>
-                </Pressable>
+                <OptionCard
+                  key={method.id}
+                  selected={selectedPayment === method.id}
+                  disabled={limit !== null}
+                  onPress={() => setSelectedPayment(method.id)}
+                  icon={<LogoImage uri={method.logo} fallback={isQris ? QrCode : Landmark} />}
+                  title={method.title}
+                  subtitle={
+                    limit
+                      ? null
+                      : isQris
+                        ? 'GoPay, OVO, DANA, ShopeePay, m-banking'
+                        : 'Dicek otomatis'
+                  }
+                  note={limit}
+                />
               );
             })}
           </Section>
-        ) : null}
 
-        <Section title="Alamat pengiriman">
-          <View className="gap-3">
-            <View className="flex-row gap-2.5">
-              <View className="flex-1">
-                <Field label="Nama depan" value={firstName} onChangeText={setFirstName} />
-              </View>
-              <View className="flex-1">
-                <Field label="Nama belakang" value={lastName} onChangeText={setLastName} />
-              </View>
-            </View>
-            <Field label="Alamat" value={street} onChangeText={setStreet} />
-            <Field label="Nomor HP" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-            <View className="gap-1">
-              <Text className="text-[12px] text-muted-foreground">Kecamatan</Text>
-              <TextInput
-                placeholder="Cari kecamatan / kode pos..."
-                placeholderTextColor="#94a3b8"
-                value={destination ? destination.label : destinationQuery}
-                onChangeText={(value) => {
-                  setDestination(null);
-                  setDestinationQuery(value);
-                }}
-                className="h-10 rounded-lg border border-border bg-white px-3 text-[14px] text-foreground"
+          {/* Breakdown */}
+          <Section title="Rincian pembayaran" icon={Receipt}>
+            <SummaryRow
+              label={`Total harga (${itemCount} barang)`}
+              value={formatIdr(checkout.cart.totals.subtotal)}
+            />
+            {discount > 0 ? (
+              <SummaryRow
+                label="Diskon promo"
+                value={`−${formatIdr(discount)}`}
+                valueClassName="text-om-success"
               />
-              {destHint ? (
-                <Text className="text-[12px] text-muted-foreground">{destHint}</Text>
-              ) : null}
-              {destinations.map((row) => (
-                <Pressable
-                  key={row.id}
-                  onPress={() => {
-                    setDestination(row);
-                    setDestinationQuery('');
-                    setDestinations([]);
-                    setDestHint(null);
-                  }}
-                  className="rounded-lg border border-border bg-white p-2.5">
-                  <Text className="text-[13px]">{row.label}</Text>
-                </Pressable>
-              ))}
+            ) : null}
+            <SummaryRow
+              label="Ongkos kirim"
+              value={checkout.shipping_option ? formatIdr(shippingAmount) : 'Pilih kurir'}
+              valueClassName={checkout.shipping_option ? undefined : 'text-muted-foreground'}
+            />
+            <View className="my-1.5 h-px bg-border" />
+            <SummaryRow label="Total tagihan" value={formatIdr(payable)} strong />
+          </Section>
+        </ScrollView>
+
+        <StickyBar>
+          {error ? (
+            <View className="mb-2.5 flex-row items-center gap-2 rounded-sm bg-om-sale-soft px-3 py-2">
+              <Icon as={CircleAlert} size={15} className="text-om-sale" />
+              <Text className="flex-1 text-[12px] text-om-sale">{error}</Text>
+            </View>
+          ) : null}
+          <View className="flex-row items-center gap-3">
+            <View className="min-w-0 flex-1">
+              <Text className="text-[12px] text-muted-foreground">Total tagihan</Text>
+              <Text className="text-[18px] font-extrabold text-om-navy" numberOfLines={1}>
+                {formatIdr(payable)}
+              </Text>
             </View>
             <Button
-              variant="outline"
-              disabled={busy || !firstName || !lastName || !street || !phone || !destination}
-              onPress={() => void saveAddress()}>
-              <Text>Simpan alamat & hitung ongkir</Text>
+              disabled={!canPlace}
+              onPress={() => void placeOrder()}
+              className="h-11 rounded-sm px-6">
+              <Text className="font-bold">{busy ? 'Memproses...' : 'Buat pesanan'}</Text>
             </Button>
           </View>
-        </Section>
-
-        <Section title="Kurir">
-          {(checkout.shipping_rates ?? []).length === 0 ? (
-            <Text className="text-[13px] text-muted-foreground">
-              {checkout.shipping_address
-                ? 'Ongkir belum tersedia untuk alamat ini. Cek kecamatan atau kredensial RajaOngkir.'
-                : 'Simpan alamat dulu untuk melihat ongkir.'}
-            </Text>
-          ) : (
-            checkout.shipping_rates.map((rate) => (
-              <Pressable
-                key={rate.service_code}
-                onPress={() => void chooseRate(rate)}
-                className={`mb-2 rounded-lg border p-3 last:mb-0 ${
-                  selectedRate === rate.service_code ? 'border-om-navy bg-accent' : 'border-border bg-white'
-                }`}>
-                <View className="flex-row items-start justify-between gap-3">
-                  <View className="flex-1">
-                    <Text className="font-medium">
-                      {rate.carrier_name ?? rate.carrier_code} · {rate.service_name}
-                    </Text>
-                    {rate.estimated_days ? (
-                      <Text className="mt-0.5 text-[12px] text-muted-foreground">
-                        {String(rate.estimated_days)}
-                        {/hari|day|jam/i.test(String(rate.estimated_days)) ? '' : ' hari'}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text className="font-semibold">{formatIdr(rate.amount)}</Text>
-                </View>
-              </Pressable>
-            ))
-          )}
-        </Section>
-
-        <Section title="Pembayaran">
-          {(checkout.payment_methods ?? []).length === 0 ? (
-            <Text className="text-[13px] text-muted-foreground">
-              Metode pembayaran belum tersedia. Cek pengaturan toko atau kredensial Komerce.
+          {!canPlace && !busy ? (
+            <Text className="mt-1.5 text-[11px] text-muted-foreground">
+              {!address
+                ? 'Isi alamat pengiriman'
+                : !selectedRate
+                  ? 'Pilih kurir pengiriman'
+                  : 'Pilih metode pembayaran'}{' '}
+              untuk melanjutkan.
             </Text>
           ) : null}
-          {(checkout.payment_methods ?? []).map((method: PaymentMethodOption) => (
-            <Pressable
-              key={method.id}
-              onPress={() => setSelectedPayment(method.id)}
-              className={`mb-2 rounded-lg border p-3 last:mb-0 ${
-                selectedPayment === method.id ? 'border-om-navy bg-accent' : 'border-border bg-white'
-              }`}>
-              <Text className="font-medium">{method.title}</Text>
-              {method.description ? (
-                <Text className="mt-0.5 text-[12px] text-muted-foreground">{method.description}</Text>
-              ) : null}
-            </Pressable>
-          ))}
-        </Section>
-      </ScrollView>
-
-      <View
-        className="flex-row items-center border-t border-border bg-white px-3 pt-2.5"
-        style={{ paddingBottom: Math.max(insets.bottom, 10) }}>
-        <View className="flex-1 pr-3">
-          <Text className="text-[11px] text-muted-foreground">
-            {shippingAmount > 0 ? `Termasuk ongkir ${formatIdr(shippingAmount)}` : 'Total'}
-          </Text>
-          <Text className="text-[16px] font-extrabold text-om-navy">{formatIdr(payable)}</Text>
-        </View>
-        <Button disabled={!canPlace} onPress={() => void placeOrder()}>
-          <Text>{busy ? 'Memproses...' : 'Buat pesanan'}</Text>
-        </Button>
-      </View>
-    </KeyboardAvoidingView>
+        </StickyBar>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <View className="mb-4">
-      <Text className="mb-2 text-[13px] font-bold text-om-navy">{title}</Text>
-      {children}
-    </View>
-  );
+function etaLabel(value?: string | number | null): string | null {
+  if (value === null || value === undefined || value === '') {
+    return 'Estimasi menyusul';
+  }
+  const text = String(value);
+  return /hari|day|jam/i.test(text) ? `Estimasi ${text}` : `Estimasi ${text} hari`;
+}
+
+function paymentLimitNote(method: PaymentMethodOption, amount: number): string | null {
+  if (method.min_amount && amount < method.min_amount) {
+    return `Minimal ${formatIdr(method.min_amount)} untuk metode ini.`;
+  }
+  if (method.max_amount && amount > method.max_amount) {
+    return `Maksimal ${formatIdr(method.max_amount)} untuk metode ini.`;
+  }
+  return null;
 }

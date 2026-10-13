@@ -9,7 +9,7 @@ Backend: Laravel `/api/v1` (Sanctum Bearer). Bukan admin `/cpanel`.
 ## Prasyarat
 
 - Node.js 20+
-- Laravel jalan di `http://127.0.0.1:8000` (`composer run dev` atau `php artisan serve`)
+- Laravel jalan di `http://127.0.0.1:8000` (`composer run dev` atau `php artisan serve`), plus `php artisan queue:listen` untuk proses setelah bayar
 - Expo Go di HP, atau simulator iOS / emulator Android
 
 ## Jalanin
@@ -27,6 +27,10 @@ npm run dev
 - **Web**: tekan `w`
 
 Request API selalu kirim `Accept: application/json` + `Authorization: Bearer` setelah login.
+
+## QA
+
+Panduan uji lengkap (akun uji, simulasi pembayaran sandbox, checklist skenario): [TESTING.md](TESTING.md).
 
 ## UI
 

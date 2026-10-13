@@ -15,8 +15,17 @@ let guestTokenPromise: Promise<string> | null = null;
 
 const GUEST_CART_KEY = 'oceanmall.cart-token';
 
+let unauthorizedHandler: (() => void) | null = null;
+
+export const SESSION_EXPIRED_MESSAGE = 'Sesi kamu berakhir. Silakan masuk lagi.';
+
 export function setAuthToken(token: string | null): void {
   authToken = token;
+}
+
+/** Called when a signed-in request gets 401 (token revoked, e.g. login on another device). */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  unauthorizedHandler = handler;
 }
 
 function newUuid(): string {
@@ -111,6 +120,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   };
 
   if (!response.ok) {
+    if (response.status === 401 && headers.has('Authorization')) {
+      unauthorizedHandler?.();
+      throw new ApiError(SESSION_EXPIRED_MESSAGE, 401, { message: SESSION_EXPIRED_MESSAGE });
+    }
     throw new ApiError(json.message ?? `HTTP ${response.status}`, response.status, json);
   }
 
@@ -146,7 +159,17 @@ export type Product = {
   compare_price?: number | null;
   currency?: string;
   description?: string | null;
-  variants?: { id: number; sku?: string | null; name?: string | null; price?: number | null }[];
+  variants?: {
+    id: number;
+    sku?: string | null;
+    name?: string | null;
+    price?: number | null;
+    compare_price?: number | null;
+    /** null = stock not tracked */
+    stock?: number | null;
+  }[];
+  /** Product detail only; null for variant products or untracked stock. */
+  stock?: number | null;
   reviews?: {
     average: number;
     count: number;
@@ -248,6 +271,8 @@ export type ShippingRate = {
   currency?: string;
   carrier_code?: string;
   carrier_name?: string | null;
+  carrier_logo?: string | null;
+  description?: string | null;
   estimated_days?: string | number | null;
 };
 
@@ -259,6 +284,9 @@ export type PaymentMethodOption = {
   description?: string | null;
   payment_type?: string | null;
   channel_code?: string | null;
+  min_amount?: number | null;
+  max_amount?: number | null;
+  logo?: string | null;
 };
 
 export type SavedAddress = {
@@ -315,6 +343,10 @@ export type OrderSummary = {
   amount: number;
   currency?: string;
   created_at?: string | null;
+  item_count?: number;
+  line_count?: number;
+  first_item?: { name: string; quantity: number; thumbnail?: string | null } | null;
+  payment_method?: string | null;
 };
 
 export type AppNotification = {
@@ -329,7 +361,21 @@ export type AppNotification = {
 };
 
 export type OrderDetail = OrderSummary & {
-  items: { name: string; sku?: string | null; quantity: number; unit_price: number }[];
+  items: {
+    name: string;
+    sku?: string | null;
+    quantity: number;
+    unit_price: number;
+    thumbnail?: string | null;
+    slug?: string | null;
+  }[];
+  shipping_address?: {
+    name: string;
+    phone?: string | null;
+    street_address: string;
+    area?: string | null;
+  } | null;
+  totals?: { subtotal: number; shipping: number; adjustment: number; total: number };
   shipments: {
     id: number;
     status: string;
@@ -338,6 +384,7 @@ export type OrderDetail = OrderSummary & {
     carrier?: string | null;
     service?: string | null;
     cost?: number | null;
+    carrier_logo?: string | null;
     tracking_history?: { description?: string; date?: string }[];
   }[];
   payment?: PaymentInstructions | null;

@@ -38,6 +38,8 @@ export default function RootLayout() {
                 <Stack.Screen name="addresses" />
                 <Stack.Screen name="notifications" />
                 <Stack.Screen name="profile" />
+                <Stack.Screen name="profile-edit" />
+                <Stack.Screen name="change-password" />
               </Stack>
               <PortalHost />
             </CartProvider>

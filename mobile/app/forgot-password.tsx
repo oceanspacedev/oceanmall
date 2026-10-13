@@ -1,13 +1,13 @@
 import { Field } from '@/components/field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Screen } from '@/components/screen';
+import { AuthShell } from '@/components/auth-shell';
 import { Text } from '@/components/ui/text';
 import { api, errorMessage } from '@/lib/api';
 import { CircleAlert } from 'lucide-react-native';
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -32,51 +32,47 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <Screen title="Lupa kata sandi">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerClassName="px-3 pb-10 pt-5" keyboardShouldPersistTaps="handled">
-          {error ? (
-            <Alert icon={CircleAlert} variant="destructive" className="mb-3">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
+    <AuthShell
+      title="Lupa kata sandi?"
+      subtitle="Masukkan email akunmu, kami kirim tautan untuk membuat kata sandi baru.">
+      {error ? (
+        <Alert icon={CircleAlert} variant="destructive" className="mb-3">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
-          {done ? (
-            <Text variant="muted" className="text-[13px] leading-5">
-              Jika email terdaftar, tautan reset sudah dikirim. Buka tautan di browser, lalu masuk lagi di
-              aplikasi.
-            </Text>
-          ) : (
-            <>
-              <Text variant="muted" className="text-[13px] leading-5">
-                Masukkan email akun. Kami kirim tautan reset kalau email itu terdaftar.
-              </Text>
-              <View className="mt-4">
-                <Field
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  autoComplete="email"
-                  placeholder="email@contoh.com"
-                />
-              </View>
-              <Button className="mt-5" disabled={busy || email.trim() === ''} onPress={() => void submit()}>
-                <Text>{busy ? 'Mengirim...' : 'Kirim tautan'}</Text>
-              </Button>
-            </>
-          )}
-
-          <View className="mt-4 flex-row justify-center">
-            <Link href="/login">
-              <Text className="text-[13px] font-semibold text-om-navy">Kembali masuk</Text>
-            </Link>
+      {done ? (
+        <Text variant="muted" className="text-[13px] leading-5">
+          Jika email terdaftar, tautan reset sudah dikirim. Buka tautan di browser, lalu masuk lagi
+          di aplikasi.
+        </Text>
+      ) : (
+        <>
+          <View>
+            <Field
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              placeholder="email@contoh.com"
+            />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </Screen>
+          <Button
+            className="mt-6 h-12 rounded-sm"
+            disabled={busy || email.trim() === ''}
+            onPress={() => void submit()}>
+            <Text>{busy ? 'Mengirim...' : 'Kirim tautan'}</Text>
+          </Button>
+        </>
+      )}
+
+      <View className="mt-4 flex-row justify-center">
+        <Link href="/login">
+          <Text className="text-[13px] font-semibold text-om-navy">Kembali masuk</Text>
+        </Link>
+      </View>
+    </AuthShell>
   );
 }

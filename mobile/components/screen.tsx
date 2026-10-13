@@ -12,11 +12,17 @@ export function Screen({
   title,
   showCart = false,
   loading = false,
+  surface = false,
+  right,
   children,
 }: {
   title: string;
   showCart?: boolean;
   loading?: boolean;
+  /** Light-gray page so white Section cards stand out (marketplace layout). */
+  surface?: boolean;
+  /** Custom header action (replaces the cart button). */
+  right?: ReactNode;
   children?: ReactNode;
 }) {
   const router = useRouter();
@@ -36,7 +42,9 @@ export function Screen({
         <Text className="flex-1 text-center text-[15px] font-bold text-white" numberOfLines={1}>
           {title}
         </Text>
-        {showCart ? (
+        {right ? (
+          <View className="min-w-10 items-end justify-center pr-2">{right}</View>
+        ) : showCart ? (
           <Pressable
             accessibilityLabel="Keranjang"
             onPress={() => router.push('/(tabs)/cart')}
@@ -55,7 +63,7 @@ export function Screen({
           <View className="h-10 w-10" />
         )}
       </View>
-      <View className="flex-1 bg-background">
+      <View className={surface ? 'flex-1 bg-om-surface' : 'flex-1 bg-background'}>
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator />

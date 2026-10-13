@@ -1,9 +1,8 @@
 import { EmptyState } from '@/components/empty-state';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { QtyStepper, StickyBar, SummaryRow } from '@/components/shop';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { api, errorMessage, type Cart } from '@/lib/api';
@@ -15,7 +14,17 @@ import { formatIdr, mediaUrl } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { Image } from 'expo-image';
 import { Link, useFocusEffect, useRouter, type Href } from 'expo-router';
-import { CircleAlert, Minus, Plus, ShoppingBag, Ticket, Trash2, WifiOff } from 'lucide-react-native';
+import {
+  ChevronRight,
+  CircleAlert,
+  ShieldCheck,
+  ShoppingBag,
+  Store,
+  Ticket,
+  Trash2,
+  WifiOff,
+  X,
+} from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
   Alert as RNAlert,
@@ -39,6 +48,7 @@ export default function CartScreen() {
   const [couponBusy, setCouponBusy] = useState(false);
   const [lineBusy, setLineBusy] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [couponOpen, setCouponOpen] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -81,6 +91,7 @@ export default function CartScreen() {
       });
       applyCart(res.data);
       setCoupon('');
+      setCouponOpen(false);
     } catch (e) {
       setError(errorMessage(e, 'Kupon tidak valid'));
     } finally {
@@ -156,21 +167,28 @@ export default function CartScreen() {
   return (
     <SafeAreaView className="flex-1 bg-om-navy" edges={['top']}>
       <StatusBar style="light" />
-      <View className="h-[52px] flex-row items-center justify-between bg-om-navy px-3">
-        <Text className="text-[15px] font-bold text-white">
-          Keranjang{count > 0 ? ` · ${count}` : ''}
+      <View className="h-[52px] flex-row items-center justify-between bg-om-navy px-4">
+        <Text className="text-[17px] font-extrabold text-white">
+          Keranjang
+          {count > 0 ? (
+            <Text className="text-[14px] font-semibold text-white/80"> ({count})</Text>
+          ) : null}
         </Text>
         {lines.length > 0 ? (
-          <Pressable onPress={confirmClear} hitSlop={8} className="h-10 justify-center px-1">
-            <Text className="text-[13px] text-white/80">Kosongkan</Text>
+          <Pressable
+            onPress={confirmClear}
+            hitSlop={8}
+            className="h-10 flex-row items-center gap-1">
+            <Icon as={Trash2} size={14} color="rgba(255,255,255,0.85)" />
+            <Text className="text-[13px] text-white/85">Hapus semua</Text>
           </Pressable>
         ) : null}
       </View>
 
       {loading ? (
-        <View className="flex-1 bg-background px-3 pt-3">
-          <Skeleton className="mb-2 h-24 w-full rounded-lg" />
-          <Skeleton className="h-24 w-full rounded-lg" />
+        <View className="flex-1 bg-om-surface pt-2">
+          <Skeleton className="mb-2 h-28 w-full rounded-none" />
+          <Skeleton className="h-28 w-full rounded-none" />
         </View>
       ) : error && lines.length === 0 ? (
         <EmptyState
@@ -180,27 +198,38 @@ export default function CartScreen() {
           onAction={() => void load()}
         />
       ) : lines.length === 0 ? (
-        <EmptyState
-          icon={ShoppingBag}
-          message="Keranjang masih kosong."
-          actionLabel="Belanja sekarang"
-          onAction={() => router.replace('/(tabs)')}
-        />
+        <View className="flex-1 items-center justify-center bg-om-surface px-10">
+          <View className="mb-4 size-24 items-center justify-center rounded-full bg-om-navy-soft">
+            <Icon as={ShoppingBag} size={40} className="text-om-navy" />
+          </View>
+          <Text className="text-center text-[16px] font-bold">Wah, keranjangmu kosong</Text>
+          <Text className="mt-1 text-center text-[13px] text-muted-foreground">
+            Yuk, isi dengan produk incaranmu dan nikmati promo hari ini.
+          </Text>
+          <Button className="mt-5 rounded-sm px-8" onPress={() => router.replace('/(tabs)')}>
+            <Text className="font-bold">Mulai belanja</Text>
+          </Button>
+        </View>
       ) : (
         <KeyboardAvoidingView
-          className="flex-1 bg-muted"
+          className="flex-1 bg-om-surface"
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
             className="flex-1"
+            contentContainerClassName="pb-3"
             keyboardShouldPersistTaps="handled"
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}>
-            {error ? (
-              <Alert icon={CircleAlert} variant="destructive" className="mx-3 mt-3">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            <View className="border-b border-border bg-white">
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+            }>
+            <View className="mt-2 bg-white">
+              <View className="flex-row items-center gap-2 border-b border-border px-4 py-3">
+                <Icon as={Store} size={16} className="text-om-navy" />
+                <Text className="flex-1 text-[14px] font-bold">OceanMall Official</Text>
+                <View className="flex-row items-center gap-1 rounded bg-om-navy-soft px-1.5 py-0.5">
+                  <Icon as={ShieldCheck} size={11} className="text-om-navy" />
+                  <Text className="text-[10px] font-bold text-om-navy">Resmi</Text>
+                </View>
+              </View>
               {lines.map((line, index) => (
                 <CartLineRow
                   key={line.id}
@@ -211,26 +240,31 @@ export default function CartScreen() {
                 />
               ))}
             </View>
-          </ScrollView>
 
-          <View className="border-t border-border bg-white">
-            <View className="gap-2.5 px-3 pt-3">
+            {/* Voucher */}
+            <View className="mt-2 bg-white px-4 py-3">
               {cart?.coupon_code ? (
-                <View className="h-10 flex-row items-center gap-2">
-                  <Icon as={Ticket} size={16} className="text-om-navy" />
-                  <Text className="min-w-0 flex-1 text-[13px] font-semibold">{cart.coupon_code}</Text>
-                  <Pressable
-                    hitSlop={8}
-                    disabled={couponBusy}
-                    onPress={() => void removeCoupon()}
-                    className="h-10 justify-center">
-                    <Text className="text-[13px] text-muted-foreground">Hapus</Text>
+                <View className="flex-row items-center gap-3 rounded-sm border border-dashed border-om-success bg-om-success-soft px-3 py-2.5">
+                  <Icon as={Ticket} size={18} className="text-om-success" />
+                  <View className="flex-1">
+                    <Text className="text-[13px] font-bold text-om-success">
+                      Kode {cart.coupon_code} dipakai
+                    </Text>
+                    {discount > 0 ? (
+                      <Text className="text-[12px] text-om-success">
+                        Hemat {formatIdr(discount)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable hitSlop={8} disabled={couponBusy} onPress={() => void removeCoupon()}>
+                    <Icon as={X} size={16} className="text-om-success" />
                   </Pressable>
                 </View>
-              ) : (
+              ) : couponOpen ? (
                 <View className="flex-row items-center gap-2">
                   <Input
-                    placeholder="Kode kupon"
+                    autoFocus
+                    placeholder="Masukkan kode promo"
                     value={coupon}
                     onChangeText={setCoupon}
                     autoCapitalize="characters"
@@ -240,43 +274,69 @@ export default function CartScreen() {
                     className="h-10 flex-1"
                   />
                   <Button
-                    variant="outline"
-                    className="h-10 rounded-lg px-4"
+                    className="h-10 rounded-sm px-4"
                     disabled={couponBusy || coupon.trim() === ''}
                     onPress={() => void applyCoupon()}>
-                    <Text>{couponBusy ? '...' : 'Pakai'}</Text>
+                    <Text className="font-bold">{couponBusy ? '...' : 'Pakai'}</Text>
                   </Button>
                 </View>
+              ) : (
+                <Pressable
+                  onPress={() => setCouponOpen(true)}
+                  className="flex-row items-center gap-3">
+                  <View className="size-9 items-center justify-center rounded-sm bg-om-navy-soft">
+                    <Icon as={Ticket} size={18} className="text-om-navy" />
+                  </View>
+                  <Text className="flex-1 text-[14px] font-semibold">Pakai kode promo</Text>
+                  <Icon as={ChevronRight} size={16} className="text-muted-foreground" />
+                </Pressable>
               )}
-
-              <View className="gap-1">
-                <SummaryRow label="Subtotal" value={formatIdr(totals?.subtotal)} />
-                {discount > 0 ? (
-                  <SummaryRow
-                    label="Diskon"
-                    value={`−${formatIdr(discount)}`}
-                    valueClassName="text-om-sale"
-                  />
-                ) : null}
-                {tax > 0 ? <SummaryRow label="Pajak" value={formatIdr(tax)} /> : null}
-                <SummaryRow label="Ongkir" value="Di checkout" muted />
-              </View>
+              {error ? (
+                <View className="mt-2 flex-row items-center gap-2">
+                  <Icon as={CircleAlert} size={14} className="text-om-sale" />
+                  <Text className="flex-1 text-[12px] text-om-sale">{error}</Text>
+                </View>
+              ) : null}
             </View>
 
-            <Separator className="mt-3" />
+            {/* Summary */}
+            <View className="mt-2 bg-white px-4 py-3">
+              <Text className="mb-1 text-[14px] font-bold">Ringkasan belanja</Text>
+              <SummaryRow
+                label={`Total harga (${count} barang)`}
+                value={formatIdr(totals?.subtotal)}
+              />
+              {discount > 0 ? (
+                <SummaryRow
+                  label="Diskon promo"
+                  value={`−${formatIdr(discount)}`}
+                  valueClassName="text-om-success"
+                />
+              ) : null}
+              {tax > 0 ? <SummaryRow label="Pajak" value={formatIdr(tax)} /> : null}
+              <SummaryRow
+                label="Ongkos kirim"
+                value="Dihitung saat checkout"
+                valueClassName="text-muted-foreground"
+              />
+            </View>
+          </ScrollView>
 
-            <View className="flex-row items-center gap-3 px-3 pb-2.5 pt-2.5">
+          <StickyBar>
+            <View className="flex-row items-center gap-3">
               <View className="min-w-0 flex-1">
-                <Text variant="muted" className="text-[11px]">
-                  {user ? 'Total' : 'Masuk untuk checkout'}
+                <Text className="text-[12px] text-muted-foreground">Total harga</Text>
+                <Text className="text-[18px] font-extrabold text-om-navy" numberOfLines={1}>
+                  {formatIdr(totals?.total)}
                 </Text>
-                <Text className="text-[16px] font-extrabold text-om-navy">{formatIdr(totals?.total)}</Text>
               </View>
-              <Button onPress={checkout} className="h-11 px-6">
-                <Text>{user ? 'Checkout' : 'Masuk'}</Text>
+              <Button onPress={checkout} className="h-11 rounded-sm px-6">
+                <Text className="font-bold">
+                  {user ? `Checkout (${count})` : 'Masuk & checkout'}
+                </Text>
               </Button>
             </View>
-          </View>
+          </StickyBar>
         </KeyboardAvoidingView>
       )}
     </SafeAreaView>
@@ -299,75 +359,33 @@ function CartLineRow({
   return (
     <View
       className={cn(
-        'flex-row items-center gap-3 px-3 py-3',
+        'flex-row gap-3 px-4 py-3.5',
         divided && 'border-b border-border',
         busy && 'opacity-50'
       )}>
       <LineThumb uri={mediaUrl(line.thumbnail)} href={href} />
       <View className="min-w-0 flex-1">
-        <View className="flex-row items-start gap-3">
-          <LineName name={line.name} href={href} />
-          <Text className="shrink-0 text-[13px] font-bold text-om-navy">
-            {formatIdr(line.unit_price * line.quantity)}
-          </Text>
-        </View>
-        <Text variant="muted" className="mt-0.5 self-start text-[12px]">
-          {line.variant ? `${line.variant} · ${formatIdr(line.unit_price)}` : formatIdr(line.unit_price)}
+        <LineName name={line.name} href={href} />
+        {line.variant ? (
+          <View className="mt-1 self-start rounded bg-om-surface px-1.5 py-0.5">
+            <Text className="text-[11px] text-muted-foreground">{line.variant}</Text>
+          </View>
+        ) : null}
+        <Text className="mt-1.5 text-[15px] font-extrabold text-foreground">
+          {formatIdr(line.unit_price)}
         </Text>
-        <View className="mt-2 flex-row items-center gap-1">
-          <QtyStepper
-            value={line.quantity}
-            busy={busy}
-            onChange={(quantity) => onQty(quantity)}
-          />
+        <View className="mt-2 flex-row items-center justify-end gap-3">
           <Pressable
             accessibilityLabel="Hapus"
             disabled={busy}
             hitSlop={8}
             onPress={() => onQty(0)}
             className="h-8 w-8 items-center justify-center">
-            <Icon as={Trash2} size={15} className="text-muted-foreground" />
+            <Icon as={Trash2} size={17} className="text-muted-foreground" />
           </Pressable>
+          <QtyStepper size="sm" value={line.quantity} max={10} busy={busy} onChange={onQty} />
         </View>
       </View>
-    </View>
-  );
-}
-
-function QtyStepper({
-  value,
-  busy,
-  onChange,
-}: {
-  value: number;
-  busy: boolean;
-  onChange: (quantity: number) => void;
-}) {
-  return (
-    <View className="h-8 flex-row items-center overflow-hidden rounded-md border border-border">
-      <Pressable
-        accessibilityLabel="Kurangi"
-        disabled={busy}
-        onPress={() => {
-          if (value > 1) {
-            onChange(value - 1);
-          }
-        }}
-        className="h-8 w-8 items-center justify-center">
-        <Icon as={Minus} size={14} className={value <= 1 ? 'text-muted-foreground' : 'text-foreground'} />
-      </Pressable>
-      <Text className="min-w-[22px] text-center text-[13px] font-semibold">{value}</Text>
-      <Pressable
-        accessibilityLabel="Tambah"
-        disabled={busy}
-        onPress={() => {
-          if (value < 10) {
-            onChange(value + 1);
-          }
-        }}
-        className="h-8 w-8 items-center justify-center">
-        <Icon as={Plus} size={14} className={value >= 10 ? 'text-muted-foreground' : 'text-foreground'} />
-      </Pressable>
     </View>
   );
 }
@@ -376,7 +394,7 @@ function LineThumb({ uri, href }: { uri: string | undefined; href: Href | null }
   const image = (
     <Image
       source={{ uri }}
-      style={{ width: 72, height: 72, borderRadius: 6, backgroundColor: '#f4f4f5' }}
+      style={{ width: 84, height: 84, borderRadius: 4, backgroundColor: '#f4f4f5' }}
       contentFit="cover"
     />
   );
@@ -394,41 +412,18 @@ function LineThumb({ uri, href }: { uri: string | undefined; href: Href | null }
 
 function LineName({ name, href }: { name: string; href: Href | null }) {
   const text = (
-    <Text className="text-[13px] font-medium leading-snug" numberOfLines={2}>
+    <Text className="text-[14px] leading-5" numberOfLines={2}>
       {name}
     </Text>
   );
 
   if (!href) {
-    return <View className="min-w-0 flex-1">{text}</View>;
+    return text;
   }
 
   return (
     <Link href={href} asChild>
-      <Pressable className="min-w-0 flex-1">{text}</Pressable>
+      <Pressable>{text}</Pressable>
     </Link>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  muted = false,
-  valueClassName,
-}: {
-  label: string;
-  value: string;
-  muted?: boolean;
-  valueClassName?: string;
-}) {
-  return (
-    <View className="flex-row items-center justify-between">
-      <Text variant="muted" className="text-[12px]">
-        {label}
-      </Text>
-      <Text className={cn('text-[12px]', muted ? 'text-muted-foreground' : 'font-medium', valueClassName)}>
-        {value}
-      </Text>
-    </View>
   );
 }

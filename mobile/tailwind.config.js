@@ -48,7 +48,11 @@ module.exports = {
           sale: 'hsl(var(--om-sale))',
           'sale-soft': 'hsl(var(--om-sale-soft))',
           success: 'hsl(var(--om-success))',
+          'success-soft': 'hsl(var(--om-success-soft))',
           warning: 'hsl(var(--om-warning))',
+          'warning-soft': 'hsl(var(--om-warning-soft))',
+          surface: 'hsl(var(--om-surface))',
+          'navy-soft': 'hsl(var(--om-navy-soft))',
         },
       },
       borderRadius: {

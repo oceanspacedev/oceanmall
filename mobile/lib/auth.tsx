@@ -1,7 +1,15 @@
-import { ApiError, api, setAuthToken, type User } from '@/lib/api';
+import { ApiError, api, setAuthToken, setUnauthorizedHandler, type User } from '@/lib/api';
 import { useNetwork } from '@/lib/network';
 import { deleteSecureItem, getSecureItem, setSecureItem } from '@/lib/storage';
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 const TOKEN_KEY = 'oceanmall.token';
@@ -67,6 +75,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setReady(true);
       }
     })();
+  }, []);
+
+  // A revoked token (e.g. signed in on another device) signs this device out
+  // everywhere instead of leaving screens half-authenticated.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (!tokenRef.current) {
+        return;
+      }
+      void applyToken(null);
+      setUser(null);
+    });
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   useEffect(() => {

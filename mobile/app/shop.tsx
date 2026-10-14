@@ -12,6 +12,7 @@ export default function ShopScreen() {
 
   return (
     <CatalogList
+      key={brand ?? 'all'}
       heading={title && title.trim() !== '' ? title : 'Semua produk'}
       query={brand ? { brand } : {}}
     />

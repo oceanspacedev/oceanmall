@@ -1,26 +1,50 @@
+import { COLORS } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import { Platform, TextInput } from 'react-native';
 
-function Input({
-  className,
-  ...props
-}: React.ComponentProps<typeof TextInput> & React.RefAttributes<TextInput>) {
+/** Light grey so a placeholder never reads like a filled value (3.25:1 on white). */
+export const PLACEHOLDER_COLOR = COLORS.placeholder;
+
+type InputProps = React.ComponentProps<typeof TextInput> &
+  React.RefAttributes<TextInput> & {
+    /** Red 2px border and `aria-invalid`, for a field whose last validation failed. */
+    invalid?: boolean;
+  };
+
+function Input({ className, invalid = false, onFocus, onBlur, ...props }: InputProps) {
+  const [focused, setFocused] = useState(false);
+  // Focus and error use a 2px border; trim 1px of padding so the text does not shift.
+  const thick = focused || invalid;
+
   return (
     <TextInput
+      placeholderTextColor={PLACEHOLDER_COLOR}
+      selectionColor={COLORS.navy}
+      cursorColor={COLORS.navy}
+      // TextInput does not go through <Text>, so cap the system font scale here.
+      maxFontSizeMultiplier={1.3}
+      aria-invalid={invalid || undefined}
+      onFocus={(event) => {
+        setFocused(true);
+        onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        setFocused(false);
+        onBlur?.(event);
+      }}
       className={cn(
-        'flex h-10 w-full min-w-0 flex-row items-center rounded-sm border border-input bg-background px-3 py-1 text-[14px] leading-5 text-foreground shadow-none dark:bg-input/30 sm:h-9',
+        'flex min-h-11 w-full min-w-0 flex-row items-center rounded-sm bg-background px-3 py-1 text-[15px] leading-5 text-foreground',
+        thick
+          ? cn('border-2 px-[11px]', invalid ? 'border-destructive' : 'border-ring')
+          : 'border border-input',
         props.editable === false &&
           cn(
-            'opacity-50',
+            'bg-om-surface opacity-60',
             Platform.select({ web: 'disabled:pointer-events-none disabled:cursor-not-allowed' })
           ),
         Platform.select({
-          web: cn(
-            'outline-none transition-[color,box-shadow] selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground md:text-sm',
-            'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-            'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
-          ),
-          native: 'placeholder:text-muted-foreground/50',
+          web: 'outline-none transition-[color,box-shadow] selection:bg-primary selection:text-primary-foreground md:text-sm',
         }),
         className
       )}
@@ -30,3 +54,4 @@ function Input({
 }
 
 export { Input };
+export type { InputProps };

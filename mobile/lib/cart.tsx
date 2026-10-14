@@ -1,7 +1,15 @@
 import { api, type Cart } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useNetwork } from '@/lib/network';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 
 type CartContextValue = {
   cart: Cart | null;

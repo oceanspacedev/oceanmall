@@ -1,5 +1,6 @@
 import { CatalogList } from '@/components/catalog-list';
 
 export default function FeaturedScreen() {
-  return <CatalogList heading="Produk unggulan" query={{ featured: '1' }} />;
+  // Same name as the Beranda section that links here.
+  return <CatalogList heading="Rekomendasi untukmu" query={{ featured: '1' }} />;
 }

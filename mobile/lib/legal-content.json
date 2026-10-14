@@ -1,0 +1,81 @@
+{
+  "draft": true,
+  "docs": {
+    "syarat-ketentuan": {
+      "title": "Syarat & Ketentuan",
+      "updated": "2026-10-14",
+      "sections": [
+        {
+          "heading": "1. Tentang OceanMall",
+          "body": "OceanMall adalah toko online yang menjual produk fisik dan mengirimkannya ke alamat yang kamu pilih. Dengan memakai aplikasi ini atau mendaftar akun, kamu menyetujui syarat dan ketentuan di halaman ini.\n\n[TODO: nama badan usaha, alamat, dan nomor izin penjual.]"
+        },
+        {
+          "heading": "2. Akun kamu",
+          "body": "Untuk membeli, kamu perlu akun dengan nama, email, dan kata sandi. Kata sandi minimal 12 karakter, terdiri dari huruf besar, huruf kecil, angka, dan simbol. Nomor HP boleh dikosongkan saat mendaftar, tetapi kurir memerlukannya untuk menghubungimu saat pengiriman.\n\nJaga kerahasiaan kata sandimu. Satu akun hanya aktif di satu perangkat: masuk di perangkat lain akan mengeluarkan perangkat yang sebelumnya, dan mengubah kata sandi akan mengeluarkan semua perangkat lain."
+        },
+        {
+          "heading": "3. Produk, harga, dan stok",
+          "body": "Harga dalam Rupiah dan mengikuti yang tampil saat kamu membuat pesanan. Stok bisa berubah kapan saja. Barang yang ada di keranjang belum tentu tersedia sampai pesanan dibuat."
+        },
+        {
+          "heading": "4. Pembayaran",
+          "body": "Pembayaran dilakukan lewat virtual account bank atau QRIS, diproses oleh penyedia pembayaran kami (Komerce). Kamu membayar di halaman atau aplikasi bank atau e-wallet, bukan di aplikasi OceanMall, dan OceanMall tidak meminta atau menyimpan nomor kartu maupun rekeningmu.\n\nSetiap pembayaran punya batas waktu yang tertera di detail pesanan. Status pesanan diperbarui otomatis setelah pembayaran diterima. Pesanan yang tidak dibayar sampai batas waktu akan dibatalkan otomatis."
+        },
+        {
+          "heading": "5. Pengiriman",
+          "body": "Kamu memilih kurir dan layanan saat checkout. Ongkos kirim dihitung dari alamat tujuan dan berat barang. Nomor resi muncul di detail pesanan setelah pesanan dikemas, dan kamu bisa melacak pengiriman dari sana. Pengiriman dilakukan oleh kurir pihak ketiga; waktu tiba mengikuti layanan kurir yang dipilih."
+        },
+        {
+          "heading": "6. Pembatalan, pengembalian, dan garansi",
+          "body": "[TODO: kebijakan pembatalan pesanan, pengembalian barang, dan garansi belum ditetapkan oleh OceanMall. Isi bagian ini sebelum aplikasi dirilis.]"
+        },
+        {
+          "heading": "7. Ulasan produk",
+          "body": "Hanya pembeli yang pesanannya sudah diterima yang bisa menulis ulasan. Ulasan ditinjau dulu sebelum tampil, dan setelah tampil bisa dilihat semua pengunjung aplikasi, termasuk yang belum punya akun, dengan nama depan dan nama belakangmu. Tulis dengan sopan dan jujur. Ulasan yang kasar, menyesatkan, atau melanggar hukum akan kami sembunyikan atau hapus. Kalau kamu menemukan ulasan yang tidak pantas, hubungi {{contact}}."
+        },
+        {
+          "heading": "8. Penggunaan aplikasi",
+          "body": "Gunakan aplikasi ini dengan wajar. Jangan mencoba mengakses akun orang lain, mengganggu layanan, atau memakai aplikasi untuk tujuan yang melanggar hukum."
+        },
+        {
+          "heading": "9. Perubahan dan kontak",
+          "body": "Syarat ini bisa diperbarui. Versi terbaru selalu ada di halaman ini, lengkap dengan tanggal pembaruannya. Ada pertanyaan? Hubungi {{contact}}."
+        }
+      ]
+    },
+    "kebijakan-privasi": {
+      "title": "Kebijakan Privasi",
+      "updated": "2026-10-14",
+      "sections": [
+        {
+          "heading": "1. Data yang kami kumpulkan",
+          "body": "Saat kamu memakai OceanMall, kami menyimpan:\n\n• Nama dan email, saat kamu mendaftar.\n• Nomor HP, kalau kamu mengisinya (opsional).\n• Alamat pengiriman yang kamu simpan atau isi saat checkout.\n• Riwayat pesanan dan status pembayaran serta pengirimannya.\n• Ulasan produk yang kamu tulis (bintang, judul, isi, dan apakah kamu merekomendasikan produknya).\n• Penanda akun dan penanda keranjang, supaya keranjangmu tetap tersimpan sebelum dan sesudah masuk."
+        },
+        {
+          "heading": "2. Untuk apa data dipakai",
+          "body": "Data dipakai untuk menjalankan toko: membuat dan mengelola akunmu, memproses pesanan dan pembayaran, mengirim barang, dan memberi tahu status pesananmu. Kami tidak memakai data ini untuk iklan dan tidak menjualnya. Aplikasi ini tidak memuat pelacak iklan atau SDK analitik pihak ketiga."
+        },
+        {
+          "heading": "3. Dengan siapa data dibagikan",
+          "body": "Hanya sejauh yang diperlukan untuk menyelesaikan pesananmu:\n\n• Penyedia pembayaran (Komerce) menerima data pesanan untuk membuat virtual account atau kode QRIS. Data kartu atau rekeningmu tidak pernah melewati aplikasi ini.\n• Kurir, lewat Komerce dan RajaOngkir, menerima nama penerima, nomor HP, dan alamat tujuan untuk mengantar paketmu.\n\nSatu hal lagi bersifat publik: ulasan produk yang sudah disetujui tampil untuk semua pengunjung aplikasi, termasuk yang tanpa akun, bersama nama depan dan nama belakangmu. Data lain di akunmu tidak pernah tampil ke pengguna lain."
+        },
+        {
+          "heading": "4. Keamanan",
+          "body": "Data dikirim lewat koneksi terenkripsi (https). Tanda masuk disimpan di penyimpanan aman perangkatmu, dan kata sandi disimpan dalam bentuk yang tidak bisa dibaca kembali. Kamu juga bisa keluar dari akun kapan saja dari menu Akun."
+        },
+        {
+          "heading": "5. Berapa lama data disimpan",
+          "body": "[TODO: lama penyimpanan data akun, pesanan, dan alamat belum ditetapkan oleh OceanMall. Isi bagian ini sebelum aplikasi dirilis.]"
+        },
+        {
+          "heading": "6. Hak dan permintaanmu",
+          "body": "Kamu bisa melihat dan mengubah nama, email, nomor HP, dan alamatmu di menu Akun.\n\nUntuk meminta penghapusan akunmu atau data pribadimu, hubungi {{contact}}.\n\n[TODO: proses dan lama penanganan permintaan penghapusan akun belum ditetapkan oleh OceanMall, begitu juga data apa yang tetap disimpan (misalnya catatan transaksi untuk urusan pajak dan penyelesaian sengketa). Isi bagian ini sebelum aplikasi dirilis.]\n\nUntuk permintaan lain soal datamu, hubungi {{contact}}."
+        },
+        {
+          "heading": "7. Perubahan dan kontak",
+          "body": "Kebijakan ini bisa diperbarui. Versi terbaru selalu ada di halaman ini, lengkap dengan tanggal pembaruannya. Pertanyaan soal data pribadimu? Hubungi {{contact}}."
+        }
+      ]
+    }
+  }
+}

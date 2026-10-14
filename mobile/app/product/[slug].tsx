@@ -1,26 +1,40 @@
 import { EmptyState } from '@/components/empty-state';
+import { ErrorBanner } from '@/components/error-banner';
 import { ProductGrid } from '@/components/product-grid';
-import { Screen } from '@/components/screen';
-import { QtyStepper, Section, StickyBar } from '@/components/shop';
-import { Stars } from '@/components/stars';
+import { ProductImage } from '@/components/product-image';
+import { CART_HREF, HeaderIconButton, Screen } from '@/components/screen';
+import { QtyStepper, Section, StatusPill, StickyBar } from '@/components/shop';
+import { SectionSkeleton } from '@/components/skeletons';
+import { formatRating, Stars } from '@/components/stars';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { api, errorMessage, type Cart, type Product } from '@/lib/api';
+import { api, ApiError, errorMessage, type Cart, type Product } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
-import { discountPercent, formatDate, formatIdr, mediaUrl, stripHtml } from '@/lib/format';
+import { WEB_URL } from '@/lib/config';
+import {
+  discountPercent,
+  formatCount,
+  formatIdr,
+  formatRelative,
+  mediaUrl,
+  stripHtml,
+} from '@/lib/format';
+import { COLORS } from '@/lib/theme';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  CheckCircle2,
+  ChevronRight,
+  ChevronUp,
   CircleAlert,
   CreditCard,
   PackageCheck,
-  ShoppingCart,
+  Share2,
+  ShieldCheck,
   Star,
   Truck,
 } from 'lucide-react-native';
@@ -28,14 +42,24 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   useWindowDimensions,
   View,
 } from 'react-native';
 
 /** Mirrors CustomerCart::MAX_LINE_QUANTITY on the API. */
 const MAX_LINE_QUANTITY = 10;
+/** Reviews shown before "Lihat semua ulasan". */
+const REVIEW_PREVIEW_COUNT = 3;
+/** Past this many photos the dots turn into noise, so only the "1/N" counter is shown. */
+const MAX_GALLERY_DOTS = 8;
+/** The toast's default distance above the bottom edge, which clears this page's bar. */
+const TOAST_OFFSET = 72;
+/** Extra distance for the add-to-cart toast when the bar carries its "Maks." hint row. */
+const HINT_ROW_OFFSET = 24;
 
 export default function ProductScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -48,25 +72,50 @@ export default function ProductScreen() {
   const [qty, setQty] = useState(1);
   const [imageIndex, setImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+  const [loadError, setLoadError] = useState<{ message: string; missing: boolean } | null>(null);
   const [busy, setBusy] = useState<'cart' | 'buy' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
 
   useEffect(() => {
     if (!slug) {
       return;
     }
+    // A slow answer for a previous slug (or an earlier attempt) must not overwrite a newer one.
+    let active = true;
     setLoading(true);
+    setLoadError(null);
     api<{ data: Product }>(`/catalog/products/${slug}`)
       .then((res) => {
+        if (!active) {
+          return;
+        }
         setProduct(res.data);
         setVariantId(res.data.variants?.[0]?.id ?? null);
         setImageIndex(0);
+        setQty(1);
       })
-      .catch((e) => setError(errorMessage(e, 'Produk tidak ditemukan')))
-      .finally(() => setLoading(false));
-  }, [slug]);
+      .catch((e) => {
+        if (!active) {
+          return;
+        }
+        setLoadError({
+          message: errorMessage(e, 'Produk tidak ditemukan'),
+          missing: e instanceof ApiError && e.status === 404,
+        });
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [slug, attempt]);
 
   const images = useMemo(() => {
     if (!product) {
@@ -78,13 +127,12 @@ export default function ProductScreen() {
     return [...new Set(urls)];
   }, [product]);
 
-  async function addToCart(next: 'stay' | 'checkout') {
-    if (!product) {
+  async function addToCart(next: 'stay' | 'checkout', toastOffset?: number) {
+    if (!product || busy !== null) {
       return;
     }
     setBusy(next === 'checkout' ? 'buy' : 'cart');
     setError(null);
-    setNotice(null);
     try {
       const res = await api<{ data: Cart }>('/cart/items', {
         method: 'POST',
@@ -98,7 +146,13 @@ export default function ProductScreen() {
       });
       applyCart(res.data);
       if (next === 'stay') {
-        setNotice(`${qty} barang ditambahkan ke keranjang.`);
+        toast.show({
+          tone: 'success',
+          message: `${qty} barang ditambahkan ke keranjang`,
+          action: { label: 'Lihat Keranjang', onPress: () => router.push(CART_HREF) },
+          duration: 4000,
+          ...(toastOffset ? { bottomOffset: toastOffset } : {}),
+        });
       }
       if (next === 'checkout') {
         if (!user) {
@@ -122,22 +176,29 @@ export default function ProductScreen() {
   }
 
   if (loading) {
-    return (
-      <Screen title="Produk" showCart surface>
-        <Skeleton className="w-full rounded-none" style={{ height: width }} />
-        <View className="gap-2 bg-white px-4 py-4">
-          <Skeleton className="h-7 w-40" />
-          <Skeleton className="h-5 w-full" />
-          <Skeleton className="h-4 w-32" />
-        </View>
-      </Screen>
-    );
+    return <Screen title="Produk" showCart surface loading={<ProductSkeleton width={width} />} />;
   }
 
   if (!product) {
     return (
       <Screen title="Produk" showCart>
-        <EmptyState icon={CircleAlert} message={error ?? 'Produk tidak ditemukan'} />
+        {loadError?.missing ? (
+          <EmptyState
+            icon={CircleAlert}
+            title="Produk tidak ditemukan"
+            message="Produk ini sudah tidak tersedia atau tautannya salah."
+            actionLabel="Kembali belanja"
+            onAction={() => router.dismissTo('/(tabs)')}
+          />
+        ) : (
+          <EmptyState
+            tone="error"
+            icon={CircleAlert}
+            message={loadError?.message ?? 'Produk tidak ditemukan'}
+            actionLabel="Coba lagi"
+            onAction={() => setAttempt((value) => value + 1)}
+          />
+        )}
       </Screen>
     );
   }
@@ -149,29 +210,63 @@ export default function ProductScreen() {
   const stock = selectedVariant ? (selectedVariant.stock ?? null) : (product.stock ?? null);
   const soldOut = stock !== null && stock < 1;
   const maxQty = Math.max(1, Math.min(MAX_LINE_QUANTITY, stock ?? MAX_LINE_QUANTITY));
+  const atMaxQty = !soldOut && qty >= maxQty;
   const reviews = product.reviews;
+  const reviewItems = reviews?.items ?? [];
   const description = stripHtml(product.description);
 
+  // The shared link opens the web storefront (universal links are a follow-up). Without a
+  // configured web host the message goes out as text only rather than with a made-up address.
+  const url = WEB_URL ? `${WEB_URL}/shop/${encodeURIComponent(product.slug)}` : '';
+  const text =
+    price != null
+      ? `${product.name} - ${formatIdr(price)} di OceanMall`
+      : `${product.name} di OceanMall`;
+
+  const share = async () => {
+    try {
+      // The link goes in exactly one field: iOS appends `url` to the message by itself.
+      await Share.share(
+        Platform.OS === 'ios'
+          ? { message: text, ...(url ? { url } : {}) }
+          : { title: product.name, message: url ? `${text}\n${url}` : text }
+      );
+    } catch {
+      // The sheet failed to open: nothing useful to tell the shopper.
+    }
+  };
+
   return (
-    <Screen title={product.name} showCart surface>
+    <Screen
+      title={product.name}
+      showCart
+      surface
+      rightExtra={
+        <HeaderIconButton icon={Share2} label="Bagikan produk" onPress={() => void share()} />
+      }>
       <View className="flex-1">
         <ScrollView className="flex-1" contentContainerClassName="pb-4">
           {/* Gallery */}
-          <View style={{ height: width, backgroundColor: '#fff' }}>
+          <View style={{ height: width, backgroundColor: COLORS.white }}>
             {images.length > 0 ? (
               <ScrollView
                 horizontal
                 pagingEnabled
                 nestedScrollEnabled
+                scrollsToTop={false}
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={onGalleryScroll}
                 style={{ flex: 1 }}>
-                {images.map((uri) => (
-                  <Image
+                {images.map((uri, index) => (
+                  <ProductImage
                     key={uri}
-                    source={{ uri }}
-                    style={{ width, height: width, backgroundColor: '#fff' }}
+                    uri={uri}
+                    width={width}
+                    height={width}
                     contentFit="contain"
+                    recyclingKey={uri}
+                    priority={index === 0 ? 'high' : undefined}
+                    alt={`Foto ${index + 1} dari ${images.length}: ${product.name}`}
                   />
                 ))}
               </ScrollView>
@@ -181,11 +276,33 @@ export default function ProductScreen() {
               </View>
             )}
             {images.length > 1 ? (
-              <View className="absolute bottom-3 right-3 rounded-sm bg-black/50 px-2.5 py-1">
-                <Text className="text-[11px] font-semibold text-white">
-                  {imageIndex + 1}/{images.length}
-                </Text>
-              </View>
+              <>
+                {images.length <= MAX_GALLERY_DOTS ? (
+                  <View
+                    pointerEvents="none"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    className="absolute inset-x-0 bottom-3 flex-row justify-center gap-1.5">
+                    {images.map((uri, index) => (
+                      <View
+                        key={uri}
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          index === imageIndex ? 'bg-om-navy' : 'bg-om-navy/25'
+                        )}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  className="absolute bottom-3 right-3 rounded-sm bg-black/50 px-2.5 py-1">
+                  <Text className="text-[12px] font-semibold text-white">
+                    {imageIndex + 1}/{images.length}
+                  </Text>
+                </View>
+              </>
             ) : null}
           </View>
 
@@ -208,21 +325,29 @@ export default function ProductScreen() {
                 <Text className="text-[13px] text-muted-foreground line-through">
                   {formatIdr(compare)}
                 </Text>
-                <View className="rounded bg-om-sale-soft px-1.5 py-0.5">
-                  <Text className="text-[11px] font-extrabold text-om-sale">-{off}%</Text>
+                <View className="rounded-sm bg-om-sale-soft px-1.5 py-0.5">
+                  <Text className="text-[12px] font-extrabold text-om-sale-text">-{off}%</Text>
                 </View>
               </View>
             ) : null}
             <Text className="mt-2 text-[16px] font-semibold leading-6">{product.name}</Text>
             <View className="mt-2 flex-row flex-wrap items-center gap-x-3 gap-y-1">
               {reviews && reviews.count > 0 ? (
-                <View className="flex-row items-center gap-1">
-                  <Icon as={Star} size={13} color="#f59e0b" fill="#f59e0b" />
-                  <Text className="text-[12px] font-semibold">{reviews.average.toFixed(1)}</Text>
+                <View
+                  accessible
+                  accessibilityLabel={`Rating ${formatRating(reviews.average)} dari 5, ${reviews.count} ulasan`}
+                  className="flex-row items-center gap-1">
+                  <Icon as={Star} size={13} color={COLORS.star} fill={COLORS.star} />
+                  <Text className="text-[12px] font-semibold">{formatRating(reviews.average)}</Text>
                   <Text className="text-[12px] text-muted-foreground">
                     ({reviews.count} ulasan)
                   </Text>
                 </View>
+              ) : null}
+              {(product.sold_count ?? 0) > 0 ? (
+                <Text className="text-[12px] text-muted-foreground">
+                  Terjual {formatCount(product.sold_count)}
+                </Text>
               ) : null}
               <Text className="text-[12px] text-muted-foreground">
                 Merek{' '}
@@ -233,28 +358,45 @@ export default function ProductScreen() {
               {soldOut ? (
                 <Text className="text-[12px] font-semibold text-destructive">Stok habis</Text>
               ) : stock !== null && stock <= 5 ? (
-                <Text className="text-[12px] font-semibold text-om-sale">Sisa {stock} lagi</Text>
+                <Text className="text-[12px] font-semibold text-om-sale-text">Tersisa {stock}</Text>
               ) : stock !== null ? (
                 <Text className="text-[12px] text-muted-foreground">Stok {stock}</Text>
               ) : null}
+            </View>
+            <View className="mt-2 flex-row items-center gap-1.5">
+              <Icon as={ShieldCheck} size={14} className="text-om-navy" />
+              <Text className="text-[12px] font-semibold text-om-navy">OceanMall Resmi</Text>
             </View>
           </View>
 
           {/* Variants */}
           {(product.variants?.length ?? 0) > 0 ? (
-            <Section title={`Pilih varian: ${selectedVariant?.name ?? '-'}`}>
+            <Section
+              title={
+                selectedVariant?.name ? `Pilih varian: ${selectedVariant.name}` : 'Pilih varian'
+              }>
               <View className="flex-row flex-wrap gap-2">
                 {product.variants?.map((variant) => {
                   const active = variant.id === variantId;
                   const empty =
                     variant.stock !== null && variant.stock !== undefined && variant.stock < 1;
+                  const name = variant.name ?? variant.sku ?? `#${variant.id}`;
                   return (
                     <Pressable
                       key={variant.id}
-                      disabled={empty}
+                      // Not `disabled`: a sold-out variant stays reachable so a screen reader can
+                      // hear that it is sold out instead of skipping over it.
+                      accessibilityRole="button"
+                      accessibilityLabel={empty ? `${name}, habis` : name}
+                      accessibilityState={{ selected: active, disabled: empty }}
+                      hitSlop={{ top: 6, bottom: 6 }}
                       onPress={() => {
+                        if (empty) {
+                          toast.show({ tone: 'info', message: `${name} sedang habis` });
+                          return;
+                        }
                         setVariantId(variant.id);
-                        setNotice(null);
+                        setError(null);
                         if (variant.stock != null) {
                           setQty((current) =>
                             Math.max(1, Math.min(current, variant.stock ?? current))
@@ -262,17 +404,27 @@ export default function ProductScreen() {
                         }
                       }}
                       className={cn(
-                        'rounded-sm border px-3 py-2',
-                        active ? 'border-om-navy bg-om-navy-soft' : 'border-border bg-white',
-                        empty && 'opacity-40'
+                        'flex-row items-center gap-1.5 rounded-sm border px-3 py-2 active:opacity-70',
+                        empty
+                          ? 'border-dashed border-border bg-white'
+                          : active
+                            ? 'border-om-navy bg-om-navy-soft'
+                            : 'border-border bg-white'
                       )}>
                       <Text
                         className={cn(
                           'text-[13px]',
-                          active ? 'font-semibold text-om-navy' : 'text-foreground'
+                          empty
+                            ? 'text-muted-foreground line-through'
+                            : active
+                              ? 'font-semibold text-om-navy'
+                              : 'text-foreground'
                         )}>
-                        {variant.name ?? variant.sku ?? `#${variant.id}`}
+                        {name}
                       </Text>
+                      {empty ? (
+                        <Text className="text-[12px] text-muted-foreground">Habis</Text>
+                      ) : null}
                     </Pressable>
                   );
                 })}
@@ -285,12 +437,12 @@ export default function ProductScreen() {
             <InfoLine
               icon={Truck}
               title="Pengiriman ke seluruh Indonesia"
-              text="Ongkir dihitung otomatis saat checkout sesuai alamat & kurir."
+              text="Ongkir & estimasi tiba dihitung saat checkout."
             />
             <InfoLine
               icon={CreditCard}
-              title="Bayar via Virtual Account & QRIS"
-              text="BCA, BNI, BRI, Mandiri, Permata, dan e-wallet."
+              title="Pembayaran aman"
+              text="Transfer bank, virtual account & QRIS."
             />
             <InfoLine
               icon={PackageCheck}
@@ -310,9 +462,9 @@ export default function ProductScreen() {
               </Text>
               {description.length > 220 ? (
                 <Pressable
+                  accessibilityRole="button"
                   onPress={() => setExpanded((value) => !value)}
-                  hitSlop={8}
-                  className="mt-2">
+                  className="mt-1 min-h-11 justify-center self-start active:opacity-60">
                   <Text className="text-[13px] font-semibold text-om-navy">
                     {expanded ? 'Tampilkan lebih sedikit' : 'Lihat selengkapnya'}
                   </Text>
@@ -327,7 +479,7 @@ export default function ProductScreen() {
               <>
                 <View className="mb-1 flex-row items-center gap-3">
                   <Text className="text-[28px] font-extrabold text-om-navy">
-                    {reviews.average.toFixed(1)}
+                    {formatRating(reviews.average)}
                   </Text>
                   <View>
                     <Stars value={reviews.average} size={14} />
@@ -336,50 +488,74 @@ export default function ProductScreen() {
                     </Text>
                   </View>
                 </View>
-                {reviews.items.slice(0, 3).map((review) => {
-                  const name = review.author_name ?? 'Pembeli';
-                  const initials = name
-                    .trim()
-                    .split(/\s+/)
-                    .slice(0, 2)
-                    .map((part) => part[0])
-                    .join('')
-                    .toUpperCase();
-                  return (
-                    <View key={review.id} className="flex-row gap-2.5 border-t border-border py-3">
-                      <Avatar alt={name} className="size-8">
-                        <AvatarFallback className="bg-om-navy-soft">
-                          <Text className="text-[10px] font-bold text-om-navy">
-                            {initials || 'P'}
-                          </Text>
-                        </AvatarFallback>
-                      </Avatar>
-                      <View className="min-w-0 flex-1">
-                        <View className="flex-row items-center justify-between gap-2">
-                          <Text className="flex-1 text-[13px] font-semibold" numberOfLines={1}>
-                            {name}
-                          </Text>
-                          {review.created_at ? (
-                            <Text className="text-[11px] text-muted-foreground">
-                              {formatDate(review.created_at)}
+                {reviewItems
+                  .slice(0, showAllReviews ? reviewItems.length : REVIEW_PREVIEW_COUNT)
+                  .map((review) => {
+                    const name = review.author_name ?? 'Pembeli';
+                    const initials = name
+                      .trim()
+                      .split(/\s+/)
+                      .slice(0, 2)
+                      .map((part) => part[0])
+                      .join('')
+                      .toUpperCase();
+                    return (
+                      <View
+                        key={review.id}
+                        className="flex-row gap-2.5 border-t border-border py-3">
+                        <Avatar alt={name} className="size-8">
+                          <AvatarFallback className="bg-om-navy-soft">
+                            <Text className="text-[10px] font-bold text-om-navy">
+                              {initials || 'P'}
+                            </Text>
+                          </AvatarFallback>
+                        </Avatar>
+                        <View className="min-w-0 flex-1">
+                          <View className="flex-row items-center justify-between gap-2">
+                            <Text className="flex-1 text-[13px] font-semibold" numberOfLines={1}>
+                              {name}
+                            </Text>
+                            {review.created_at ? (
+                              <Text className="text-[12px] text-muted-foreground">
+                                {formatRelative(review.created_at)}
+                              </Text>
+                            ) : null}
+                          </View>
+                          <View className="mt-1 flex-row flex-wrap items-center gap-x-2 gap-y-1">
+                            <Stars value={review.rating} size={11} />
+                            {review.is_recommended ? (
+                              <StatusPill tone="success" label="Merekomendasikan" />
+                            ) : null}
+                          </View>
+                          {review.title ? (
+                            <Text className="mt-1 text-[13px] font-medium">{review.title}</Text>
+                          ) : null}
+                          {review.content ? (
+                            <Text className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
+                              {review.content}
                             </Text>
                           ) : null}
                         </View>
-                        <View className="mt-1">
-                          <Stars value={review.rating} size={11} />
-                        </View>
-                        {review.title ? (
-                          <Text className="mt-1 text-[13px] font-medium">{review.title}</Text>
-                        ) : null}
-                        {review.content ? (
-                          <Text className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
-                            {review.content}
-                          </Text>
-                        ) : null}
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                {reviewItems.length > REVIEW_PREVIEW_COUNT ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShowAllReviews((value) => !value)}
+                    className="min-h-11 flex-row items-center justify-center gap-1 border-t border-border active:opacity-60">
+                    <Text className="text-[13px] font-semibold text-om-navy">
+                      {showAllReviews
+                        ? 'Tampilkan lebih sedikit'
+                        : `Lihat semua ulasan (${reviewItems.length})`}
+                    </Text>
+                    <Icon
+                      as={showAllReviews ? ChevronUp : ChevronRight}
+                      size={16}
+                      className="text-om-navy"
+                    />
+                  </Pressable>
+                ) : null}
               </>
             ) : (
               <Text className="text-[13px] text-muted-foreground">
@@ -391,7 +567,12 @@ export default function ProductScreen() {
           {/* Related */}
           {(product.related_products?.length ?? 0) > 0 ? (
             <View className="mt-2 px-3 pt-3">
-              <Text className="mb-3 px-1 text-[15px] font-bold text-om-navy">Produk terkait</Text>
+              <Text
+                role="heading"
+                aria-level={2}
+                className="mb-3 px-1 text-[15px] font-bold text-om-navy">
+                Produk terkait
+              </Text>
               <ProductGrid products={product.related_products ?? []} emptyMessage="" />
             </View>
           ) : null}
@@ -399,50 +580,69 @@ export default function ProductScreen() {
 
         <StickyBar>
           {error ? (
-            <View className="mb-2.5 flex-row items-center gap-2 rounded-sm bg-om-sale-soft px-3 py-2">
-              <Icon as={CircleAlert} size={15} className="text-om-sale" />
-              <Text className="flex-1 text-[12px] text-om-sale">{error}</Text>
-            </View>
-          ) : notice ? (
-            <Pressable
-              onPress={() => router.push('/(tabs)/cart')}
-              className="mb-2.5 flex-row items-center gap-2 rounded-sm bg-om-success-soft px-3 py-2">
-              <Icon as={CheckCircle2} size={15} className="text-om-success" />
-              <Text className="flex-1 text-[12px] font-medium text-om-success">{notice}</Text>
-              <Text className="text-[12px] font-bold text-om-success">Lihat</Text>
-            </Pressable>
+            <ErrorBanner message={error} className="mx-0 mb-2.5 mt-0" />
+          ) : atMaxQty ? (
+            <Text className="mb-2 text-[12px] text-muted-foreground">
+              Maks. {maxQty} per pesanan
+            </Text>
           ) : null}
           <View className="flex-row items-center gap-2">
             <QtyStepper
               value={qty}
               max={maxQty}
+              itemLabel={product.name}
               onChange={(value) => {
-                setNotice(null);
+                setError(null);
                 setQty(value);
               }}
             />
             <Button
               variant="outline"
-              disabled={busy !== null || soldOut}
-              onPress={() => void addToCart('stay')}
-              className="h-10 flex-1 rounded-sm border-om-navy px-2">
-              <Icon as={ShoppingCart} size={15} className="text-om-navy" />
-              <Text className="text-[13px] font-bold text-om-navy">
-                {busy === 'cart' ? '...' : 'Keranjang'}
-              </Text>
+              disabled={soldOut}
+              loading={busy === 'cart'}
+              onPress={() =>
+                void addToCart('stay', atMaxQty ? TOAST_OFFSET + HINT_ROW_OFFSET : undefined)
+              }
+              className="min-h-11 flex-1 rounded-sm border-om-navy px-2">
+              <Text className="text-[13px] font-bold text-om-navy">+ Keranjang</Text>
             </Button>
             <Button
-              disabled={busy !== null || soldOut}
+              disabled={soldOut}
+              loading={busy === 'buy'}
               onPress={() => void addToCart('checkout')}
-              className="h-10 flex-1 rounded-sm px-2">
+              className="min-h-11 flex-1 rounded-sm px-2">
               <Text className="text-[13px] font-bold">
-                {soldOut ? 'Stok habis' : busy === 'buy' ? 'Memproses...' : 'Beli Sekarang'}
+                {soldOut ? 'Stok habis' : 'Beli sekarang'}
               </Text>
             </Button>
           </View>
         </StickyBar>
       </View>
     </Screen>
+  );
+}
+
+/** Loading placeholder shaped like the page: gallery, price and title, variant chips, a section. */
+function ProductSkeleton({ width }: { width: number }) {
+  return (
+    <View>
+      <Skeleton className="w-full rounded-none" style={{ height: width }} />
+      <View className="gap-2 bg-white px-4 py-4">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="mt-1 h-3 w-32" />
+      </View>
+      <View className="mt-2 gap-3 bg-white px-4 py-3.5">
+        <Skeleton className="h-4 w-28" />
+        <View className="flex-row gap-2">
+          <Skeleton className="h-9 w-20 rounded-sm" />
+          <Skeleton className="h-9 w-24 rounded-sm" />
+          <Skeleton className="h-9 w-16 rounded-sm" />
+        </View>
+      </View>
+      <SectionSkeleton />
+    </View>
   );
 }
 

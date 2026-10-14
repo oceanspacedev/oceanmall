@@ -10,7 +10,11 @@
     "clean": "rm -rf .expo node_modules",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\"",
-    "format:check": "prettier --check \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\""
+    "format:check": "prettier --check \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\"",
+    "check:colors": "node scripts/check-colors.js",
+    "check": "npm run typecheck && npm run format:check && npm run check:colors",
+    "assets:brand": "node scripts/brand-assets.js",
+    "assets:store": "node scripts/store-assets.js"
   },
   "dependencies": {
     "@rn-primitives/accordion": "^1.5.2",
@@ -28,6 +32,7 @@
     "expo": "~56.0.23",
     "expo-clipboard": "~56.0.4",
     "expo-constants": "~56.0.19",
+    "expo-file-system": "~56.0.11",
     "expo-image": "~56.0.13",
     "expo-linking": "~56.0.18",
     "expo-router": "~56.2.21",
@@ -35,6 +40,7 @@
     "expo-splash-screen": "~56.0.15",
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
+    "expo-web-browser": "~56.0.6",
     "lucide-react-native": "^1.21.0",
     "nativewind": "^4.2.6",
     "react": "19.2.3",
@@ -54,6 +60,7 @@
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@types/react": "~19.2.10",
+    "jimp-compact": "^0.16.1",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "typescript": "~6.0.3"

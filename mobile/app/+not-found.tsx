@@ -1,19 +1,21 @@
 import { EmptyState } from '@/components/empty-state';
-import { Stack, useRouter } from 'expo-router';
+import { Screen } from '@/components/screen';
+import { useRouter } from 'expo-router';
 import { FileQuestion } from 'lucide-react-native';
 
 export default function NotFoundScreen() {
   const router = useRouter();
 
   return (
-    <>
-      <Stack.Screen options={{ title: 'Tidak ditemukan' }} />
+    <Screen title="Halaman tidak ditemukan">
       <EmptyState
         icon={FileQuestion}
-        message="Halaman ini tidak ada."
-        actionLabel="Kembali ke beranda"
-        onAction={() => router.replace('/')}
+        message="Halaman yang kamu cari tidak ada atau sudah dipindahkan."
+        actionLabel="Ke beranda"
+        onAction={() =>
+          router.canGoBack() ? router.dismissTo('/(tabs)') : router.replace('/(tabs)')
+        }
       />
-    </>
+    </Screen>
   );
 }

@@ -53,6 +53,9 @@ module.exports = {
           'warning-soft': 'hsl(var(--om-warning-soft))',
           surface: 'hsl(var(--om-surface))',
           'navy-soft': 'hsl(var(--om-navy-soft))',
+          'sale-text': 'hsl(var(--om-sale-text))',
+          star: 'hsl(var(--om-star))',
+          'star-empty': 'hsl(var(--om-star-empty))',
         },
       },
       borderRadius: {

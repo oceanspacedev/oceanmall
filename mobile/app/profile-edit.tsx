@@ -1,16 +1,26 @@
-import { Field } from '@/components/field';
+import { ErrorBanner } from '@/components/error-banner';
+import { Field, FormScroll } from '@/components/field';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { api, errorMessage } from '@/lib/api';
+import { api, apiFieldErrors, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { toast } from '@/lib/toast';
+import { emailError, isEmail, phoneError, required } from '@/lib/validate';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CircleAlert } from 'lucide-react-native';
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Keyboard, TextInput, View } from 'react-native';
 
 type EditField = 'name' | 'email' | 'phone';
+type InputKey = 'firstName' | 'lastName' | 'email' | 'phone';
+
+/** Server (Laravel) field names to the inputs on this screen. */
+const SERVER_FIELD: Record<string, InputKey> = {
+  first_name: 'firstName',
+  last_name: 'lastName',
+  email: 'email',
+  phone_number: 'phone',
+};
 
 const COPY: Record<EditField, { title: string; hint: string }> = {
   name: {
@@ -34,10 +44,13 @@ export default function ProfileEditScreen() {
   const params = useLocalSearchParams<{ field?: string }>();
   const field: EditField =
     params.field === 'email' || params.field === 'phone' ? params.field : 'name';
+  const lastNameRef = useRef<TextInput>(null);
   const [firstName, setFirstName] = useState(user?.first_name ?? '');
   const [lastName, setLastName] = useState(user?.last_name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [phone, setPhone] = useState(user?.phone_number ?? '');
+  const [touched, setTouched] = useState<Partial<Record<InputKey, boolean>>>({});
+  const [serverErrors, setServerErrors] = useState<Partial<Record<InputKey, string | null>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,15 +68,30 @@ export default function ProfileEditScreen() {
     field === 'name'
       ? firstName.trim() !== '' && lastName.trim() !== ''
       : field === 'email'
-        ? /^\S+@\S+\.\S+$/.test(email.trim())
-        : phone.trim() === '' || /^[0-9+ ]{8,20}$/.test(phone.trim());
+        ? isEmail(email)
+        : phoneError(phone) === null;
+
+  const clientErrors: Record<InputKey, string | null> = {
+    firstName: required(firstName),
+    lastName: required(lastName),
+    email: emailError(email),
+    phone: phoneError(phone),
+  };
+  const fieldError = (key: InputKey): string | null =>
+    serverErrors[key] ?? (touched[key] ? clientErrors[key] : null);
+  const touch = (key: InputKey) => setTouched((current) => ({ ...current, [key]: true }));
+  const edit = (key: InputKey, set: (value: string) => void) => (value: string) => {
+    set(value);
+    setServerErrors((current) => (current[key] ? { ...current, [key]: null } : current));
+  };
 
   async function save() {
-    if (!user) {
+    if (!user || busy || !changed || !valid) {
       return;
     }
     setBusy(true);
     setError(null);
+    setServerErrors({});
     try {
       // The API updates the whole profile; send the untouched values as they are.
       await api('/auth/profile', {
@@ -76,72 +104,102 @@ export default function ProfileEditScreen() {
         }),
       });
       await refresh();
+      // The toast host sits above the navigator, so it outlives the pop.
+      toast.show({ tone: 'success', message: 'Profil diperbarui' });
       router.back();
     } catch (e) {
-      setError(errorMessage(e, 'Gagal menyimpan perubahan'));
-    } finally {
       setBusy(false);
+      Keyboard.dismiss();
+      const mapped: Partial<Record<InputKey, string | null>> = {};
+      for (const [key, messages] of Object.entries(apiFieldErrors(e))) {
+        const input = SERVER_FIELD[key];
+        if (input) {
+          mapped[input] = messages.join(' ');
+        }
+      }
+      setServerErrors(mapped);
+      setError(
+        Object.keys(mapped).length > 0 ? null : errorMessage(e, 'Gagal menyimpan perubahan')
+      );
     }
   }
 
   return (
     <Screen title={COPY[field].title} surface>
-      <View className="flex-1">
+      <FormScroll>
         <View className="mt-2 gap-3 bg-white px-4 py-5">
           {field === 'name' ? (
             <>
               <Field
                 label="Nama depan"
                 value={firstName}
-                onChangeText={setFirstName}
+                onChangeText={edit('firstName', setFirstName)}
+                onBlur={() => touch('firstName')}
+                error={fieldError('firstName')}
                 autoFocus
+                autoCapitalize="words"
                 autoComplete="given-name"
+                placeholder="Contoh: Budi"
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => lastNameRef.current?.focus()}
               />
               <Field
+                ref={lastNameRef}
                 label="Nama belakang"
                 value={lastName}
-                onChangeText={setLastName}
+                onChangeText={edit('lastName', setLastName)}
+                onBlur={() => touch('lastName')}
+                error={fieldError('lastName')}
+                autoCapitalize="words"
                 autoComplete="family-name"
+                placeholder="Contoh: Santoso"
+                returnKeyType="done"
+                onSubmitEditing={() => void save()}
               />
             </>
           ) : field === 'email' ? (
             <Field
               label="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={edit('email', setEmail)}
+              onBlur={() => touch('email')}
+              error={fieldError('email')}
               autoFocus
               autoCapitalize="none"
+              autoCorrect={false}
               keyboardType="email-address"
               autoComplete="email"
+              placeholder="contoh@email.com"
+              returnKeyType="done"
+              onSubmitEditing={() => void save()}
             />
           ) : (
             <Field
               label="Nomor HP"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={edit('phone', setPhone)}
+              onBlur={() => touch('phone')}
+              error={fieldError('phone')}
               autoFocus
               keyboardType="phone-pad"
               autoComplete="tel"
-              placeholder="08…"
+              placeholder="0812 3456 7890"
             />
           )}
           <Text className="text-[12px] leading-5 text-muted-foreground">{COPY[field].hint}</Text>
           <View className="mt-2">
-            {error ? (
-              <View className="mb-2.5 flex-row items-center gap-2 rounded-sm bg-om-sale-soft px-3 py-2">
-                <Icon as={CircleAlert} size={15} className="text-om-sale" />
-                <Text className="flex-1 text-[12px] text-om-sale">{error}</Text>
-              </View>
-            ) : null}
+            {error ? <ErrorBanner message={error} className="mx-0 mb-2.5 mt-0" /> : null}
             <Button
-              disabled={busy || !changed || !valid}
+              disabled={!changed || !valid}
+              loading={busy}
               onPress={() => void save()}
-              className="h-11 rounded-sm">
-              <Text className="font-bold">{busy ? 'Menyimpan...' : 'Simpan'}</Text>
+              className="min-h-11 rounded-sm">
+              <Text className="font-bold">Simpan</Text>
             </Button>
           </View>
         </View>
-      </View>
+      </FormScroll>
     </Screen>
   );
 }

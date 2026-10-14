@@ -6,6 +6,7 @@ import {
   OFFLINE_COPY,
   reportNetworkFailure,
   reportNetworkSuccess,
+  TimeoutError,
 } from '@/lib/network';
 import { getSecureItem, setSecureItem } from '@/lib/storage';
 
@@ -13,11 +14,12 @@ let authToken: string | null = null;
 let guestToken: string | null = null;
 let guestTokenPromise: Promise<string> | null = null;
 
-const GUEST_CART_KEY = 'oceanmall.cart-token';
+/** SecureStore key of the guest cart token. Also cleared by lib/auth.tsx on a fresh install. */
+export const GUEST_CART_KEY = 'oceanmall.cart-token';
 
 let unauthorizedHandler: (() => void) | null = null;
 
-export const SESSION_EXPIRED_MESSAGE = 'Sesi kamu berakhir. Silakan masuk lagi.';
+export const SESSION_EXPIRED_MESSAGE = 'Sesi kamu sudah habis. Masuk lagi, ya.';
 
 export function setAuthToken(token: string | null): void {
   authToken = token;
@@ -66,35 +68,192 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public body: unknown
+    public body: unknown,
+    /** Seconds to wait, from the Retry-After header (429 and 503 responses). */
+    public retryAfter?: number
   ) {
     super(message);
   }
 }
 
-export function errorMessage(error: unknown, fallback = 'Terjadi kesalahan.'): string {
+type ErrorBody = {
+  message?: unknown;
+  errors?: Record<string, string[] | string>;
+};
+
+const DEFAULT_ERROR_MESSAGE = 'Ada yang tidak beres. Coba lagi, ya.';
+const TIMEOUT_MESSAGE = 'Koneksi lambat. Coba lagi, ya.';
+const SERVER_ERROR_MESSAGE = 'Lagi ada gangguan di sistem kami. Coba lagi beberapa saat, ya.';
+const MAINTENANCE_MESSAGE = 'OceanMall sedang pemeliharaan sebentar. Coba lagi nanti.';
+
+/** Untranslated messages that Laravel and the HTTP stack produce on their own. */
+const FRAMEWORK_COPY =
+  /^(too many attempts\.|server error|unauthenticated\.|this action is unauthorized\.|no query results for model|not found|service unavailable|forbidden)/i;
+
+/**
+ * Validation messages come back as ":Attribute wajib diisi." with the English
+ * field name ("First name wajib diisi."). Until the backend ships an `attributes`
+ * lang array, swap the known names for their Indonesian labels here. Longest
+ * phrases first, so "password confirmation" wins over "password".
+ */
+const ATTRIBUTE_LABELS: [RegExp, string][] = (
+  [
+    ['password confirmation', 'konfirmasi kata sandi'],
+    ['current password', 'kata sandi saat ini'],
+    ['first name', 'nama depan'],
+    ['last name', 'nama belakang'],
+    ['phone number', 'nomor HP'],
+    ['street address', 'alamat lengkap'],
+    ['postal code', 'kode pos'],
+    ['password', 'kata sandi'],
+    ['city', 'kota'],
+    ['state', 'provinsi'],
+  ] as const
+).map(([english, indonesian]): [RegExp, string] => [
+  new RegExp(`\\b${english}\\b`, 'gi'),
+  indonesian,
+]);
+
+function localizeAttributes(message: string): string {
+  let result = message;
+  for (const [pattern, label] of ATTRIBUTE_LABELS) {
+    result = result.replace(pattern, label);
+  }
+  if (result === message) {
+    return message;
+  }
+
+  return result.charAt(0).toUpperCase() + result.slice(1);
+}
+
+function retryDelayMessage(seconds: number): string {
+  const wait = Math.max(1, Math.ceil(seconds));
+  if (wait > 90) {
+    return `Terlalu banyak percobaan. Coba lagi dalam ${Math.ceil(wait / 60)} menit.`;
+  }
+
+  return `Terlalu banyak percobaan. Coba lagi dalam ${wait} detik.`;
+}
+
+/**
+ * Turns anything a request can throw into a sentence a shopper can act on.
+ * Never leaks framework copy ("Server Error", "No query results for model ...",
+ * "HTTP 404") or a raw JS error; `fallback` is what a screen says for "this did
+ * not work" in its own words (e.g. 'Produk tidak ditemukan' for a 404).
+ */
+export function errorMessage(error: unknown, fallback = DEFAULT_ERROR_MESSAGE): string {
+  // A slow answer is not an offline device: check timeouts before the offline branch.
+  if (
+    error instanceof TimeoutError ||
+    (error instanceof ApiError && (error.status === 408 || error.status === 504))
+  ) {
+    return TIMEOUT_MESSAGE;
+  }
+
   if (isNetworkFailure(error)) {
     return OFFLINE_COPY.message;
   }
 
   if (error instanceof ApiError) {
-    const body = error.body as { message?: string; errors?: Record<string, string[] | string> };
-    if (body?.errors) {
+    const body = (error.body ?? {}) as ErrorBody;
+
+    if (body.errors && typeof body.errors === 'object') {
       const first = Object.values(body.errors)[0];
-      if (Array.isArray(first) && first[0]) {
-        return first[0];
+      if (Array.isArray(first) && typeof first[0] === 'string' && first[0] !== '') {
+        return localizeAttributes(first[0]);
       }
       if (typeof first === 'string' && first !== '') {
-        return first;
+        return localizeAttributes(first);
       }
     }
-    return body?.message ?? error.message;
+
+    const message = typeof body.message === 'string' ? body.message.trim() : '';
+    if (message !== '' && !FRAMEWORK_COPY.test(message)) {
+      return message;
+    }
+
+    switch (true) {
+      case error.status === 401:
+        // The session-expired copy is a custom body message and returned above.
+        return 'Masuk dulu untuk melanjutkan.';
+      case error.status === 403:
+        return 'Kamu tidak punya akses ke halaman ini.';
+      case error.status === 404:
+        return fallback;
+      case error.status === 429:
+        return error.retryAfter !== undefined
+          ? retryDelayMessage(error.retryAfter)
+          : 'Terlalu banyak percobaan. Tunggu sebentar, lalu coba lagi.';
+      case error.status === 503 && /^service unavailable/i.test(message):
+        return MAINTENANCE_MESSAGE;
+      case error.status >= 500:
+        return SERVER_ERROR_MESSAGE;
+      default:
+        return fallback;
+    }
   }
 
-  return error instanceof Error ? error.message : fallback;
+  // A raw JS error (a JSON parse failure, a bug) is never shown to a shopper.
+  return fallback;
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+/**
+ * All validation messages per field from a 422 response, for inline errors under
+ * each input. Empty when the error carries none.
+ */
+export function apiFieldErrors(error: unknown): Record<string, string[]> {
+  if (!(error instanceof ApiError)) {
+    return {};
+  }
+
+  const errors = (error.body as ErrorBody | null | undefined)?.errors;
+  if (!errors || typeof errors !== 'object') {
+    return {};
+  }
+
+  const result: Record<string, string[]> = {};
+  for (const [field, value] of Object.entries(errors)) {
+    const messages = (Array.isArray(value) ? value : [value]).filter(
+      (message): message is string => typeof message === 'string' && message !== ''
+    );
+    if (messages.length > 0) {
+      result[field] = messages.map(localizeAttributes);
+    }
+  }
+
+  return result;
+}
+
+function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, Math.ceil(seconds));
+  }
+  const at = Date.parse(value);
+  if (!Number.isNaN(at)) {
+    return Math.max(0, Math.ceil((at - Date.now()) / 1000));
+  }
+
+  return undefined;
+}
+
+/**
+ * Longer limit for the calls that wait on an outside provider (courier quotes, the payment
+ * gateway). The default of 8 s suits the catalog and cart, but a place-order that is still
+ * creating the payment would be aborted client-side after the order already exists. Stays above
+ * the server's own 30 s execution limit (config/octane.php), so the server gives up first.
+ */
+export const PROVIDER_TIMEOUT_MS = 45_000;
+
+export type ApiInit = RequestInit & {
+  /** Overrides the default request time limit (see fetchWithTimeout). */
+  timeoutMs?: number;
+};
+
+export async function api<T>(path: string, { timeoutMs, ...init }: ApiInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
   if (!headers.has('Content-Type') && init.body) {
@@ -107,9 +266,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   let response: Response;
   try {
-    response = await fetchWithTimeout(`${API_URL}${path}`, { ...init, headers });
+    response = await fetchWithTimeout(`${API_URL}${path}`, { ...init, headers }, timeoutMs);
     reportNetworkSuccess();
   } catch (error) {
+    // A timeout means a slow server, not a lost connection: leave the offline state alone.
+    if (error instanceof TimeoutError) {
+      throw error;
+    }
     reportNetworkFailure();
     throw error instanceof NetworkError ? error : new NetworkError();
   }
@@ -124,7 +287,12 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       unauthorizedHandler?.();
       throw new ApiError(SESSION_EXPIRED_MESSAGE, 401, { message: SESSION_EXPIRED_MESSAGE });
     }
-    throw new ApiError(json.message ?? `HTTP ${response.status}`, response.status, json);
+    throw new ApiError(
+      json.message ?? '',
+      response.status,
+      json,
+      parseRetryAfter(response.headers.get('Retry-After'))
+    );
   }
 
   return json as T;
@@ -170,6 +338,10 @@ export type Product = {
   }[];
   /** Product detail only; null for variant products or untracked stock. */
   stock?: number | null;
+  /** Social proof; rendered only when the backend sends it. */
+  rating_average?: number | null;
+  rating_count?: number;
+  sold_count?: number;
   reviews?: {
     average: number;
     count: number;

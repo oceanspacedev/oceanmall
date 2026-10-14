@@ -112,6 +112,10 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
+            // OceanMall: a local ./gradlew assembleRelease / bundleRelease is signed with the DEBUG
+            // key and is NOT uploadable to Google Play. Store builds are signed by EAS
+            // (`eas credentials -p android`, Play App Signing), so signingConfigs stays as is.
+            // See mobile/store/README.md.
             signingConfig signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()

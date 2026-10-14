@@ -1,32 +1,47 @@
+import { ErrorBanner } from '@/components/error-banner';
+import { FormScroll } from '@/components/field';
+import { PasswordChecklist } from '@/components/password-checklist';
+import { PasswordField } from '@/components/password-field';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
-import { api, errorMessage } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { api, apiFieldErrors, errorMessage } from '@/lib/api';
+import { PASSWORD_RULES_STRING, passwordMeetsRules } from '@/lib/password-rules';
+import { toast } from '@/lib/toast';
+import { PASSWORD_MISMATCH_ERROR } from '@/lib/validate';
 import { useRouter } from 'expo-router';
-import { Check, CircleAlert, Eye, EyeOff } from 'lucide-react-native';
-import { useState } from 'react';
-import { Alert as RNAlert, Pressable, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Keyboard, TextInput, View } from 'react-native';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
   const [current, setCurrent] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [confirmTouched, setConfirmTouched] = useState(false);
+  const [currentError, setCurrentError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const longEnough = password.length >= 8;
   const matches = confirm.length > 0 && password === confirm;
   const differs = password.length > 0 && password !== current;
-  const canSave = current.length > 0 && longEnough && matches && differs && !busy;
+  // Not gated on `busy`: a busy button shows its spinner at full strength instead of dimmed.
+  const canSave = current.length > 0 && passwordMeetsRules(password) && matches && differs;
+
+  const showMismatch =
+    confirm.length > 0 && !matches && (confirmTouched || confirm.length >= password.length);
 
   async function save() {
+    if (busy || !canSave) {
+      return;
+    }
     setBusy(true);
     setError(null);
+    setCurrentError(null);
+    setPasswordError(null);
     try {
       await api('/auth/password', {
         method: 'PUT',
@@ -36,103 +51,90 @@ export default function ChangePasswordScreen() {
           password_confirmation: confirm,
         }),
       });
-      RNAlert.alert(
-        'Kata sandi diperbarui',
-        'Perangkat lain yang masuk ke akunmu sudah dikeluarkan.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      // The toast host sits above the navigator, so it survives the pop.
+      router.back();
+      toast.show({ tone: 'success', message: 'Kata sandi diperbarui' });
     } catch (e) {
-      setError(errorMessage(e, 'Gagal mengubah kata sandi'));
-    } finally {
       setBusy(false);
+      Keyboard.dismiss();
+      const fields = apiFieldErrors(e);
+      const currentMessage = fields.current_password?.join(' ') ?? null;
+      const passwordMessage = fields.password?.join(' ') ?? null;
+      setCurrentError(currentMessage);
+      setPasswordError(passwordMessage);
+      // Anything that is not about one of the two fields (offline, a throttle) goes in the banner.
+      setError(
+        currentMessage || passwordMessage ? null : errorMessage(e, 'Gagal mengubah kata sandi')
+      );
     }
   }
 
   return (
     <Screen title="Ubah kata sandi" surface>
-      <View className="flex-1">
+      <FormScroll>
         <View className="mt-2 gap-4 bg-white px-4 py-5">
           <PasswordField
             label="Kata sandi saat ini"
             value={current}
-            onChangeText={setCurrent}
+            onChangeText={(value) => {
+              setCurrent(value);
+              setCurrentError(null);
+            }}
+            error={currentError}
             autoFocus
+            autoComplete="current-password"
+            placeholder="Kata sandi lama"
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => passwordRef.current?.focus()}
           />
-          <PasswordField label="Kata sandi baru" value={password} onChangeText={setPassword} />
-          <PasswordField label="Ulangi kata sandi baru" value={confirm} onChangeText={setConfirm} />
-          <View className="gap-1.5">
-            <Rule ok={longEnough} text="Minimal 8 karakter" />
-            <Rule ok={differs} text="Berbeda dari kata sandi saat ini" />
-            <Rule ok={matches} text="Kedua kata sandi baru sama" />
-          </View>
+          <PasswordField
+            ref={passwordRef}
+            label="Kata sandi baru"
+            value={password}
+            onChangeText={(value) => {
+              setPassword(value);
+              setPasswordError(null);
+            }}
+            error={passwordError}
+            autoComplete="new-password"
+            passwordRules={PASSWORD_RULES_STRING}
+            placeholder="Buat kata sandi yang kuat"
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => confirmRef.current?.focus()}
+          />
+          <PasswordField
+            ref={confirmRef}
+            label="Ulangi kata sandi baru"
+            value={confirm}
+            onChangeText={setConfirm}
+            onBlur={() => setConfirmTouched(true)}
+            error={showMismatch ? PASSWORD_MISMATCH_ERROR : null}
+            autoComplete="new-password"
+            placeholder="Ketik ulang kata sandi baru"
+            returnKeyType="done"
+            onSubmitEditing={() => void save()}
+          />
+          <PasswordChecklist
+            value={password}
+            extra={[
+              { key: 'differs', label: 'Berbeda dari kata sandi saat ini', met: differs },
+              { key: 'matches', label: 'Kedua kata sandi baru sama', met: matches },
+            ]}
+          />
           <View className="mt-2">
-            {error ? (
-              <View className="mb-2.5 flex-row items-center gap-2 rounded-sm bg-om-sale-soft px-3 py-2">
-                <Icon as={CircleAlert} size={15} className="text-om-sale" />
-                <Text className="flex-1 text-[12px] text-om-sale">{error}</Text>
-              </View>
-            ) : null}
-            <Button disabled={!canSave} onPress={() => void save()} className="h-11 rounded-sm">
-              <Text className="font-bold">{busy ? 'Menyimpan...' : 'Simpan kata sandi'}</Text>
+            {error ? <ErrorBanner message={error} className="mx-0 mb-2.5 mt-0" /> : null}
+            <Button
+              disabled={!canSave}
+              loading={busy}
+              onPress={() => void save()}
+              className="min-h-11 rounded-sm">
+              <Text className="font-bold">Simpan kata sandi</Text>
             </Button>
           </View>
         </View>
-      </View>
+      </FormScroll>
     </Screen>
-  );
-}
-
-function PasswordField({
-  label,
-  value,
-  onChangeText,
-  autoFocus,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  autoFocus?: boolean;
-}) {
-  const [visible, setVisible] = useState(false);
-
-  return (
-    <View className="gap-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <View className="justify-center">
-        <Input
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={!visible}
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoFocus={autoFocus}
-          className="pr-11"
-        />
-        <Pressable
-          accessibilityLabel={visible ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
-          onPress={() => setVisible((current) => !current)}
-          hitSlop={8}
-          className="absolute right-3">
-          <Icon as={visible ? EyeOff : Eye} size={18} className="text-muted-foreground" />
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function Rule({ ok, text }: { ok: boolean; text: string }) {
-  return (
-    <View className="flex-row items-center gap-2">
-      <View
-        className={cn(
-          'size-4 items-center justify-center rounded-full',
-          ok ? 'bg-om-success' : 'bg-om-disabled'
-        )}>
-        <Icon as={Check} size={10} color="#fff" />
-      </View>
-      <Text className={cn('text-[12px]', ok ? 'text-om-success' : 'text-muted-foreground')}>
-        {text}
-      </Text>
-    </View>
   );
 }

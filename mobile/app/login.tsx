@@ -1,98 +1,127 @@
-import { Field } from '@/components/field';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { AuthShell } from '@/components/auth-shell';
+import { ErrorBanner } from '@/components/error-banner';
+import { Field } from '@/components/field';
+import { PasswordField } from '@/components/password-field';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { CircleAlert } from 'lucide-react-native';
 import { errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { safeInternalPath } from '@/lib/redirect';
-import { Link, useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { DEFAULT_AUTH_REDIRECT, authContext, leaveAuth, safeInternalPath } from '@/lib/redirect';
+import { Link, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native';
+
+const LINK_SLOP = { top: 14, bottom: 14, left: 12, right: 12 };
 
 export default function LoginScreen() {
   const { login, user } = useAuth();
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ redirect?: string }>();
-  const next = safeInternalPath(params.redirect, '/(tabs)/account');
+  const next = safeInternalPath(params.redirect, DEFAULT_AUTH_REDIRECT);
+  const context = authContext(params.redirect, 'login');
+  const scrollRef = useRef<ScrollView>(null);
+  const passwordRef = useRef<TextInput>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Only the visible auth screen redirects; a login screen buried under
-  // register must not navigate on its own when the user signs in.
+  // The one place that leaves this screen: only the visible auth screen redirects, so a login
+  // screen buried under register never navigates on its own when the user signs in.
   useEffect(() => {
     if (user && navigation.isFocused()) {
-      router.replace(next as Href);
+      leaveAuth(router, next);
     }
   }, [navigation, next, router, user]);
 
+  const ready = email.trim() !== '' && password !== '';
+
   async function submit() {
+    if (busy || !ready) {
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       await login(email.trim(), password);
-      router.replace(next as Href);
+      // Stay busy: the effect above navigates as soon as the user is set.
     } catch (e) {
-      setError(errorMessage(e, 'Gagal masuk'));
-    } finally {
       setBusy(false);
+      setError(errorMessage(e, 'Gagal masuk'));
+      Keyboard.dismiss();
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
     }
   }
 
+  const toRegister = () =>
+    router.replace({
+      pathname: '/register',
+      params: params.redirect ? { redirect: params.redirect } : {},
+    });
+
   return (
-    <AuthShell
-      title="Masuk ke akunmu"
-      subtitle="Lanjutkan belanja, cek pesanan, dan checkout lebih cepat.">
-      {error ? (
-        <Alert icon={CircleAlert} variant="destructive" className="mb-1">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-      <View className="mt-4 gap-3">
+    <AuthShell title={context.title} subtitle={context.subtitle} scrollRef={scrollRef}>
+      <View className="gap-4">
         <Field
           label="Email"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
-          autoComplete="email"
-          placeholder="email@contoh.com"
+          autoComplete="username"
+          textContentType="username"
+          placeholder="contoh@email.com"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordRef.current?.focus()}
         />
-        <Field
+        <PasswordField
+          ref={passwordRef}
           label="Kata sandi"
           value={password}
           onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-          placeholder="Kata sandi"
+          autoComplete="current-password"
+          textContentType="password"
+          placeholder="Masukkan kata sandi"
+          returnKeyType="go"
+          onSubmitEditing={() => void submit()}
         />
       </View>
-      <Button
-        className="mt-6 h-12 rounded-sm"
-        disabled={busy || !email || !password}
-        onPress={() => void submit()}>
-        <Text>{busy ? 'Masuk...' : 'Masuk'}</Text>
-      </Button>
-      <View className="mt-3 items-center">
-        <Link href="/forgot-password">
-          <Text className="text-[13px] font-semibold text-om-navy">Lupa kata sandi?</Text>
+      <View className="mt-3 items-end">
+        <Link href="/forgot-password" asChild>
+          <Pressable accessibilityRole="link" hitSlop={LINK_SLOP} className="active:opacity-60">
+            <Text className="text-[13px] font-bold text-om-navy">Lupa kata sandi?</Text>
+          </Pressable>
         </Link>
       </View>
-      <View className="mt-4 flex-row justify-center gap-1">
+
+      <View className="mt-5">
+        {error ? <ErrorBanner message={error} className="mx-0 mb-3 mt-0" /> : null}
+        <Button
+          className="min-h-12 rounded-sm"
+          disabled={!ready}
+          loading={busy}
+          onPress={() => void submit()}>
+          <Text className="font-bold">Masuk</Text>
+        </Button>
+        {!ready && !busy ? (
+          <Text className="mt-2 text-center text-[12px] text-muted-foreground">
+            Isi email dan kata sandi untuk masuk
+          </Text>
+        ) : null}
+      </View>
+
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Belum punya akun? Daftar"
+        onPress={toRegister}
+        hitSlop={LINK_SLOP}
+        className="mt-5 min-h-11 flex-row items-center justify-center gap-1 active:opacity-60">
         <Text className="text-[13px] text-muted-foreground">Belum punya akun?</Text>
-        <Link
-          replace
-          href={{
-            pathname: '/register',
-            params: params.redirect ? { redirect: params.redirect } : {},
-          }}>
-          <Text className="text-[13px] font-semibold text-om-navy">Daftar</Text>
-        </Link>
-      </View>
+        <Text className="text-[13px] font-bold text-om-navy">Daftar</Text>
+      </Pressable>
     </AuthShell>
   );
 }

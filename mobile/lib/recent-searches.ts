@@ -32,6 +32,18 @@ export async function rememberSearch(query: string): Promise<string[]> {
   return next;
 }
 
+/** Remove one entry (the X on a recent-search pill) and return what is left. */
+export async function forgetSearch(query: string): Promise<string[]> {
+  const q = query.trim().toLowerCase();
+  const next = (await getRecentSearches()).filter((item) => item.toLowerCase() !== q);
+  try {
+    await setSecureItem(KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+  return next;
+}
+
 export async function clearRecentSearches(): Promise<void> {
   try {
     await setSecureItem(KEY, '[]');

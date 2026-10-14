@@ -12,11 +12,12 @@ function Alert({
   icon,
   iconClassName,
   ...props
-}: React.ComponentProps<typeof View> & React.RefAttributes<View> & {
-  icon: LucideIcon;
-  variant?: 'default' | 'destructive';
-  iconClassName?: string;
-}) {
+}: React.ComponentProps<typeof View> &
+  React.RefAttributes<View> & {
+    icon: LucideIcon;
+    variant?: 'default' | 'destructive';
+    iconClassName?: string;
+  }) {
   return (
     <TextClassContext.Provider
       value={cn(
@@ -26,8 +27,9 @@ function Alert({
       )}>
       <View
         role="alert"
+        accessibilityLiveRegion="assertive"
         className={cn(
-          'bg-card border-border relative w-full rounded-lg border px-4 pb-2 pt-3.5',
+          'relative w-full rounded-lg border border-border bg-card px-4 pb-2 pt-3.5',
           className
         )}
         {...props}>
@@ -43,10 +45,7 @@ function Alert({
   );
 }
 
-function AlertTitle({
-  className,
-  ...props
-}: React.ComponentProps<typeof Text>) {
+function AlertTitle({ className, ...props }: React.ComponentProps<typeof Text>) {
   return (
     <Text
       className={cn('mb-1 ml-0.5 min-h-4 pl-6 font-medium leading-none tracking-tight', className)}
@@ -55,15 +54,12 @@ function AlertTitle({
   );
 }
 
-function AlertDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof Text>) {
+function AlertDescription({ className, ...props }: React.ComponentProps<typeof Text>) {
   const textClass = React.useContext(TextClassContext);
   return (
     <Text
       className={cn(
-        'text-muted-foreground ml-0.5 pb-1.5 pl-6 text-sm leading-relaxed',
+        'ml-0.5 pb-1.5 pl-6 text-sm leading-relaxed text-muted-foreground',
         textClass?.includes('text-destructive') && 'text-destructive/90',
         className
       )}

@@ -1,13 +1,17 @@
-import { EmptyState } from '@/components/empty-state';
+import { LoginPrompt } from '@/components/login-prompt';
 import { Screen } from '@/components/screen';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/lib/auth';
+import { ripple } from '@/lib/ripple';
 import { cn } from '@/lib/utils';
-import { useRouter, type Href } from 'expo-router';
-import { ChevronRight, KeyRound, ShieldCheck, User } from 'lucide-react-native';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ChevronRight, KeyRound, ShieldCheck, UserRound } from 'lucide-react-native';
+import { Platform, Pressable, ScrollView, View } from 'react-native';
+
+/** Pressed feedback for a full-width row: a ripple on Android, a gray wash on iOS (not both). */
+const ROW_PRESSED = Platform.OS === 'ios' ? 'active:bg-om-surface' : '';
 
 export default function ProfileScreen() {
   const { user } = useAuth();
@@ -16,11 +20,11 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <Screen title="Profil & keamanan">
-        <EmptyState
-          icon={User}
-          message="Masuk untuk melihat profilmu."
-          actionLabel="Masuk"
-          onAction={() => router.push({ pathname: '/login', params: { redirect: '/profile' } })}
+        <LoginPrompt
+          icon={UserRound}
+          title="Masuk ke akunmu"
+          body="Kelola data diri dan keamanan akun setelah masuk."
+          redirect="/profile"
         />
       </Screen>
     );
@@ -30,12 +34,15 @@ export default function ProfileScreen() {
   const initials =
     `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || 'OM';
   const edit = (field: 'name' | 'email' | 'phone') =>
-    router.push({ pathname: '/profile-edit', params: { field } } as unknown as Href);
+    router.push({ pathname: '/profile-edit', params: { field } });
 
   return (
     <Screen title="Profil & keamanan" surface>
       <ScrollView className="flex-1" contentContainerClassName="pb-10">
-        <View className="items-center bg-white pb-5 pt-6">
+        <View
+          accessible
+          accessibilityLabel={`${fullName}, ${user.email}`}
+          className="items-center bg-white pb-5 pt-6">
           <Avatar alt={fullName} className="size-20">
             <AvatarFallback className="bg-om-navy">
               <Text className="text-[26px] font-extrabold text-white">{initials}</Text>
@@ -45,7 +52,10 @@ export default function ProfileScreen() {
           <Text className="text-[12px] text-muted-foreground">{user.email}</Text>
         </View>
 
-        <Text className="px-4 pb-2 pt-5 text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
+        <Text
+          role="heading"
+          aria-level={2}
+          className="px-4 pb-2 pt-5 text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
           Info profil
         </Text>
         <View className="bg-white">
@@ -60,13 +70,19 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <Text className="px-4 pb-2 pt-6 text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
+        <Text
+          role="heading"
+          aria-level={2}
+          className="px-4 pb-2 pt-6 text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
           Keamanan
         </Text>
         <View className="bg-white">
           <Pressable
-            onPress={() => router.push('/change-password' as Href)}
-            className="flex-row items-center gap-3 px-4 py-4 active:bg-om-surface">
+            accessibilityRole="button"
+            accessibilityLabel="Ubah kata sandi, perangkat lain akan otomatis keluar"
+            onPress={() => router.push('/change-password')}
+            android_ripple={ripple.row}
+            className={cn('min-h-11 flex-row items-center gap-3 px-4 py-4', ROW_PRESSED)}>
             <View className="size-9 items-center justify-center rounded-full bg-om-navy-soft">
               <Icon as={KeyRound} size={17} className="text-om-navy" />
             </View>
@@ -83,8 +99,8 @@ export default function ProfileScreen() {
         <View className="mx-4 mt-5 flex-row gap-2 rounded-sm bg-om-navy-soft p-3">
           <Icon as={ShieldCheck} size={16} className="mt-0.5 text-om-navy" />
           <Text className="flex-1 text-[12px] leading-5 text-om-navy">
-            Akunmu hanya bisa aktif di satu perangkat. Masuk di perangkat lain akan mengeluarkan
-            perangkat ini.
+            Satu akun aktif di satu perangkat. Kalau kamu masuk di perangkat lain, perangkat yang
+            sebelumnya otomatis keluar. Mengubah kata sandi mengeluarkan semua perangkat lain.
           </Text>
         </View>
       </ScrollView>
@@ -106,7 +122,12 @@ function InfoRow({
   last?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} className="flex-row items-center pl-4 active:bg-om-surface">
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Ubah ${label}, ${value}`}
+      onPress={onPress}
+      android_ripple={ripple.row}
+      className={cn('min-h-11 flex-row items-center pl-4', ROW_PRESSED)}>
       <View
         className={cn('flex-1 flex-row items-center py-4 pr-4', !last && 'border-b border-border')}>
         <Text className="w-24 text-[13px] text-muted-foreground">{label}</Text>

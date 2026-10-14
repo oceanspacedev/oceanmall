@@ -17,3 +17,13 @@ npm-debug.*
 
 expo-env.d.ts
 # @end expo-cli
+
+# The repo root .gitignore ignores .env.production. The production host (not a secret) must be
+# committed so EAS Build sees it, so re-include it here. Machine-local overrides stay ignored:
+# every .env*.local (.env.local, .env.development.local, .env.production.local, ...) is read by
+# Expo and wins over .env.production, so none of them may be committed.
+!.env.production
+.env*.local
+
+# Google Play service account for `eas submit` (secret)
+play-service-account.json

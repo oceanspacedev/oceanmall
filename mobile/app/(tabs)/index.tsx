@@ -1,48 +1,383 @@
+import { BrandRefreshControl } from '@/components/brand-refresh-control';
 import { EmptyState } from '@/components/empty-state';
+import { ErrorBanner } from '@/components/error-banner';
+import { HomeHeader } from '@/components/home-header';
 import { ProductGrid } from '@/components/product-grid';
+import { ProductImage } from '@/components/product-image';
+import { ProductRail, SectionHeader } from '@/components/product-rail';
+import { ProductGridSkeleton } from '@/components/skeletons';
 import { Icon } from '@/components/ui/icon';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { errorMessage, fetchHome, type Brand, type Category, type Collection, type Product } from '@/lib/api';
-import { useCart } from '@/lib/cart';
-import { mediaUrl } from '@/lib/format';
-import { useNetwork } from '@/lib/network';
-import { setPendingSearchQuery } from '@/lib/search-query';
-import { Image } from 'expo-image';
-import { Link, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { CircleAlert, SearchIcon, ShoppingBagIcon, WifiOff } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from '@/lib/a11y';
 import {
+  errorMessage,
+  fetchHome,
+  type Brand,
+  type Category,
+  type Collection,
+  type Product,
+} from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { discountPercent, mediaUrl } from '@/lib/format';
+import { useNetwork } from '@/lib/network';
+import { getSecureItem, setSecureItem } from '@/lib/storage';
+import { COLORS } from '@/lib/theme';
+import { useRefresh } from '@/lib/use-refresh';
+import { cn } from '@/lib/utils';
+import { Link, useFocusEffect, useRouter, useScrollToTop } from 'expo-router';
+import { CircleAlert, Grid3x3, Store, UserRound, WifiOff, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
-  RefreshControl,
   ScrollView,
-  TextInput,
+  StyleSheet,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from '@/components/safe-area-view';
+
+const BANNER_GAP = 10;
+const BANNER_PAD = 12;
+const BANNER_HEIGHT = 156;
+const BANNER_INTERVAL_MS = 4000;
+/** After the user touches the banner, autoplay waits at least this long before moving it. */
+const BANNER_IDLE_MS = 2500;
+const MAX_CATEGORY_TILES = 8;
+const NUDGE_KEY = 'oceanmall.home-nudge-dismissed';
+
+function initials(name: string): string {
+  return name.slice(0, 2).toUpperCase();
+}
+
+/** True while VoiceOver or TalkBack is running: a self-moving banner is a trap for them. */
+function useScreenReader(): boolean {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isScreenReaderEnabled()
+      .then((value) => {
+        if (active) {
+          setEnabled(value);
+        }
+      })
+      .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener('screenReaderChanged', setEnabled);
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return enabled;
+}
+
+/** Placeholder with the loaded page's silhouette: banner, category grid and a product grid. */
+function HomeSkeleton() {
+  return (
+    <View accessibilityLiveRegion="polite" className="flex-1 overflow-hidden bg-om-surface">
+      <Text className="absolute h-px w-px opacity-0">Memuat…</Text>
+      <Skeleton className="mx-3 mt-3 rounded-xl" style={{ height: BANNER_HEIGHT }} />
+      <View className="mx-3 mt-3 flex-row flex-wrap rounded-lg bg-white p-3">
+        {Array.from({ length: MAX_CATEGORY_TILES }, (_, index) => (
+          <View key={index} className="w-1/4 items-center py-2">
+            <Skeleton className="size-[52px] rounded-xl" />
+            <View className="mt-1.5 h-8 items-center">
+              <Skeleton className="h-3 w-12" />
+            </View>
+          </View>
+        ))}
+      </View>
+      <View className="mt-3 px-3">
+        <ProductGridSkeleton count={4} />
+      </View>
+    </View>
+  );
+}
+
+/** "Masuk untuk ..." strip for signed-out visitors. Dismissing it is remembered. */
+function GuestStrip({ onDismiss }: { onDismiss: () => void }) {
+  const router = useRouter();
+
+  return (
+    <View className="min-h-11 flex-row items-center gap-2 bg-om-navy-soft pl-4 pr-1">
+      <Icon as={UserRound} size={16} color={COLORS.navy} />
+      <Text className="flex-1 py-1.5 text-[12px] leading-4">
+        Masuk untuk lacak pesanan & checkout lebih cepat
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Masuk"
+        hitSlop={{ top: 4, bottom: 4 }}
+        onPress={() => router.push('/login')}
+        className="min-h-11 justify-center px-2 active:opacity-70">
+        <Text className="text-[12px] font-bold text-om-navy">Masuk</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Tutup"
+        onPress={onDismiss}
+        className="size-11 items-center justify-center active:opacity-70">
+        <Icon as={X} size={14} color={COLORS.slate} />
+      </Pressable>
+    </View>
+  );
+}
+
+/**
+ * Swipeable collection banners with dots on the picture. It advances itself every four seconds
+ * while Beranda is on screen, loops back to the first, waits while the user is touching it, and
+ * stands still under Reduce Motion or a screen reader. It owns the current-page state so the
+ * whole screen does not re-render on every swipe.
+ */
+function BannerCarousel({ collections }: { collections: Collection[] }) {
+  const { width } = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
+  const screenReader = useScreenReader();
+  const bannerWidth = width - BANNER_PAD * 2;
+  const step = bannerWidth + BANNER_GAP;
+  const count = collections.length;
+
+  const scrollRef = useRef<ScrollView>(null);
+  const indexRef = useRef(0);
+  const [index, setIndex] = useState(0);
+  const dragging = useRef(false);
+  const lastTouch = useRef(0);
+
+  const autoplay = count > 1 && !reduceMotion && !screenReader;
+
+  // Only while focused: a Beranda tab sitting behind another screen keeps no timer alive.
+  useFocusEffect(
+    useCallback(() => {
+      if (!autoplay) {
+        return;
+      }
+      const id = setInterval(() => {
+        if (dragging.current || Date.now() - lastTouch.current < BANNER_IDLE_MS) {
+          return;
+        }
+        const next = (indexRef.current + 1) % count;
+        scrollRef.current?.scrollTo({ x: next * step, animated: true });
+      }, BANNER_INTERVAL_MS);
+
+      return () => clearInterval(id);
+    }, [autoplay, count, step])
+  );
+
+  function onScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    // Follows the offset (not only the momentum-end event) so the dots stay right for
+    // programmatic scrolls too.
+    const next = Math.max(
+      0,
+      Math.min(count - 1, Math.round(event.nativeEvent.contentOffset.x / step))
+    );
+    if (next !== indexRef.current) {
+      indexRef.current = next;
+      setIndex(next);
+    }
+  }
+
+  return (
+    <View style={{ height: BANNER_HEIGHT }} className="mt-3">
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        nestedScrollEnabled
+        scrollsToTop={false}
+        decelerationRate="fast"
+        snapToInterval={step}
+        snapToAlignment="start"
+        disableIntervalMomentum
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={32}
+        onScroll={onScroll}
+        onScrollBeginDrag={() => {
+          dragging.current = true;
+          lastTouch.current = Date.now();
+        }}
+        onScrollEndDrag={() => {
+          dragging.current = false;
+          lastTouch.current = Date.now();
+        }}
+        onMomentumScrollEnd={() => {
+          lastTouch.current = Date.now();
+        }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: BANNER_PAD, gap: BANNER_GAP }}>
+        {collections.map((collection, position) => (
+          <Link key={collection.id} href={`/collection/${collection.slug}`} asChild>
+            <PressableScale
+              accessibilityRole="link"
+              accessibilityLabel={`${collection.name}${
+                collection.products_count ? `, ${collection.products_count} produk` : ''
+              }, banner ${position + 1} dari ${count}`}
+              style={{ width: bannerWidth, height: BANNER_HEIGHT }}
+              className="overflow-hidden rounded-xl bg-om-navy">
+              <ProductImage
+                uri={mediaUrl(collection.thumbnail)}
+                plain
+                priority={position === 0 ? 'high' : undefined}
+                fallback={<View />}
+                style={StyleSheet.absoluteFill}
+              />
+              {/* Extra bottom padding keeps the title clear of the dots. */}
+              <View className="absolute inset-x-0 bottom-0 bg-black/40 px-4 pb-6 pt-2.5">
+                <Text className="text-[17px] font-extrabold text-white" numberOfLines={1}>
+                  {collection.name}
+                </Text>
+                {collection.products_count ? (
+                  <Text className="text-[12px] text-white/90">
+                    {collection.products_count} produk
+                  </Text>
+                ) : null}
+              </View>
+            </PressableScale>
+          </Link>
+        ))}
+      </ScrollView>
+      {count > 1 ? (
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          className="absolute inset-x-0 bottom-2 flex-row justify-center gap-1.5">
+          {collections.map((collection, position) => (
+            <View
+              key={collection.id}
+              className={cn(
+                'h-1.5 rounded-full',
+                position === index ? 'w-4 bg-white' : 'w-1.5 bg-white/50'
+              )}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Four-across icon grid. Past eight categories the last tile becomes "Lainnya". */
+function CategoryGrid({ categories }: { categories: Category[] }) {
+  const overflow = categories.length > MAX_CATEGORY_TILES;
+  const shown = overflow ? categories.slice(0, MAX_CATEGORY_TILES - 1) : categories;
+
+  return (
+    <View className="mx-3 mt-3 flex-row flex-wrap rounded-lg bg-white p-3">
+      {shown.map((category) => (
+        <Link key={category.id} href={`/category/${category.slug}`} asChild>
+          <PressableScale accessibilityRole="link" className="w-1/4 items-center py-2">
+            <View className="size-[52px] items-center justify-center overflow-hidden rounded-xl bg-om-navy-soft">
+              {category.thumbnail ? (
+                <ProductImage
+                  uri={mediaUrl(category.thumbnail)}
+                  plain
+                  width={32}
+                  height={32}
+                  contentFit="contain"
+                  fallback={
+                    <Text className="text-[14px] font-bold text-om-navy">
+                      {initials(category.name)}
+                    </Text>
+                  }
+                />
+              ) : (
+                <Text className="text-[14px] font-bold text-om-navy">
+                  {initials(category.name)}
+                </Text>
+              )}
+            </View>
+            <Text
+              className="mt-1.5 px-0.5 text-center text-[12px] font-medium leading-4"
+              numberOfLines={2}
+              style={{ minHeight: 32 }}>
+              {category.name}
+            </Text>
+          </PressableScale>
+        </Link>
+      ))}
+      {overflow ? (
+        <Link href="/(tabs)/search" asChild>
+          <PressableScale accessibilityRole="link" className="w-1/4 items-center py-2">
+            <View className="size-[52px] items-center justify-center rounded-xl bg-om-navy-soft">
+              <Icon as={Grid3x3} size={24} color={COLORS.navy} />
+            </View>
+            <Text
+              className="mt-1.5 px-0.5 text-center text-[12px] font-medium leading-4"
+              numberOfLines={2}
+              style={{ minHeight: 32 }}>
+              Lainnya
+            </Text>
+          </PressableScale>
+        </Link>
+      ) : null}
+    </View>
+  );
+}
+
+function BrandRail({ brands }: { brands: Brand[] }) {
+  return (
+    <View className="mt-3 bg-white pb-4 pt-4">
+      <SectionHeader title="Brand pilihan" />
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        scrollsToTop={false}
+        showsHorizontalScrollIndicator={false}
+        contentContainerClassName="gap-3 px-4">
+        {brands.map((brand) => (
+          <Link
+            key={brand.id}
+            href={{ pathname: '/shop', params: { brand: String(brand.id), title: brand.name } }}
+            asChild>
+            <PressableScale accessibilityRole="link" className="w-[72px] items-center">
+              <View className="mb-1.5 size-12 items-center justify-center overflow-hidden rounded-full border border-border bg-card">
+                {brand.thumbnail ? (
+                  <ProductImage
+                    uri={mediaUrl(brand.thumbnail)}
+                    plain
+                    width={36}
+                    height={36}
+                    contentFit="contain"
+                    fallback={
+                      <Text className="text-[12px] font-bold text-om-navy">
+                        {initials(brand.name)}
+                      </Text>
+                    }
+                  />
+                ) : (
+                  <Text className="text-[12px] font-bold text-om-navy">{initials(brand.name)}</Text>
+                )}
+              </View>
+              <Text className="text-center text-[11px] text-muted-foreground" numberOfLines={1}>
+                {brand.name}
+              </Text>
+            </PressableScale>
+          </Link>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
-  const router = useRouter();
-  const { itemCount } = useCart();
+  const { user } = useAuth();
   const { offline } = useNetwork();
-  const { width } = useWindowDimensions();
-  const [search, setSearch] = useState('');
-  const bannerGap = 10;
-  const bannerPad = 12;
-  const bannerWidth = width - bannerPad * 2;
-  const [bannerIndex, setBannerIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
   const [featured, setFeatured] = useState<Product[]>([]);
   const [promo, setPromo] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // null until the stored choice has been read, so the strip never flashes before it is hidden.
+  const [nudgeDismissed, setNudgeDismissed] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -57,9 +392,17 @@ export default function HomeScreen() {
       setError(errorMessage(e, 'Gagal memuat katalog'));
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
+
+  const { refreshing, onRefresh } = useRefresh(load);
+
+  const retry = useCallback(() => {
+    setLoading(true);
+    void load();
+  }, [load]);
+
+  useScrollToTop(scrollRef);
 
   useEffect(() => {
     void load();
@@ -74,247 +417,124 @@ export default function HomeScreen() {
     }
   }, [offline, load]);
 
-  function goSearch(value?: string) {
-    const q = (value ?? search).trim();
-    setSearch(q);
-    setPendingSearchQuery(q);
-    router.push({ pathname: '/(tabs)/search', params: q ? { q } : {} });
+  useEffect(() => {
+    let active = true;
+    getSecureItem(NUDGE_KEY)
+      .then((value) => {
+        if (active) {
+          setNudgeDismissed(value === '1');
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setNudgeDismissed(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function dismissNudge() {
+    setNudgeDismissed(true);
+    void setSecureItem(NUDGE_KEY, '1').catch(() => undefined);
   }
 
-  function onBannerScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    const x = event.nativeEvent.contentOffset.x;
-    const next = Math.round(x / (bannerWidth + bannerGap));
-    if (next !== bannerIndex) {
-      setBannerIndex(next);
+  // The search pill rotates through hints taken from the real categories.
+  const hints = useMemo(
+    () => [
+      'Cari di OceanMall',
+      ...categories.slice(0, 5).map((category) => `Cari ${category.name.toLowerCase()}`),
+    ],
+    [categories]
+  );
+
+  const empty =
+    featured.length === 0 &&
+    promo.length === 0 &&
+    collections.length === 0 &&
+    categories.length === 0 &&
+    brands.length === 0;
+  const showNudge = !user && nudgeDismissed === false;
+
+  // maxOff is the best discount among today's promo products (the API has no promo end time, so
+  // there is deliberately no countdown).
+  const maxOff = promo.reduce(
+    (best, product) => Math.max(best, discountPercent(product.price, product.compare_price) ?? 0),
+    0
+  );
+
+  function renderBody() {
+    if (loading) {
+      return <HomeSkeleton />;
     }
-  }
 
-  if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-om-navy" edges={['top']}>
-        <StatusBar style="light" />
-        <View className="h-[52px] bg-om-navy px-3" />
-        <View className="flex-1 bg-background px-3 pt-4">
-          <View className="flex-row gap-3">
-            <Skeleton className="size-11 rounded-full" />
-            <Skeleton className="size-11 rounded-full" />
-            <Skeleton className="size-11 rounded-full" />
-            <Skeleton className="size-11 rounded-full" />
-          </View>
-          <Skeleton className="mt-4 h-[156px] rounded-2xl" />
-          <View className="mt-5 flex-row justify-between">
-            <Skeleton className="h-[210px] w-[48.5%] rounded-lg" />
-            <Skeleton className="h-[210px] w-[48.5%] rounded-lg" />
-          </View>
-        </View>
-      </SafeAreaView>
+      <ScrollView
+        ref={scrollRef}
+        className="flex-1 bg-om-surface"
+        contentContainerClassName={empty ? 'grow' : 'pb-6'}
+        refreshControl={<BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        {showNudge ? <GuestStrip onDismiss={dismissNudge} /> : null}
+
+        {empty && error ? (
+          <EmptyState
+            tone="error"
+            icon={offline ? WifiOff : CircleAlert}
+            title="Yah, ada yang salah"
+            message={error}
+            actionLabel="Coba lagi"
+            onAction={retry}
+          />
+        ) : empty ? (
+          <EmptyState
+            icon={Store}
+            title="Katalog sedang disiapkan"
+            message="Produk akan segera tampil di sini. Tarik ke bawah untuk memuat ulang."
+            actionLabel="Muat ulang"
+            onAction={retry}
+          />
+        ) : (
+          <>
+            {error && !offline ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
+
+            {collections.length > 0 ? <BannerCarousel collections={collections} /> : null}
+
+            {categories.length > 0 ? <CategoryGrid categories={categories} /> : null}
+
+            {promo.length > 0 ? (
+              <View className="mt-3 bg-white pt-4">
+                <ProductRail
+                  title="Promo hari ini"
+                  badge={maxOff > 0 ? `Hemat s.d. ${maxOff}%` : undefined}
+                  href="/promo"
+                  products={promo}
+                />
+              </View>
+            ) : null}
+
+            {brands.length > 0 ? <BrandRail brands={brands} /> : null}
+
+            {featured.length > 0 ? (
+              <View className="mt-3 pt-3">
+                <SectionHeader title="Rekomendasi untukmu" href="/featured" />
+                <View className="px-3">
+                  <ProductGrid products={featured} emptyMessage="" />
+                </View>
+              </View>
+            ) : null}
+          </>
+        )}
+      </ScrollView>
     );
   }
 
   return (
     <SafeAreaView className="flex-1 bg-om-navy" edges={['top']}>
-      <StatusBar style="light" />
-      <View className="flex-row items-center gap-2 bg-om-navy px-3 pb-3 pt-1">
-        <View className="h-10 flex-1 flex-row items-center rounded-full bg-white px-3">
-          <Pressable onPress={() => goSearch()} hitSlop={8}>
-            <Icon as={SearchIcon} size={16} color="#64748b" />
-          </Pressable>
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Cari produk..."
-            placeholderTextColor="#94a3b8"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            onSubmitEditing={(event) => goSearch(event.nativeEvent.text)}
-            className="ml-2 flex-1 text-[15px] text-foreground"
-          />
-        </View>
-        <Pressable
-          onPress={() => router.push('/(tabs)/cart')}
-          className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
-          hitSlop={8}>
-          <Icon as={ShoppingBagIcon} size={20} color="#fff" />
-          {itemCount > 0 ? (
-            <View className="absolute right-0 top-0 min-w-[16px] items-center rounded-full bg-om-sale px-1">
-              <Text className="text-[10px] font-extrabold text-white">
-                {itemCount > 99 ? '99+' : itemCount}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
-      </View>
-
-      {error &&
-      featured.length === 0 &&
-      promo.length === 0 &&
-      collections.length === 0 &&
-      categories.length === 0 &&
-      brands.length === 0 ? (
-        <EmptyState
-          icon={offline ? WifiOff : CircleAlert}
-          message={error}
-          actionLabel="Coba lagi"
-          onAction={() => void load()}
-        />
-      ) : (
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="pb-8"
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              void load();
-            }}
-          />
-        }>
-        {error ? <Text className="px-4 pt-3 text-destructive">{error}</Text> : null}
-
-        {categories.length > 0 ? (
-          <ScrollView
-            horizontal
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator={false}
-            className="mt-4"
-            contentContainerClassName="gap-3 px-4">
-            {categories.map((cat) => (
-              <Link key={cat.id} href={`/category/${cat.slug}`} asChild>
-                <Pressable className="w-[72px] items-center">
-                  <View className="mb-1.5 size-11 items-center justify-center overflow-hidden rounded-full bg-muted">
-                    {cat.thumbnail ? (
-                      <Image
-                        source={{ uri: mediaUrl(cat.thumbnail) }}
-                        style={{ width: 44, height: 44 }}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <Text className="text-xs font-bold text-om-navy">{cat.name.slice(0, 2).toUpperCase()}</Text>
-                    )}
-                  </View>
-                  <Text className="text-center text-[11px] font-medium leading-tight" numberOfLines={2}>
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              </Link>
-            ))}
-          </ScrollView>
-        ) : null}
-
-        {collections.length > 0 ? (
-          <View style={{ height: 156, marginTop: 16 }}>
-            <ScrollView
-              horizontal
-              nestedScrollEnabled
-              decelerationRate="fast"
-              snapToInterval={bannerWidth + bannerGap}
-              snapToAlignment="start"
-              disableIntervalMomentum
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={onBannerScroll}
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingHorizontal: bannerPad, gap: bannerGap }}>
-              {collections.map((collection) => (
-                <Link key={collection.id} href={`/collection/${collection.slug}`} asChild>
-                  <Pressable
-                    style={{ width: bannerWidth, height: 156 }}
-                    className="overflow-hidden rounded-2xl bg-om-navy">
-                    <Image
-                      source={{ uri: mediaUrl(collection.thumbnail) }}
-                      style={{ width: bannerWidth, height: 156, backgroundColor: '#0a2a6b' }}
-                      contentFit="cover"
-                    />
-                    <View className="absolute inset-x-0 bottom-0 bg-black/40 px-4 py-3">
-                      <Text className="text-[17px] font-extrabold text-white" numberOfLines={1}>
-                        {collection.name}
-                      </Text>
-                      {collection.products_count ? (
-                        <Text className="text-[12px] text-white/90">{collection.products_count} produk</Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                </Link>
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
-        {collections.length > 1 ? (
-          <View className="mt-2 flex-row items-center justify-center gap-1.5">
-            {collections.map((collection, index) => (
-              <View
-                key={collection.id}
-                className={`h-1.5 rounded-full ${index === bannerIndex ? 'w-4 bg-om-navy' : 'w-1.5 bg-om-navy/25'}`}
-              />
-            ))}
-          </View>
-        ) : null}
-
-        {brands.length > 0 ? (
-          <ScrollView
-            horizontal
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator={false}
-            className="mt-4"
-            contentContainerClassName="gap-3 px-4">
-            {brands.map((brand) => (
-              <Link
-                key={brand.id}
-                href={{ pathname: '/shop', params: { brand: String(brand.id), title: brand.name } }}
-                asChild>
-                <Pressable className="w-[68px] items-center">
-                  <View className="mb-1 size-12 items-center justify-center overflow-hidden rounded-full border border-border bg-card p-1.5">
-                    {brand.thumbnail ? (
-                      <Image
-                        source={{ uri: mediaUrl(brand.thumbnail) }}
-                        style={{ width: 36, height: 36 }}
-                        contentFit="contain"
-                      />
-                    ) : (
-                      <Text className="text-[11px] font-bold text-om-navy">
-                        {brand.name.slice(0, 2).toUpperCase()}
-                      </Text>
-                    )}
-                  </View>
-                  <Text className="text-center text-[10px] text-muted-foreground" numberOfLines={1}>
-                    {brand.name}
-                  </Text>
-                </Pressable>
-              </Link>
-            ))}
-          </ScrollView>
-        ) : null}
-
-        {promo.length > 0 ? (
-          <View className="mt-5 px-3">
-            <View className="mb-3 flex-row items-center justify-between px-1">
-              <Text className="text-[15px] font-bold text-om-navy">Promo hari ini</Text>
-              <Link href="/promo" asChild>
-                <Pressable hitSlop={8}>
-                  <Text className="text-xs font-semibold text-om-navy">Lihat semua</Text>
-                </Pressable>
-              </Link>
-            </View>
-            <ProductGrid products={promo} />
-          </View>
-        ) : null}
-
-        {featured.length > 0 ? (
-          <View className="mt-5 px-3">
-            <View className="mb-3 flex-row items-center justify-between px-1">
-              <Text className="text-[15px] font-bold text-om-navy">Produk unggulan</Text>
-              <Link href="/featured" asChild>
-                <Pressable hitSlop={8}>
-                  <Text className="text-xs font-semibold text-om-navy">Lihat semua</Text>
-                </Pressable>
-              </Link>
-            </View>
-            <ProductGrid products={featured} />
-          </View>
-        ) : null}
-      </ScrollView>
-      )}
+      {/* The header is the same 56px band in every state, so nothing shifts when data arrives. */}
+      <HomeHeader hints={hints} />
+      {renderBody()}
     </SafeAreaView>
   );
 }

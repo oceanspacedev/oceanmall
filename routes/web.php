@@ -12,6 +12,7 @@ use App\Http\Controllers\Account\TrackShipmentController;
 use App\Http\Controllers\Cpanel\OverrideAllocationController;
 use App\Http\Controllers\Cpanel\PrintShipmentLabelController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\CartCouponController;
 use App\Http\Controllers\Shop\CategoryController;
@@ -29,10 +30,18 @@ use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\Webhooks\KomerceDeliveryWebhookController;
 use App\Http\Controllers\Webhooks\KomercePaymentWebhookController;
 use App\Http\Controllers\Webhooks\KomerceQrislyWebhookController;
+use App\Support\LegalContent;
 use Illuminate\Support\Facades\Route;
 
 // Storefront
 Route::get('/', HomeController::class)->name('home');
+
+// Public pages the store listings link to (privacy policy, terms, support, account deletion).
+Route::get('legal/{slug}', [LegalPageController::class, 'show'])
+    ->whereIn('slug', LegalContent::SLUGS)
+    ->name('legal.show');
+Route::get('bantuan', [LegalPageController::class, 'support'])->name('legal.support');
+Route::get('hapus-akun', [LegalPageController::class, 'accountDeletion'])->name('legal.account-deletion');
 
 // PWA assets & fallback routes
 Route::get('manifest.json', function () {

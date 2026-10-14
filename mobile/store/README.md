@@ -5,15 +5,15 @@ upload ada di [../README.md](../README.md#rilis-ke-store).
 
 ## Open blockers (belum bisa submit)
 
-Empat hal berikut **belum dibangun** dan wajib selesai sebelum submit. Penjelasan lengkap, alasan, dan pemiliknya ada di
+Keempat blocker **sudah dibangun** (2026-10-14); yang tersisa adalah isian owner di tabel berikut dan di bagian listing. Penjelasan lengkap, alasan, dan pemiliknya ada di
 [../README.md](../README.md#open-blockers-sebelum-submit-ke-toko).
 
 | # | Yang kurang | Pemilik |
 | --- | --- | --- |
-| a | Hapus akun dari dalam aplikasi (butuh endpoint backend dan layar di aplikasi; Apple 5.1.1(v), Play account deletion). Implementasi siap pakai ada di luar repo untuk sesi lanjutan terpisah: `/Users/apriansyahrs/.claude/projects/-Users-apriansyahrs-Documents-Code-oceanmall/c82da155-7d6a-41de-b718-12e352ce569b/plan/backend-compliance/` | Backend + Mobile |
-| b | URL publik kebijakan privasi, syarat, dukungan, dan penghapusan akun (wajib di kedua toko; belum ada di Laravel) | Owner + Backend/Devops |
-| c | Login satu perangkat per akun akan mengeluarkan akun demo bersama milik reviewer; owner harus memutuskan cara mengecualikan akun demo | Owner (keputusan) + Backend |
-| d | Laporkan/blokir per ulasan untuk user-generated content (Apple 1.2): endpoint backend dan tombol di aplikasi | Backend + Mobile |
+| a | ~~Hapus akun dari dalam aplikasi~~ Sudah ada: Akun > Profil & keamanan > Hapus akun, dan `DELETE /api/v1/auth/me` | Selesai |
+| b | ~~URL publik~~ Halaman `/legal/kebijakan-privasi`, `/legal/syarat-ketentuan`, `/bantuan`, `/hapus-akun` sudah ada; tampil di produksi setelah teks disetujui (`"draft": false`) dan `SUPPORT_EMAIL`/`SUPPORT_WHATSAPP` diisi di `.env` Laravel | Owner (teks + kontak) |
+| c | ~~Akun demo reviewer vs satu perangkat~~ Sudah ada: isi `REVIEWER_DEMO_EMAILS` di `.env` Laravel dengan email akun demo | Owner (buat akun demo + isi env) |
+| d | ~~Laporkan per ulasan~~ Sudah ada: tombol Laporkan di tiap ulasan, moderasi di `/cpanel` > Reviews | Selesai |
 
 | File | Isi |
 | --- | --- |
@@ -80,9 +80,9 @@ Owner: **Owner** = pemilik produk, **Backend**, **Devops**, **Dev** = tim mobile
 | --- | --- | --- |
 | Apple Developer Program aktif, App ID `id.oceanmall.app` terdaftar | Owner | Belum |
 | App record dibuat, nama `OceanMall` tersedia | Owner | Belum |
-| Support URL: **belum ada**, Laravel belum punya halaman dukungan publik (blocker b) | Owner + Backend/Devops | Belum dibangun |
-| Privacy Policy URL dan Terms URL: **belum ada**, teksnya baru ada di dalam aplikasi (blocker b) | Owner + Backend/Devops | Belum dibangun |
-| Penghapusan akun dari dalam aplikasi (guideline 5.1.1(v)): **belum dibangun** (blocker a) | Backend + Mobile | Belum dibangun |
+| Support URL: `https://<domain>/bantuan` (tampil setelah kontak dukungan diisi di `.env` Laravel) | Owner | Belum |
+| Privacy Policy URL `https://<domain>/legal/kebijakan-privasi`, Terms URL `https://<domain>/legal/syarat-ketentuan` (404 sampai teks disetujui dan kontak diisi) | Owner | Belum |
+| Penghapusan akun dari dalam aplikasi (guideline 5.1.1(v)): Akun > Profil & keamanan > Hapus akun | - | Selesai |
 | Teks hukum disetujui: isi `[TODO ...]` dan `"draft": false` di `lib/legal-content.json` (build toko gagal sebelum itu) | Owner | Belum |
 | Kontak dukungan di `.env.production` (build rilis gagal sebelum itu) | Owner | Belum |
 | App Privacy: isi dari tabel di [review-notes.md](review-notes.md) | Owner | Belum |
@@ -90,7 +90,7 @@ Owner: **Owner** = pemilik produk, **Backend**, **Devops**, **Dev** = tim mobile
 | Export compliance: otomatis aman (`ITSAppUsesNonExemptEncryption=false`) | Dev | Selesai |
 | Akun demo produksi + alamat tersimpan, masuk ke App Review Information. Perhatikan blocker c: satu perangkat per akun | Devops + Owner | Belum |
 | Moderator memantau `/cpanel` > Reviews selama masa review (setujui atau hapus ulasan dengan cepat) | Owner | Belum |
-| Laporkan per ulasan (guideline 1.2): **belum dibangun** (blocker d) | Backend + Mobile | Belum dibangun |
+| Laporkan per ulasan (guideline 1.2): tombol Laporkan di tiap ulasan halaman produk | - | Selesai |
 | Screenshot 6.9" (dan 6.5" bila diminta) | Dev | Belum |
 | `eas.json` `submit.production.ios`: `ascAppId` dan `appleTeamId` | Owner | Belum |
 | TestFlight internal dulu sebelum submit untuk review | Dev | Belum |
@@ -112,7 +112,7 @@ Sign in with Apple tidak diperlukan (tidak ada login pihak ketiga).
 | Target audience: bukan untuk anak. Ads: tidak ada iklan | Owner | Belum |
 | App access: tempel instruksi reviewer + akun demo | Devops | Belum |
 | Financial features declaration: tidak menyediakan layanan keuangan (jual barang fisik), konfirmasi sekali dengan konsultan | Owner | Belum |
-| URL penghapusan akun (Data safety): **belum ada**, dan penghapusan akun di aplikasi juga belum ada (blocker a dan b) | Backend + Owner | Belum dibangun |
+| URL penghapusan akun (Data safety): `https://<domain>/hapus-akun` (tampil setelah kontak dukungan diisi) | Owner | Belum |
 | Cek dukungan page size 16 KB: `zipalign -c -P 16 -v 4 app-release.apk` (target SDK 36) atau pre-launch report Play | Dev | Belum |
 | Konfirmasi kewajiban pendaftaran PSE (Penyelenggara Sistem Elektronik) dengan konsultan hukum | Owner | Belum |
 

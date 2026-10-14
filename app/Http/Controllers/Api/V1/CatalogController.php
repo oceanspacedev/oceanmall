@@ -379,6 +379,20 @@ final class CatalogController extends Controller
     }
 
     /**
+     * Reviews are public, guests included, so the reviewer is shown as first name plus the
+     * initial of the last name ("Budi S."), never the full name.
+     */
+    private static function reviewerName(?string $firstName, ?string $lastName): string
+    {
+        $first = trim((string) $firstName);
+        $initial = mb_strtoupper(mb_substr(trim((string) $lastName), 0, 1));
+
+        $name = trim($first.($initial !== '' ? ' '.$initial.'.' : ''));
+
+        return $name !== '' ? $name : 'Pembeli';
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function reviewsPayload(Product $product): array
@@ -397,10 +411,7 @@ final class CatalogController extends Controller
                 'content' => $review->content,
                 'is_recommended' => (bool) $review->is_recommended,
                 'created_at' => $review->created_at?->toIso8601String(),
-                'author_name' => trim(implode(' ', array_filter([
-                    $review->author?->first_name ?? null,
-                    $review->author?->last_name ?? null,
-                ]))) ?: 'Pembeli',
+                'author_name' => self::reviewerName($review->author?->first_name ?? null, $review->author?->last_name ?? null),
             ])
             ->values()
             ->all();

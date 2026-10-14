@@ -152,10 +152,12 @@ class AppServiceProvider extends ServiceProvider
             'mobile-search' => [60, $byIp],
             'mobile-cart' => [60, $byUserOrIp],
             'mobile-password-change' => [6, $byUserOrIp],
+            'mobile-account-delete' => [5, $byUserOrIp],
             'mobile-destinations' => [30, $byUserOrIp],
             'mobile-place-order' => [20, $byUserOrIp],
             'mobile-sync-payment' => [12, $byUserOrIp],
             'mobile-review' => [10, $byUserOrIp],
+            'mobile-review-report' => [10, $byUserOrIp],
         ];
 
         foreach ($limits as $name => [$perMinute, $key]) {

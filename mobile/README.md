@@ -52,8 +52,8 @@ Semua dibaca `lib/config.ts` dan ikut terbundel ke aplikasi, jadi jangan pernah 
 - **Guard kontak dukungan**: di rilis, `metro.config.js` juga menggagalkan build kalau tidak ada kontak yang valid (email
   berbentuk email dan bukan `CHANGE-ME`, atau nomor WhatsApp minimal 8 angka). Aplikasi membuang nilai yang tidak valid,
   jadi tanpa guard ini build bisa terbit tanpa satu pun jalur menghubungi kami, padahal kebijakan privasi dan listing toko
-  menunjuk ke sana. Backend Laravel belum punya setelan kontak dukungan maupun halaman bantuan publik (lihat
-  [Open blockers](#open-blockers-sebelum-submit-ke-toko)).
+  menunjuk ke sana. Backend membaca kontak yang sama dari `SUPPORT_EMAIL` / `SUPPORT_WHATSAPP` (`config/support.php`)
+  untuk halaman publik `/bantuan`, `/legal/*`, dan `/hapus-akun`; isi keduanya dengan nilai yang sama.
 - **Guard teks hukum**: di rilis, `metro.config.js` menggagalkan build toko selama `lib/legal-content.json` masih
   `"draft": true` atau memuat `[TODO`. Profil EAS `preview` (build tester) dan `ALLOW_DRAFT_LEGAL=1` (build internal lain)
   dikecualikan, supaya QA bisa membaca draf. Archive Xcode lokal tidak memasang `EAS_BUILD_PROFILE`, jadi diperiksa seperti
@@ -113,21 +113,20 @@ Aturan yang dijaga kode ini:
 
 Aturan teks: **setiap string yang terlihat pengguna harus berbahasa Indonesia** (informal "kamu", sentence case). Itu
 berlaku juga untuk label aksesibilitas, alert, toast, dan pesan error dari API yang ditampilkan apa adanya. Teks legal
-(`lib/legal-content.ts`, sumber teksnya `lib/legal-content.json`) masih draf sampai `"draft"` di JSON itu diubah ke `false`. Teks itu hanya dibundel di aplikasi: Laravel tidak membacanya dan belum punya halaman publik untuknya.
+(`lib/legal-content.ts`, sumber teksnya `lib/legal-content.json`) masih draf sampai `"draft"` di JSON itu diubah ke `false`. File JSON yang sama dibaca Laravel (`App\Support\LegalContent`) untuk halaman publik `/legal/kebijakan-privasi` dan `/legal/syarat-ketentuan`, jadi teks di aplikasi dan di web tidak pernah berbeda. Di luar `APP_ENV=local`, halaman itu 404 selama masih draf atau tanpa kontak dukungan.
 
 ## Open blockers sebelum submit ke toko
 
-Ini yang **belum ada** dan wajib selesai sebelum build toko pertama. Tidak ada satu pun yang sudah dibangun; backend Laravel
-saat ini tidak punya endpoint hapus akun, endpoint laporan ulasan, maupun halaman web publik. Guard build
-(`metro.config.js`: host API, kontak dukungan, teks hukum bukan draf) hanya mencegah build yang setengah jadi, bukan
-mengganti keempat pekerjaan ini.
+Status per 2026-10-14: **keempat blocker sudah dibangun** (hapus akun, halaman publik, pengecualian akun demo
+reviewer, laporkan per ulasan); yang tersisa adalah isian owner (teks hukum, kontak dukungan, host produksi, ID toko). Guard build (`metro.config.js`: host API,
+kontak dukungan, teks hukum bukan draf) hanya mencegah build yang setengah jadi, bukan mengganti pekerjaan ini.
 
 | # | Yang kurang | Kenapa wajib | Pemilik |
 | --- | --- | --- | --- |
-| a | **Hapus akun dari dalam aplikasi.** Butuh endpoint backend (mis. `DELETE /api/v1/auth/me` dengan konfirmasi kata sandi) **dan** layar atau sheet di aplikasi (baris "Hapus akun" di `app/profile.tsx`, `deleteAccount` di `lib/auth.tsx`). | Apple App Review 5.1.1(v) dan kebijakan account deletion Google Play: akun yang bisa dibuat di aplikasi harus bisa dihapus dari aplikasi. | Backend + Mobile (sesi lanjutan terpisah). Implementasi siap pakai ada di luar repo: `/Users/apriansyahrs/.claude/projects/-Users-apriansyahrs-Documents-Code-oceanmall/c82da155-7d6a-41de-b718-12e352ce569b/plan/backend-compliance/` (`backend-modified.patch` dan `backend-new-files.tgz`, termasuk sheet `delete-account-sheet.tsx`). |
-| b | **URL publik** untuk kebijakan privasi, syarat, dukungan, dan penghapusan akun. Belum ada di Laravel (tidak ada `/legal/*`, `/bantuan`, `/hapus-akun`). Teks kebijakan dan syarat baru ada di dalam aplikasi (`lib/legal-content.json`, masih draf). | Kedua toko mewajibkan URL ini di listing (Privacy Policy URL, Support URL, dan URL penghapusan akun untuk Data safety Play). | Owner (isi teks) + Backend/Devops (halaman publik). |
-| c | **Satu perangkat per akun vs akun demo reviewer.** `AuthController::login` menghapus token `mobile` lain, jadi login kedua mengeluarkan yang pertama. Akun demo bersama yang dipakai reviewer Apple/Google (atau dipakai tim bersamaan) akan saling mengeluarkan. | Reviewer yang tiba-tiba keluar akun menolak build ("tidak bisa login"). Perilaku satu perangkat itu sengaja, jangan diubah tanpa keputusan. | Owner memutuskan cara mengecualikan akun demo (mis. akun demo khusus yang tidak mencabut token lain); Backend mengerjakan. |
-| d | **Laporkan atau blokir per ulasan.** Ulasan publik adalah konten buatan pengguna. Ulasan sudah dimoderasi dulu sebelum tampil (di `/cpanel` > Reviews), tetapi tidak ada tombol laporkan per ulasan di aplikasi dan tidak ada endpoint laporan di backend. | Apple App Review 1.2 (user-generated content): harus ada cara melaporkan konten yang tidak pantas, dan menanggapinya. | Backend (endpoint + antrean moderasi) + Mobile (tombol per ulasan). |
+| a | ~~Hapus akun dari dalam aplikasi~~ **Sudah ada.** `DELETE /api/v1/auth/me` (konfirmasi kata sandi, throttle 5/menit) dan tombol Hapus akun di web `/settings/profile` sama-sama memakai `App\Actions\Account\DeleteCustomerAccount`; di aplikasi: Akun > Profil & keamanan > **Hapus akun** (`components/delete-account-sheet.tsx`, `deleteAccount` di `lib/auth.tsx`). Pesanan tetap tersimpan tanpa tautan ke akun. | Apple App Review 5.1.1(v) dan kebijakan account deletion Google Play. | Selesai (tes: `tests/Feature/Api/AccountDeletionApiTest.php`). |
+| b | ~~URL publik~~ **Halaman sudah ada**, isian owner belum: `/legal/kebijakan-privasi`, `/legal/syarat-ketentuan`, `/bantuan`, `/hapus-akun` (`App\Http\Controllers\LegalPageController`, Blade polos tanpa login). Teksnya dibaca dari `lib/legal-content.json`. Di luar `APP_ENV=local`, `/legal/*` dan `/bantuan` 404 sampai `"draft": false`, tidak ada `[TODO`, dan `SUPPORT_EMAIL` atau `SUPPORT_WHATSAPP` terisi di `.env` Laravel; `/hapus-akun` hanya butuh kontak. | Kedua toko mewajibkan URL ini di listing (Privacy Policy URL, Support URL, dan URL penghapusan akun untuk Data safety Play). | Owner: setujui teks dan isi kontak (tes: `tests/Feature/Shop/LegalPagesTest.php`). |
+| c | ~~Satu perangkat per akun vs akun demo reviewer~~ **Sudah ada.** Satu perangkat per akun tetap berlaku untuk semua pelanggan. Email yang tercantum di `REVIEWER_DEMO_EMAILS` (`.env` Laravel, dipisah koma) dikecualikan: login di perangkat kedua tidak mengeluarkan yang pertama, jadi satu akun demo bisa dipakai reviewer Apple, crawler Play, dan tim sekaligus. | Reviewer yang tiba-tiba keluar akun menolak build ("tidak bisa login"). | Owner: buat akun demo dan isi `REVIEWER_DEMO_EMAILS` di server produksi (tes: `tests/Feature/Api/ReviewerDemoAccountApiTest.php`). |
+| d | ~~Laporkan per ulasan~~ **Sudah ada.** Tombol **Laporkan** di setiap ulasan pada halaman produk (butuh akun, memilih alasan) memanggil `POST /api/v1/catalog/reviews/{id}/report`; ulasan langsung kembali ke pending (hilang dari publik) dan tercatat di tabel `review_reports`, moderator meninjau di `/cpanel` > Reviews. Nama pengulas kini tampil sebagai nama depan plus inisial ("Budi S."). | Apple App Review 1.2 (user-generated content). | Selesai (tes: `tests/Feature/Api/ReviewReportApiTest.php`). |
 
 Yang sudah ada dan tetap dipertahankan: teks Syarat dan Kebijakan privasi di dalam aplikasi, kontak dukungan
 (`lib/support.ts`: WhatsApp atau email, termasuk "Laporkan ulasan atau masalah" di sheet ulasan yang membuka kanal itu

@@ -1,3 +1,4 @@
+import { DeleteAccountSheet } from '@/components/delete-account-sheet';
 import { LoginPrompt } from '@/components/login-prompt';
 import { Screen } from '@/components/screen';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -7,7 +8,8 @@ import { useAuth } from '@/lib/auth';
 import { ripple } from '@/lib/ripple';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'expo-router';
-import { ChevronRight, KeyRound, ShieldCheck, UserRound } from 'lucide-react-native';
+import { ChevronRight, KeyRound, ShieldCheck, Trash2, UserRound } from 'lucide-react-native';
+import { useState } from 'react';
 import { Platform, Pressable, ScrollView, View } from 'react-native';
 
 /** Pressed feedback for a full-width row: a ripple on Android, a gray wash on iOS (not both). */
@@ -16,6 +18,7 @@ const ROW_PRESSED = Platform.OS === 'ios' ? 'active:bg-om-surface' : '';
 export default function ProfileScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (!user) {
     return (
@@ -103,7 +106,35 @@ export default function ProfileScreen() {
             sebelumnya otomatis keluar. Mengubah kata sandi mengeluarkan semua perangkat lain.
           </Text>
         </View>
+
+        <Text
+          role="heading"
+          aria-level={2}
+          className="px-4 pb-2 pt-6 text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
+          Akun
+        </Text>
+        <View className="bg-white">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Hapus akun, data pribadimu dihapus permanen"
+            onPress={() => setDeleteOpen(true)}
+            android_ripple={ripple.row}
+            className={cn('min-h-11 flex-row items-center gap-3 px-4 py-4', ROW_PRESSED)}>
+            <View className="size-9 items-center justify-center rounded-full bg-destructive/10">
+              <Icon as={Trash2} size={17} className="text-destructive" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[14px] font-medium text-destructive">Hapus akun</Text>
+              <Text className="text-[12px] text-muted-foreground">
+                Data pribadimu dihapus permanen, riwayat pesanan tetap tersimpan
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={16} className="text-muted-foreground" />
+          </Pressable>
+        </View>
       </ScrollView>
+
+      <DeleteAccountSheet visible={deleteOpen} onClose={() => setDeleteOpen(false)} />
     </Screen>
   );
 }

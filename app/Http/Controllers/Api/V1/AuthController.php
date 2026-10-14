@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Account\DeleteCustomerAccount;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\CustomerCart;
@@ -69,7 +70,12 @@ final class AuthController extends Controller
             ], 422);
         }
 
-        $user->tokens()->where('name', 'mobile')->delete();
+        // One device per account: a new login signs out the previous one. Store reviewers (Apple
+        // App Review, Play's pre-launch crawler) share one demo account across several devices at
+        // once, so the addresses listed in REVIEWER_DEMO_EMAILS keep their other sessions.
+        if (! $this->isReviewerDemoAccount($user)) {
+            $user->tokens()->where('name', 'mobile')->delete();
+        }
 
         $this->absorbGuestCart($request, $user);
 
@@ -90,6 +96,33 @@ final class AuthController extends Controller
         return response()->json([
             'data' => $this->userPayload($user),
         ]);
+    }
+
+    /**
+     * In-app account deletion (App Store 5.1.1(v), Play account-deletion policy).
+     *
+     * The password is checked against the `sanctum` guard: the web `current_password` rule
+     * defaults to the session guard and would reject every Bearer-token request.
+     */
+    public function destroy(Request $request, DeleteCustomerAccount $deleteAccount): JsonResponse
+    {
+        $request->validate([
+            'password' => ['required', 'string', 'current_password:sanctum'],
+        ]);
+
+        $deleteAccount->handle($request->user());
+
+        return response()->json(['message' => 'Akunmu sudah dihapus.']);
+    }
+
+    private function isReviewerDemoAccount(User $user): bool
+    {
+        $emails = array_map(
+            static fn (string $email): string => User::normalizeEmail($email),
+            (array) config('auth.reviewer_demo_emails', []),
+        );
+
+        return in_array(User::normalizeEmail((string) $user->email), $emails, true);
     }
 
     private function tokenResponse(User $user, int $status = 200): JsonResponse

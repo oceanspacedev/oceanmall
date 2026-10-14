@@ -51,6 +51,8 @@ type AuthContextValue = {
     phone_number?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
+  /** Deletes the account on the server (password re-checked there) and ends the session. */
+  deleteAccount: (password: string) => Promise<void>;
   refresh: () => Promise<void>;
   /** Marks the intro as seen. `'login'` opens the sign-in screen once the app is mounted. */
   completeOnboarding: (next?: 'login') => Promise<void>;
@@ -225,6 +227,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           // ignore network errors on logout
         }
+        await applyToken(null);
+        setUser(null);
+      },
+      async deleteAccount(password) {
+        await api('/auth/me', { method: 'DELETE', body: JSON.stringify({ password }) });
         await applyToken(null);
         setUser(null);
       },

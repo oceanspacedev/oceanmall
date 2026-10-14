@@ -27,7 +27,7 @@
         },
         {
           "heading": "6. Pembatalan, pengembalian, dan garansi",
-          "body": "[TODO: kebijakan pembatalan pesanan, pengembalian barang, dan garansi belum ditetapkan oleh OceanMall. Isi bagian ini sebelum aplikasi dirilis.]"
+          "body": "Pembatalan: pesanan yang belum dibayar sampai batas waktu yang tertera di halaman pembayaran dibatalkan otomatis dan stoknya dikembalikan. Pesanan yang sudah dibayar tidak bisa dibatalkan dari aplikasi; hubungi {{contact}} secepatnya dengan nomor pesananmu. Pembatalan masih bisa diproses selama paket belum diserahkan ke kurir, dan dana dikembalikan ke rekening yang kamu tunjuk paling lambat 14 hari kerja.\n\nPengembalian: kalau barang yang kamu terima rusak, salah kirim, atau tidak sesuai deskripsi, laporkan lewat {{contact}} paling lambat 2x24 jam setelah paket diterima, sertakan nomor pesanan, foto, dan video saat membuka paket. Setelah laporan disetujui, kirim barang kembali dalam kondisi dan kemasan semula; ongkos kirim pengembalian untuk kesalahan dari pihak OceanMall kami tanggung. Pengembalian dana atau pengiriman ulang dilakukan paling lambat 14 hari kerja setelah barang kami terima. Perubahan pikiran bukan alasan pengembalian.\n\nGaransi: produk bergaransi mengikuti ketentuan garansi resmi produsen atau distributor yang tertulis di halaman produk. Simpan nota dan kartu garansi; kami membantu mengarahkan klaim ke pusat layanan resmi."
         },
         {
           "heading": "7. Ulasan produk",
@@ -65,11 +65,11 @@
         },
         {
           "heading": "5. Berapa lama data disimpan",
-          "body": "[TODO: lama penyimpanan data akun, pesanan, dan alamat belum ditetapkan oleh OceanMall. Isi bagian ini sebelum aplikasi dirilis.]"
+          "body": "Data akun (nama, email, nomor HP) dan alamat tersimpan kami simpan selama akunmu aktif, dan dihapus saat kamu menghapus akun dari aplikasi atau situs web.\n\nCatatan pesanan, termasuk nama penerima, nomor HP, alamat pengiriman, dan nilai pembayaran, kami simpan paling lama 10 tahun sejak transaksi, mengikuti kewajiban penyimpanan pembukuan dalam peraturan perpajakan Indonesia, lalu dihapus atau dianonimkan. Catatan ini tetap ada setelah akunmu dihapus, tetapi tidak lagi terhubung ke akun mana pun.\n\nUlasan produk dihapus bersama akunmu. Keranjang yang tidak jadi dibeli dan tanda masuk perangkat dihapus saat kamu keluar atau menghapus akun."
         },
         {
           "heading": "6. Hak dan permintaanmu",
-          "body": "Kamu bisa melihat dan mengubah nama, email, nomor HP, dan alamatmu di menu Akun.\n\nUntuk meminta penghapusan akunmu atau data pribadimu, hubungi {{contact}}.\n\n[TODO: proses dan lama penanganan permintaan penghapusan akun belum ditetapkan oleh OceanMall, begitu juga data apa yang tetap disimpan (misalnya catatan transaksi untuk urusan pajak dan penyelesaian sengketa). Isi bagian ini sebelum aplikasi dirilis.]\n\nUntuk permintaan lain soal datamu, hubungi {{contact}}."
+          "body": "Kamu bisa melihat dan mengubah nama, email, nomor HP, dan alamatmu di menu Akun.\n\nKamu juga bisa menghapus akunmu sendiri, kapan saja, dari aplikasi: buka Akun, pilih Profil & keamanan, lalu Hapus akun, dan konfirmasi dengan kata sandimu. Penghapusan langsung berlaku dan tidak bisa dibatalkan. Yang ikut terhapus: data profil (nama, email, nomor HP), alamat tersimpan, notifikasi, ulasan produk yang kamu tulis, keranjang, dan semua sesi masuk di semua perangkatmu.\n\nRiwayat pesanan tidak ikut terhapus. Nama penerima, nomor HP, alamat pengiriman, dan nilai pesanan tetap kami simpan sebagai catatan transaksi, tetapi tidak lagi terhubung ke akun mana pun. Catatan itu diperlukan untuk pesanan yang masih berjalan, urusan pajak, dan penyelesaian sengketa.\n\nKalau kamu tidak bisa masuk ke akunmu, atau untuk permintaan lain soal datamu, hubungi {{contact}} dan sebutkan email akunmu."
         },
         {
           "heading": "7. Perubahan dan kontak",

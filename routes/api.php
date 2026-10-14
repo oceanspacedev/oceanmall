@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\DestinationController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\ReviewReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -44,6 +45,7 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('auth/me', [AuthController::class, 'me']);
+        Route::delete('auth/me', [AuthController::class, 'destroy'])->middleware('throttle:mobile-account-delete');
         Route::patch('auth/profile', [ProfileController::class, 'update']);
         Route::put('auth/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:mobile-password-change');
 
@@ -74,5 +76,8 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('catalog/products/{slug}/reviews', [CatalogController::class, 'storeReview'])
             ->middleware('throttle:mobile-review');
+        Route::post('catalog/reviews/{review}/report', ReviewReportController::class)
+            ->middleware('throttle:mobile-review-report')
+            ->whereNumber('review');
     });
 });

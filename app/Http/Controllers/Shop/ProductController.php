@@ -164,7 +164,7 @@ final class ProductController extends Controller
                 'author_name' => trim(implode(' ', array_filter([
                     $review->author?->first_name ?? null,
                     $review->author?->last_name ?? null,
-                ]))) ?: ($review->author?->email ?? 'Pembeli'),
+                ]))) ?: 'Pembeli',
             ]);
 
         $breakdown = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];

@@ -403,6 +403,17 @@ export async function fetchCollections(): Promise<Collection[]> {
   const res = await api<{ data: Collection[] }>('/catalog/collections');
   return res.data ?? [];
 }
+/**
+ * Reports a published review as inappropriate (App Store 1.2, Play UGC policy). The server puts
+ * it back to pending, so it leaves the public list until a moderator looks at it.
+ */
+export async function reportReview(reviewId: number, reason?: string): Promise<void> {
+  await api(`/catalog/reviews/${reviewId}/report`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
 export async function fetchHome(): Promise<HomePayload> {
   const res = await api<{ data: HomePayload }>('/catalog/home');
   return res.data;

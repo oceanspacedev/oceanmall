@@ -114,4 +114,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Store reviewer demo accounts
+    |--------------------------------------------------------------------------
+    |
+    | Mobile logins normally keep one device per account (a new login signs out the previous
+    | device). The demo account given to Apple App Review and Google Play is used on several
+    | devices at the same time, so the emails listed here (comma separated) are exempt.
+    |
+    */
+
+    'reviewer_demo_emails' => array_values(array_filter(array_map('trim', explode(',', (string) env('REVIEWER_DEMO_EMAILS', ''))))),
+
 ];

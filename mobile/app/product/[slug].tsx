@@ -11,7 +11,15 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { api, ApiError, errorMessage, type Cart, type Product } from '@/lib/api';
+import {
+  api,
+  ApiError,
+  errorMessage,
+  reportReview,
+  type Cart,
+  type Product,
+  type ProductReview,
+} from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
 import { WEB_URL } from '@/lib/config';
@@ -32,6 +40,7 @@ import {
   ChevronUp,
   CircleAlert,
   CreditCard,
+  Flag,
   PackageCheck,
   Share2,
   ShieldCheck,
@@ -40,6 +49,7 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -78,6 +88,43 @@ export default function ProductScreen() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [reporting, setReporting] = useState<number | null>(null);
+
+  /** "Laporkan" on a review: needs an account, asks for a reason, then hides the review here. */
+  function askToReport(review: ProductReview) {
+    if (!user) {
+      router.push({ pathname: '/login', params: { redirect: `/product/${slug}` } });
+      return;
+    }
+    const send = (reason: string) => {
+      setReporting(review.id);
+      reportReview(review.id, reason)
+        .then(() => {
+          setProduct((current) => {
+            if (!current?.reviews) {
+              return current;
+            }
+            return {
+              ...current,
+              reviews: {
+                ...current.reviews,
+                items: current.reviews.items.filter((item) => item.id !== review.id),
+                count: Math.max(0, current.reviews.count - 1),
+              },
+            };
+          });
+          toast.show({ tone: 'success', message: 'Terima kasih, laporanmu sudah kami terima' });
+        })
+        .catch((e) => toast.show({ tone: 'error', message: errorMessage(e) }))
+        .finally(() => setReporting(null));
+    };
+    Alert.alert('Laporkan ulasan ini?', 'Ulasan disembunyikan sampai tim OceanMall meninjaunya.', [
+      { text: 'Kata-kata tidak pantas', onPress: () => send('Kata-kata tidak pantas') },
+      { text: 'Spam atau iklan', onPress: () => send('Spam atau iklan') },
+      { text: 'Tidak sesuai produk', onPress: () => send('Tidak sesuai produk') },
+      { text: 'Batal', style: 'cancel' },
+    ]);
+  }
 
   useEffect(() => {
     if (!slug) {
@@ -535,6 +582,17 @@ export default function ProductScreen() {
                               {review.content}
                             </Text>
                           ) : null}
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Laporkan ulasan dari ${name}`}
+                            disabled={reporting === review.id}
+                            onPress={() => askToReport(review)}
+                            className="mt-1 min-h-8 flex-row items-center gap-1 self-start active:opacity-60">
+                            <Icon as={Flag} size={11} className="text-muted-foreground" />
+                            <Text className="text-[11px] font-semibold text-muted-foreground">
+                              {reporting === review.id ? 'Mengirim…' : 'Laporkan'}
+                            </Text>
+                          </Pressable>
                         </View>
                       </View>
                     );

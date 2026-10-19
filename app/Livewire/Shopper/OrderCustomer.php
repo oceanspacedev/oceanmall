@@ -5,41 +5,27 @@ declare(strict_types=1);
 namespace App\Livewire\Shopper;
 
 use Illuminate\Contracts\View\View;
-use Livewire\Attributes\Computed;
-use Livewire\Attributes\Locked;
-use Livewire\Component;
-use Shopper\Core\Models\Contracts\Order;
-use Shopper\Traits\HandlesAuthorizationExceptions;
+use Shopper\Livewire\Components\Orders\OrderCustomer as ShopperOrderCustomer;
 
-final class OrderCustomer extends Component
+/**
+ * Drops Shopper's shipping-address block (the Komerce shipping panel already
+ * shows the destination) and shows billing only when it differs. Shopper's own
+ * view is included as-is by the wrapper, so upstream changes still apply.
+ */
+final class OrderCustomer extends ShopperOrderCustomer
 {
-    use HandlesAuthorizationExceptions;
-
-    #[Locked]
-    public Order $order;
-
-    #[Computed]
-    public function customer(): mixed
-    {
-        $userModel = config('auth.providers.users.model');
-        $customer = null;
-
-        if ($this->order->customer_id) {
-            $customer = $userModel::query()
-                ->withCount('orders')
-                ->find($this->order->customer_id);
-        }
-
-        return $customer;
-    }
-
     public function render(): View
     {
         $this->order->loadMissing(['shippingAddress', 'billingAddress']);
 
-        return view('shopper::livewire.components.orders.order-customer', [
-            'shippingAddress' => $this->order->shippingAddress,
-            'billingAddress' => $this->order->billingAddress,
+        $shippingAddress = $this->order->shippingAddress;
+        $billingAddress = $this->order->billingAddress;
+
+        return view('shopper.livewire.order-customer', [
+            'billingAddress' => $billingAddress,
+            'separateBillingAddress' => $billingAddress && (! $shippingAddress || ! $billingAddress->is($shippingAddress))
+                ? $billingAddress
+                : null,
         ]);
     }
 }

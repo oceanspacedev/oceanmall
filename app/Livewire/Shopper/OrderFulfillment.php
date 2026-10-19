@@ -17,15 +17,17 @@ use Throwable;
 
 final class OrderFulfillment extends ShopperFulfillment
 {
-    public bool $onlyActions = false;
-
-    public bool $onlySteps = false;
-
-    public function mount(\Shopper\Core\Models\Contracts\Order $order, bool $onlyActions = false, bool $onlySteps = false): void
+    /**
+     * With Komerce Delivery on, RajaOngkir issues the AWB, so Shopper's own
+     * "create shipping label" button (the only reader of this method, in
+     * Shopper's fulfillment view) must not show; the wrapper view renders the
+     * RajaOngkir bar instead. Side effect: once the order is shipped, Shopper's
+     * "all items fulfilled" note shows even if a second warehouse shipment has
+     * no AWB yet; the bar above still lists the AWBs that exist.
+     */
+    public function hasUnfulfilledItems(): bool
     {
-        $this->order = $order;
-        $this->onlyActions = $onlyActions;
-        $this->onlySteps = $onlySteps;
+        return ! komerce_shipping_delivery_enabled() && parent::hasUnfulfilledItems();
     }
 
     public function openShippingLabel(): void
@@ -92,6 +94,10 @@ final class OrderFulfillment extends ShopperFulfillment
     {
         $view = parent::render();
 
+        if (! komerce_shipping_delivery_enabled()) {
+            return $view;
+        }
+
         $shipments = OrderShipment::query()
             ->where('order_id', $this->order->id)
             ->orderBy('id')
@@ -107,10 +113,8 @@ final class OrderFulfillment extends ShopperFulfillment
             static fn (OrderShipment $shipment): bool => is_array(data_get($shipment->metadata, 'komerce.pickup_response')),
         );
 
-        $view->with([
-            'onlyActions' => $this->onlyActions,
-            'onlySteps' => $this->onlySteps,
-            'rajaOngkirEnabled' => komerce_shipping_delivery_enabled(),
+        return view('shopper.livewire.order-fulfillment', [
+            ...$view->getData(),
             'orderIsPaid' => $this->order->payment_status === PaymentStatus::Paid,
             'rajaOngkirAwbs' => $awbs,
             'hasPickupRequested' => $hasPickupRequested,
@@ -119,7 +123,5 @@ final class OrderFulfillment extends ShopperFulfillment
             ),
             'printRajaOngkirRoute' => route('shopper.orders.fulfillment.print-label', $this->order),
         ]);
-
-        return $view;
     }
 }

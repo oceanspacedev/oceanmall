@@ -18,6 +18,13 @@ $shippingDeliveryApiKey = trim((string) env('KOMERCE_SHIPPING_DELIVERY_API_KEY',
  */
 $qrislyApiKey = trim((string) env('KOMERCE_QRISLY_API_KEY', ''));
 
+/*
+ * Sandbox hosts are only a convenience default outside production. In
+ * production a missing base URL must fail loudly (KomerceNotConfiguredException)
+ * instead of silently sending live checkouts to the sandbox.
+ */
+$sandboxDefault = static fn (string $url): ?string => env('APP_ENV') === 'production' ? null : $url;
+
 return [
     'payment_api_key' => $paymentApiKey,
 
@@ -35,7 +42,7 @@ return [
 
     'qrisly_base_url' => env(
         'KOMERCE_QRISLY_BASE_URL',
-        env('KOMERCE_PAYMENT_BASE_URL', 'https://api-sandbox.collaborator.komerce.id/user'),
+        env('KOMERCE_PAYMENT_BASE_URL', $sandboxDefault('https://api-sandbox.collaborator.komerce.id/user')),
     ),
 
     'qrisly_unique_amount' => filter_var(env('KOMERCE_QRISLY_UNIQUE_AMOUNT', true), FILTER_VALIDATE_BOOLEAN),
@@ -52,11 +59,11 @@ return [
         ? null
         : filter_var($komerceEnabled, FILTER_VALIDATE_BOOLEAN),
 
-    'payment_base_url' => env('KOMERCE_PAYMENT_BASE_URL', 'https://api-sandbox.collaborator.komerce.id/user'),
+    'payment_base_url' => env('KOMERCE_PAYMENT_BASE_URL', $sandboxDefault('https://api-sandbox.collaborator.komerce.id/user')),
 
     'rajaongkir' => [
         'cost_base_url' => env('RAJAONGKIR_COST_BASE_URL', 'https://rajaongkir.komerce.id'),
-        'delivery_base_url' => env('RAJAONGKIR_DELIVERY_BASE_URL', 'https://api-sandbox.collaborator.komerce.id'),
+        'delivery_base_url' => env('RAJAONGKIR_DELIVERY_BASE_URL', $sandboxDefault('https://api-sandbox.collaborator.komerce.id')),
     ],
 
     /*

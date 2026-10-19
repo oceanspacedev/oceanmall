@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             CarrierSeeder::class,
             ZoneSeeder::class,
             TaxSeeder::class,
+            // Demo data below is a no-op in production (Concerns\DemoDataOnly).
             CustomerSeeder::class,
             ReviewSeeder::class,
             DiscountSeeder::class,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -26,7 +27,7 @@ use Shopper\Traits\InteractsWithShopper;
     'store_two_factor_secret',
     'store_two_factor_recovery_codes',
 ])]
-final class User extends Authenticatable implements ShopperUser
+final class User extends Authenticatable implements MustVerifyEmail, ShopperUser
 {
     use HasApiTokens;
 

@@ -10,11 +10,13 @@ use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
 use App\Actions\Checkout\MarkOrderPaidFromKomerce;
 use App\Actions\CreateOrder;
+use App\Exceptions\KomercePaidAfterCancellation;
 use App\Jobs\CreateRajaOngkirDeliveryForShipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Shopper\Cart\CartManager;
@@ -867,7 +869,12 @@ final class KomerceCheckoutTest extends TestCase
             'reference' => 'KOMPAY-LATE-PAID',
         ]);
 
-        Http::fake();
+        Http::fake([
+            'https://payment.example.test/user/api/v1/user/payment/status/KOMPAY-LATE-PAID' => Http::response([
+                'success' => true,
+                'data' => ['payment_id' => 'KOMPAY-LATE-PAID', 'status' => 'EXPIRED', 'amount' => 100000],
+            ]),
+        ]);
 
         $status = resolve(MarkOrderPaidFromKomerce::class)->handle('KOMPAY-LATE-PAID');
 
@@ -875,6 +882,48 @@ final class KomerceCheckoutTest extends TestCase
         $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
         $this->assertSame(PaymentStatus::Voided, $order->payment_status);
         Bus::assertNotDispatched(CreateRajaOngkirDeliveryForShipment::class);
-        Http::assertNothingSent();
+    }
+
+    public function test_money_captured_after_cancellation_raises_an_alert_without_reviving_the_order(): void
+    {
+        $this->komerceFakeConfig();
+        Bus::fake();
+        Exceptions::fake();
+
+        $order = Order::factory()->create([
+            'number' => 'ORD-PAID-AFTER-CANCEL',
+            'price_amount' => 100000,
+            'currency_code' => 'IDR',
+            'payment_status' => PaymentStatus::Voided,
+            'status' => OrderStatus::Cancelled,
+        ]);
+
+        PaymentTransaction::query()->create([
+            'order_id' => $order->id,
+            'driver' => 'komerce',
+            'type' => TransactionType::Initiate,
+            'status' => TransactionStatus::Failed,
+            'amount' => 100000,
+            'currency_code' => 'IDR',
+            'reference' => 'KOMPAY-PAID-AFTER-CANCEL',
+        ]);
+
+        Http::fake([
+            'https://payment.example.test/user/api/v1/user/payment/status/KOMPAY-PAID-AFTER-CANCEL' => Http::response([
+                'success' => true,
+                'data' => ['payment_id' => 'KOMPAY-PAID-AFTER-CANCEL', 'status' => 'PAID', 'amount' => 100000],
+            ]),
+        ]);
+
+        $status = resolve(MarkOrderPaidFromKomerce::class)->handle('KOMPAY-PAID-AFTER-CANCEL');
+
+        $this->assertSame('paid_after_cancel', $status);
+        $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
+        $this->assertSame(PaymentStatus::Voided, $order->payment_status);
+        Bus::assertNotDispatched(CreateRajaOngkirDeliveryForShipment::class);
+        Exceptions::assertReported(
+            fn (KomercePaidAfterCancellation $e): bool => $e->orderNumber === 'ORD-PAID-AFTER-CANCEL'
+                && $e->paymentId === 'KOMPAY-PAID-AFTER-CANCEL',
+        );
     }
 }

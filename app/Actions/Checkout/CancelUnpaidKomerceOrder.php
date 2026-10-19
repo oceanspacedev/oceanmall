@@ -8,6 +8,7 @@ use App\Actions\Notify\NotifyOrderCustomer;
 use App\Actions\Stock\ReleaseOrderShipmentStock;
 use App\Enums\OrderNotificationType;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderCancelled;
@@ -22,8 +23,13 @@ final readonly class CancelUnpaidKomerceOrder
     public function __construct(
         private ReleaseOrderShipmentStock $releaseStock,
         private NotifyOrderCustomer $notifyOrderCustomer,
+        private SyncKomercePaymentStatus $syncPaymentStatus,
     ) {}
 
+    /**
+     * @throws RuntimeException when Komerce cannot confirm the payment is still unpaid;
+     *                          the order is left untouched so the next run retries.
+     */
     public function handle(Order $order, string $reason = 'Payment expired'): Order
     {
         if ($order->payment_status === PaymentStatus::Paid) {
@@ -32,6 +38,21 @@ final readonly class CancelUnpaidKomerceOrder
 
         if ($order->status === OrderStatus::Cancelled) {
             return $order;
+        }
+
+        // A VA transfer can land minutes before expiry while its webhook is
+        // still in flight: settle it instead of cancelling a paid order.
+        if (komerce_payment_enabled()) {
+            $verdict = $this->syncPaymentStatus->reconcile($order);
+
+            if ($verdict === 'lookup_failed') {
+                throw new RuntimeException("Could not verify Komerce payment for order {$order->number}; not cancelling.");
+            }
+
+            // Paid (now settled) or paid with the wrong amount (already reported): a human decides.
+            if (in_array($verdict, ['handled', 'already_processed', 'amount_mismatch'], true)) {
+                return $order->refresh();
+            }
         }
 
         return DB::transaction(function () use ($order, $reason): Order {

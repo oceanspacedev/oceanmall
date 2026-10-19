@@ -8,6 +8,7 @@ use App\Models\Channel;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
+use Database\Seeders\Concerns\DemoDataOnly;
 use Database\Seeders\Concerns\WithProgressBar;
 use Illuminate\Database\Seeder;
 use Shopper\Core\Enum\OrderStatus;
@@ -19,10 +20,15 @@ use Shopper\Core\Models\Zone;
 
 class OrderSeeder extends Seeder
 {
+    use DemoDataOnly;
     use WithProgressBar;
 
     public function run(): void
     {
+        if ($this->refuseInProduction()) {
+            return;
+        }
+
         $customers = User::query()
             ->scopes('customers')
             ->get();

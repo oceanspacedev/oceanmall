@@ -758,7 +758,7 @@ const steps = [
                                     :placeholder="
                                         komerceEnabled
                                             ? 'Contoh: Kedawung Cirebon'
-                                            : 'Opsional saat Komerce dinonaktifkan'
+                                            : 'Pencarian kecamatan sedang tidak tersedia'
                                     "
                                     @focus="
                                         destinationQuery.trim().length >= 2 &&

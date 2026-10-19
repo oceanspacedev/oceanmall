@@ -158,4 +158,23 @@ return [
     'uppercase'              => ':Attribute harus berupa huruf kapital.',
     'url'                    => 'Format :attribute tidak valid.',
     'uuid'                   => ':Attribute harus merupakan UUID yang valid.',
+
+    /*
+    | Customer-facing attribute names (address forms on checkout, account and API).
+    | Lowercase on purpose: ":Attribute" capitalises the first letter.
+    */
+    'attributes' => [
+        'first_name'                   => 'nama depan',
+        'last_name'                    => 'nama belakang',
+        'street_address'               => 'alamat',
+        'street_address_plus'          => 'detail alamat',
+        'postal_code'                  => 'kode pos',
+        'city'                         => 'kota',
+        'state'                        => 'provinsi',
+        'phone_number'                 => 'nomor telepon',
+        'country_id'                   => 'negara',
+        'rajaongkir_destination_id'    => 'kecamatan',
+        'rajaongkir_destination_label' => 'kecamatan',
+        'destination_id'               => 'kecamatan',
+    ],
 ];

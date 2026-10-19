@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Cpanel;
 
+use Illuminate\Support\Arr;
 use Livewire\Livewire;
 
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Livewire\Components\LocaleSwitcher;
 use Tests\TestCase;
 
@@ -37,6 +40,23 @@ final class LocaleTest extends TestCase
 
         $translatedProduct = __('shopper::words.product', [], 'id');
         $this->assertSame('Produk', $translatedProduct);
+    }
+
+    public function test_order_list_status_tabs_translate_to_indonesian(): void
+    {
+        app()->setLocale('id');
+
+        $this->assertSame('Dibatalkan', OrderStatus::Cancelled->getLabel());
+        $this->assertSame('Diarsipkan', OrderStatus::Archived->getLabel());
+        $this->assertSame('Dibayar', PaymentStatus::Paid->getLabel());
+    }
+
+    public function test_indonesian_status_override_matches_english_keys(): void
+    {
+        $en = require base_path('vendor/shopper/core/resources/lang/en/status.php');
+        $id = require base_path('lang/vendor/shopper-core/id/status.php');
+
+        $this->assertSame(array_keys(Arr::dot($en)), array_keys(Arr::dot($id)));
     }
 
     public function test_locale_switcher_changes_session_locale_to_english(): void

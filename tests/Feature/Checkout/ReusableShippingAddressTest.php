@@ -231,4 +231,30 @@ final class ReusableShippingAddressTest extends TestCase
             ->assertJsonPath('props.savedAddresses.0.rajaongkir_destination_id', '99001')
             ->assertJsonPath('props.savedAddresses.0.rajaongkir_destination_label', 'BANDUNG WETAN');
     }
+
+    public function test_missing_address_fields_report_indonesian_attribute_names(): void
+    {
+        [$user, , $cart] = $this->customerWithCart();
+        app()->setLocale('id');
+
+        $this->actingAs($user)
+            ->withSession([
+                config('shopper.cart.session.key', 'shopper_cart') => $cart->id,
+                'zone_country_code' => 'ID',
+            ])
+            ->from(route('shop.checkout.index'))
+            ->post(route('shop.checkout.shipping-address'), [
+                'state' => str_repeat('x', 256),
+            ])
+            ->assertRedirect(route('shop.checkout.index'))
+            ->assertSessionHasErrors([
+                'first_name' => 'Nama depan wajib diisi.',
+                'last_name' => 'Nama belakang wajib diisi.',
+                'street_address' => 'Alamat wajib diisi.',
+                'city' => 'Kota wajib diisi.',
+                'postal_code' => 'Kode pos wajib diisi.',
+                'state' => 'Provinsi maksimal berisi 255 karakter.',
+                'rajaongkir_destination_id' => 'Kecamatan wajib diisi.',
+            ]);
+    }
 }

@@ -93,6 +93,41 @@ final class ShopperShippingLabelRajaOngkirTest extends TestCase
         ]);
     }
 
+    public function test_shopper_fulfillment_keeps_shopper_steps_but_not_its_label_button_when_delivery_is_on(): void
+    {
+        $this->fakeDelivery();
+        $admin = $this->admin();
+        [$order] = $this->paidOrderWithShipment();
+
+        Http::fake();
+
+        Livewire::actingAs($admin)
+            ->test(OrderFulfillment::class, ['order' => $order])
+            ->assertSee(__('shopper::pages/orders.expedition_to'), false)
+            ->assertSee('Budi Santoso', false)
+            ->assertSee('Terbitkan Resi RajaOngkir', false)
+            ->assertDontSee(__('shopper::pages/orders.create_shipping_label'), false);
+    }
+
+    public function test_shopper_fulfillment_uses_shopper_label_flow_when_delivery_is_off(): void
+    {
+        config()->set('komerce.shipping_delivery_api_key', null);
+        $admin = $this->admin();
+        [$order] = $this->paidOrderWithShipment();
+
+        Http::fake();
+
+        Livewire::actingAs($admin)
+            ->test(OrderFulfillment::class, ['order' => $order])
+            ->assertSee(__('shopper::pages/orders.expedition_to'), false)
+            ->assertSee(__('shopper::pages/orders.create_shipping_label'), false)
+            ->assertDontSee('Resi RajaOngkir', false)
+            ->call('openShippingLabel')
+            ->assertDispatched('openPanel', component: 'shopper-slide-overs.create-shipping-label');
+
+        Http::assertNothingSent();
+    }
+
     public function test_shopper_fulfillment_does_not_issue_label_before_payment(): void
     {
         $this->fakeDelivery();

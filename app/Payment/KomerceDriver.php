@@ -24,10 +24,13 @@ use Shopper\Payment\Exceptions\PaymentException;
  */
 final class KomerceDriver extends Driver
 {
+    /**
+     * The lookup context is scoped and resolved per call: Shopper's
+     * PaymentManager memoizes this driver across queue jobs and Octane requests.
+     */
     public function __construct(
         private readonly PaymentClient $payments,
         private readonly QrislyClient $qrisly,
-        private readonly KomercePaymentLookupContext $lookupContext,
     ) {}
 
     public function code(): string
@@ -105,7 +108,7 @@ final class KomerceDriver extends Driver
             throw PaymentException::apiError($this->code(), 'Payment reference is required.');
         }
 
-        $provider = $this->lookupContext->provider();
+        $provider = resolve(KomercePaymentLookupContext::class)->provider();
 
         if ($provider === 'qrisly') {
             if (! qrisly_enabled()) {

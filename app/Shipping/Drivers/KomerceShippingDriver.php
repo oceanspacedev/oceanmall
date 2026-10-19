@@ -29,10 +29,12 @@ use Throwable;
  */
 final class KomerceShippingDriver extends Driver
 {
+    /**
+     * Contexts are scoped and resolved per call: Shopper's ShippingManager
+     * memoizes this driver across queue jobs and Octane requests.
+     */
     public function __construct(
         private readonly ShippingDeliveryClient $delivery,
-        private readonly KomerceTrackingContext $trackingContext,
-        private readonly KomerceFulfillmentContext $fulfillmentContext,
         private readonly NormalizeShipmentStatus $normalizeStatus,
     ) {}
 
@@ -81,7 +83,7 @@ final class KomerceShippingDriver extends Driver
             throw ShippingException::notConfigured($this->code());
         }
 
-        $shipment = $this->fulfillmentContext->shipment();
+        $shipment = resolve(KomerceFulfillmentContext::class)->shipment();
 
         if ($shipment === null) {
             throw ShippingException::apiError($this->code(), 'Order shipment context is required to create a Komerce delivery.');
@@ -139,8 +141,9 @@ final class KomerceShippingDriver extends Driver
             throw ShippingException::notConfigured($this->code());
         }
 
+        $trackingContext = resolve(KomerceTrackingContext::class);
         $trackingNumber = trim($trackingNumber);
-        $courier = $this->trackingContext->courier();
+        $courier = $trackingContext->courier();
 
         if ($trackingNumber === '') {
             throw ShippingException::apiError($this->code(), 'Airway bill is required.');
@@ -160,7 +163,7 @@ final class KomerceShippingDriver extends Driver
             throw ShippingException::invalidResponse($this->code());
         }
 
-        $this->trackingContext->setLastRaw($response);
+        $trackingContext->setLastRaw($response);
 
         $rawStatus = trim((string) (
             data_get($response, 'data.last_status')

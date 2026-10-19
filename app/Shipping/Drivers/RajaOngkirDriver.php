@@ -30,11 +30,13 @@ use Throwable;
  */
 final class RajaOngkirDriver extends Driver
 {
+    /**
+     * Contexts are scoped and resolved per call: Shopper's ShippingManager
+     * memoizes this driver across queue jobs and Octane requests.
+     */
     public function __construct(
         private readonly ShippingCostClient $costClient,
-        private readonly RajaOngkirQuoteContext $quoteContext,
         private readonly RajaOngkirRateMapper $mapper,
-        private readonly KomerceTrackingContext $trackingContext,
         private readonly NormalizeShipmentStatus $normalizeStatus,
     ) {}
 
@@ -74,13 +76,15 @@ final class RajaOngkirDriver extends Driver
             throw ShippingException::notConfigured($this->code());
         }
 
-        if (! $this->quoteContext->hasQuote()) {
+        $quoteContext = resolve(RajaOngkirQuoteContext::class);
+
+        if (! $quoteContext->hasQuote()) {
             return collect();
         }
 
-        $originId = (string) $this->quoteContext->originId();
-        $destinationId = (string) $this->quoteContext->destinationId();
-        $couriers = $this->quoteContext->couriers();
+        $originId = (string) $quoteContext->originId();
+        $destinationId = (string) $quoteContext->destinationId();
+        $couriers = $quoteContext->couriers();
 
         if ($couriers === []) {
             $couriers = array_values(array_filter(
@@ -133,8 +137,9 @@ final class RajaOngkirDriver extends Driver
             throw ShippingException::notConfigured($this->code());
         }
 
+        $trackingContext = resolve(KomerceTrackingContext::class);
         $trackingNumber = trim($trackingNumber);
-        $courier = strtolower(trim((string) $this->trackingContext->courier()));
+        $courier = strtolower(trim((string) $trackingContext->courier()));
 
         if ($trackingNumber === '') {
             throw ShippingException::apiError($this->code(), 'Airway bill is required.');
@@ -148,7 +153,7 @@ final class RajaOngkirDriver extends Driver
             $response = $this->costClient->trackWaybill(
                 $trackingNumber,
                 $courier,
-                $this->trackingContext->lastPhoneNumber(),
+                $trackingContext->lastPhoneNumber(),
             );
         } catch (Throwable $e) {
             throw ShippingException::apiError($this->code(), $e->getMessage());
@@ -158,7 +163,7 @@ final class RajaOngkirDriver extends Driver
             throw ShippingException::invalidResponse($this->code());
         }
 
-        $this->trackingContext->setLastRaw($response);
+        $trackingContext->setLastRaw($response);
 
         $rawStatus = trim((string) (
             data_get($response, 'data.delivery_status.status')

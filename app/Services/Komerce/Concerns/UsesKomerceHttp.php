@@ -110,7 +110,13 @@ trait UsesKomerceHttp
 
     private function baseUrl(string $key): string
     {
-        return rtrim((string) config($key, ''), '/');
+        $url = rtrim((string) config($key, ''), '/');
+
+        if ($url === '') {
+            throw new KomerceNotConfiguredException("Komerce base URL [{$key}] is not configured.");
+        }
+
+        return $url;
     }
 
     /**

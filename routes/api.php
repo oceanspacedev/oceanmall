@@ -38,7 +38,7 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('cart/items/{line}', [CartController::class, 'update'])->middleware('throttle:mobile-cart')->whereNumber('line');
         Route::delete('cart/items/{line}', [CartController::class, 'destroy'])->whereNumber('line');
         Route::delete('cart', [CartController::class, 'clear']);
-        Route::post('cart/coupon', [CartController::class, 'applyCoupon']);
+        Route::post('cart/coupon', [CartController::class, 'applyCoupon'])->middleware('throttle:coupon');
         Route::delete('cart/coupon', [CartController::class, 'removeCoupon']);
     });
 
@@ -50,15 +50,15 @@ Route::prefix('v1')->group(function (): void {
         Route::put('auth/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:mobile-password-change');
 
         Route::get('checkout', [CheckoutController::class, 'show']);
-        Route::get('checkout/destinations', DestinationController::class)->middleware('throttle:mobile-destinations');
-        Route::post('checkout/shipping-address', [CheckoutController::class, 'saveShippingAddress']);
-        Route::post('checkout/shipping-address/saved', [CheckoutController::class, 'applySavedAddress']);
-        Route::post('checkout/shipping-option', [CheckoutController::class, 'saveShippingOption']);
+        Route::get('checkout/destinations', DestinationController::class)->middleware('throttle:checkout-destinations');
+        Route::post('checkout/shipping-address', [CheckoutController::class, 'saveShippingAddress'])->middleware('throttle:checkout-quote');
+        Route::post('checkout/shipping-address/saved', [CheckoutController::class, 'applySavedAddress'])->middleware('throttle:checkout-quote');
+        Route::post('checkout/shipping-option', [CheckoutController::class, 'saveShippingOption'])->middleware('throttle:checkout-quote');
         Route::post('checkout/place-order', [CheckoutController::class, 'placeOrder'])->middleware('throttle:mobile-place-order');
 
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{number}', [OrderController::class, 'show']);
-        Route::post('orders/{number}/retry-payment', [OrderController::class, 'retryPayment']);
+        Route::post('orders/{number}/retry-payment', [OrderController::class, 'retryPayment'])->middleware('throttle:checkout-payment');
         Route::post('orders/{number}/sync-payment', [OrderController::class, 'syncPayment'])->middleware('throttle:mobile-sync-payment');
         Route::post('orders/{number}/shipments/{shipment}/track', [OrderController::class, 'track'])->whereNumber('shipment');
         Route::post('orders/{number}/confirm-received', [OrderController::class, 'confirmReceived']);

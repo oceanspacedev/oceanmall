@@ -8,7 +8,9 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
+use Database\Seeders\Concerns\DemoDataOnly;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Shopper\Core\Enum\CollectionType;
 use Shopper\Core\Enum\ProductType;
@@ -17,7 +19,6 @@ use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Price;
 use Shopper\Core\Models\Setting;
-use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
@@ -30,8 +31,14 @@ use Throwable;
  */
 final class StorefrontDemoSeeder extends Seeder
 {
+    use DemoDataOnly;
+
     public function run(): void
     {
+        if ($this->refuseInProduction()) {
+            return;
+        }
+
         $idr = Currency::query()->where('code', 'IDR')->firstOrFail();
         $this->ensureDefaultCurrency($idr);
 

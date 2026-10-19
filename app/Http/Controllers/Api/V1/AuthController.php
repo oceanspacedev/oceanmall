@@ -8,6 +8,7 @@ use App\Actions\Account\DeleteCustomerAccount;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\CustomerCart;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -42,8 +43,11 @@ final class AuthController extends Controller
             'email' => $data['email'],
             'phone_number' => $data['phone_number'] ?? null,
             'password' => $data['password'],
-            'email_verified_at' => now(),
         ]);
+
+        // Sends the verification mail (same as web registration). The app does
+        // not gate on it; web checkout and account pages do (`verified`).
+        event(new Registered($user));
 
         $role = config('shopper.admin.roles.user');
         if (is_string($role) && $role !== '' && Role::query()->where('name', $role)->exists()) {

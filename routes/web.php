@@ -74,7 +74,7 @@ Route::get('search', SearchController::class)->middleware('throttle:30,1')->name
 Route::get('cart', [CartController::class, 'index'])->name('shop.cart');
 Route::middleware('throttle:60,1')->group(function (): void {
     Route::post('cart', [CartController::class, 'add'])->name('shop.cart.add');
-    Route::post('cart/coupon', [CartCouponController::class, 'store'])->name('shop.cart.coupon.store');
+    Route::post('cart/coupon', [CartCouponController::class, 'store'])->middleware('throttle:coupon')->name('shop.cart.coupon.store');
     Route::delete('cart/coupon', [CartCouponController::class, 'destroy'])->name('shop.cart.coupon.destroy');
     Route::patch('cart/{line}', [CartController::class, 'update'])->name('shop.cart.update');
     Route::delete('cart/{line}', [CartController::class, 'destroy'])->name('shop.cart.destroy');
@@ -88,12 +88,12 @@ Route::patch('zone', [ZoneController::class, 'update'])->middleware('throttle:30
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('checkout', [CheckoutController::class, 'index'])->name('shop.checkout.index');
     Route::get('checkout/destinations', DestinationSearchController::class)
-        ->middleware('throttle:30,1')
+        ->middleware('throttle:checkout-destinations')
         ->name('shop.checkout.destinations');
-    Route::post('checkout/shipping-address', [CheckoutController::class, 'saveShippingAddress'])->name('shop.checkout.shipping-address');
-    Route::post('checkout/shipping-option', [CheckoutController::class, 'saveShippingOption'])->name('shop.checkout.shipping-option');
-    Route::post('checkout/prepare-payment', [CheckoutController::class, 'preparePayment'])->name('shop.checkout.prepare-payment');
-    Route::post('checkout/place-order', [CheckoutController::class, 'placeOrder'])->name('shop.checkout.place-order');
+    Route::post('checkout/shipping-address', [CheckoutController::class, 'saveShippingAddress'])->middleware('throttle:checkout-quote')->name('shop.checkout.shipping-address');
+    Route::post('checkout/shipping-option', [CheckoutController::class, 'saveShippingOption'])->middleware('throttle:checkout-quote')->name('shop.checkout.shipping-option');
+    Route::post('checkout/prepare-payment', [CheckoutController::class, 'preparePayment'])->middleware('throttle:checkout-payment')->name('shop.checkout.prepare-payment');
+    Route::post('checkout/place-order', [CheckoutController::class, 'placeOrder'])->middleware('throttle:checkout-payment')->name('shop.checkout.place-order');
     Route::get('checkout/stripe-return', [CheckoutController::class, 'stripeReturn'])->name('shop.checkout.stripe-return');
     Route::get('checkout/payment/{number}', StripePaymentController::class)->name('shop.checkout.stripe');
     Route::get('checkout/success/{order}', CheckoutSuccessController::class)->name('shop.checkout.success');
@@ -121,6 +121,7 @@ Route::middleware(['auth', 'verified'])->prefix('account')->name('account.')->gr
     Route::get('orders', [AccountOrderController::class, 'index'])->name('orders');
     Route::get('orders/{order}', [AccountOrderController::class, 'show'])->name('orders.show');
     Route::post('orders/{order}/retry-payment', RetryKomercePaymentController::class)
+        ->middleware('throttle:checkout-payment')
         ->name('orders.retry-payment');
     Route::post('orders/{order}/sync-payment', SyncKomercePaymentStatusController::class)
         ->middleware('throttle:12,1')

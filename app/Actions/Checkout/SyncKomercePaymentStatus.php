@@ -28,22 +28,28 @@ final class SyncKomercePaymentStatus
             return 'already_paid';
         }
 
+        return match ($this->reconcile($order)) {
+            'handled' => 'handled',
+            'already_processed' => 'already_paid',
+            'no_payment' => 'no_payment',
+            default => 'not_paid',
+        };
+    }
+
+    /**
+     * Same lookup as handle(), but returns MarkOrderPaidFromKomerce's raw verdict
+     * so callers can tell "not paid" apart from "Komerce unreachable"
+     * ('lookup_failed') or 'amount_mismatch'.
+     */
+    public function reconcile(Order $order): string
+    {
         $paymentId = $this->resolvePaymentId($order);
 
         if ($paymentId === null) {
             return 'no_payment';
         }
 
-        $provider = $this->resolveProvider($order);
-
-        $result = $this->markOrderPaid->handle($paymentId, $provider);
-
-        return match ($result) {
-            'handled' => 'handled',
-            'already_processed' => 'already_paid',
-            'not_paid' => 'not_paid',
-            default => 'not_paid',
-        };
+        return $this->markOrderPaid->handle($paymentId, $this->resolveProvider($order));
     }
 
     private function resolvePaymentId(Order $order): ?string

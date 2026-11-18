@@ -32,6 +32,10 @@ final class InventoryRajaOngkirOriginTest extends TestCase
         $inventory = Inventory::factory()->create([
             'country_id' => $country->id,
             'name' => 'Gudang Jakarta',
+            // Fixed: Faker's en_US phoneNumber() sometimes yields formats like
+            // "+1 (480) 844-2504" that Filament's tel() regex rejects, which made
+            // this test fail at random.
+            'phone_number' => '081234567890',
             'rajaongkir_origin_id' => null,
         ]);
 

@@ -43,7 +43,7 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
 - **Tests need built assets.** Feature tests render Inertia views and fail with "Vite manifest not
   found" unless `npm run build` has been run (or the Vite dev server is up). Run `npm run build`
   before `composer test`.
-- **Test suite is green as of 2026-10-13 (387 tests).** Tests use kebab-case Inertia page names
+- **Test suite is green as of 2026-11-18 (538 tests).** Tests use kebab-case Inertia page names
   (`settings/security`, `auth/confirm-password`), `first_name`/`last_name` profile fields, and
   `@example.com` addresses. The `email:rfc,dns` rule is skipped under `runningUnitTests()` because
   the DNS validator rejects reserved domains and needs network access.
@@ -54,38 +54,88 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   and bypasses them. After bumping `shopper/core`, confirm the patch still applies.
 - **Run the suite with `php -d memory_limit=1G vendor/bin/phpunit`.** At the default 128M the run
   dies with a Blade/icon-manifest memory exhaustion around the Auth tests (pre-existing).
-- **Checkout quotes come from Komerce Delivery, not RajaOngkir Cost.** `FetchDeliveryRates` first
-  calls `FetchKomerceDeliveryRates` (`GET /tariff/api/v1/calculate`, needs warehouse + destination
-  pin points and `item_value > 0`); the selected row is persisted on the shipment with
-  `provider=shipping_delivery` so `CreateRajaOngkirDeliveryForShipment` reuses it for Store Order
-  without re-quoting. RajaOngkir Shipping Cost is only the fallback (no Delivery key / no pin
-  points) plus destination search and waybill tracking.
+- **Checkout quotes go through the Shopper shipping drivers.** `FetchDeliveryRates` asks every
+  configured real-time driver for the carriers it owns (`carriers.driver`), passing destination id /
+  pin point / warehouse / item value in the neutral `App\Shipping\ShippingQuoteContext`. With NO
+  provider configured it uses Shopper's zone options; when a configured provider returns nothing
+  (quota, outage, no origin) checkout shows no courier plus a hint, as before the refactor, unless
+  `SHIPPING_FALLBACK_TO_ZONE_OPTIONS=true` (`SHIPPING_COMBINE_ZONE_OPTIONS=true` always offers manual
+  carriers' zone options next to provider quotes, also when the provider answers nothing). Driver switches `shopper.{shipping,payment}.drivers.{code}.enabled`
+  follow Shopper's rule (missing = off, parsed as bool: `App\Support\OperatorSwitch`). The
+  `2026_11_18_000100`–`000400` migrations are expand-only (rolling-deploy safe at the schema level; swap
+  ALL queue workers at once): `000100` COPIES `sh_inventories.rajaongkir_origin_id` into
+  `inventory_shipping_origins` and keeps the column for the previous release. Current code never
+  reads or writes that column (only an explicitly set, dirty `rajaongkir_origin_id` model attribute
+  is mapped by `InventoryObserver`); a later contract release drops it (README "Upgrading to
+  provider-neutral shipping"). Komerce Delivery is preferred over
+  RajaOngkir Cost because `RajaOngkirDriver` *DelegatesQuotes* to `komerce`
+  (`ShippingCapabilities::quoteChains()`), not because of an if/else in checkout. The Delivery tariff
+  (`GET /tariff/api/v1/calculate`, needs warehouse + destination pin points and `item_value > 0`) is
+  `KomerceShippingDriver::calculateRates()`; the selected row is persisted with
+  `provider=shipping_delivery` so Store Order (`App\Integrations\Komerce\Services\KomerceDeliveryFulfillment`,
+  reached via `FulfillsShipments`) reuses it without re-quoting.
+- **One primary destination vocabulary.** An address stores one `destination_id` +
+  `destination_driver` (`App\Shipping\AddressDestination`; legacy `rajaongkir_*` keys are still read
+  as a fallback) picked from the first configured `ResolvesDestinations` driver
+  (`ShippingCapabilities::destinationDriver()`). A second configured `ResolvesDestinations` driver
+  gets the id its own search finds for the address's exact 5-digit postal code
+  (`ShippingQuoteContext::destinationId()` → `secondaryDestination()`), and quotes nothing without a
+  match (searched by postal code, then the address city/label; cached per driver+region 30 d / 1 d on a miss); the primary driver never guesses. Per-driver picked destinations are not supported. Old app builds without a destination driver get address-book regions from `/api/v1/checkout/destinations` (`AddressBookDestinations`) and a `text:` legacy id on addresses (never stored).
 - **Courier and payment lists come from the providers, not from config.** `php artisan
-  komerce:sync-carriers` (scheduled daily) probes Komerce Delivery (and RajaOngkir Cost for
+  shipping:sync-carriers` (alias `komerce:sync-carriers`, scheduled daily) runs every configured
+  driver that `SyncsCarriers`; the RajaOngkir driver probes Komerce Delivery (and RajaOngkir Cost for
   information) for the warehouse → reference route (`komerce.sync.*`) and enables the couriers
-  Delivery offers; the storefront footer and checkout read that carriers table.
+  Delivery offers. It only touches carriers with `driver=rajaongkir` and keys them by
+  `metadata.courier_code`. Generic lifecycle commands: `shipping:fulfill-paid`,
+  `shipping:refresh-tracking`, `orders:expire-unpaid` (old `komerce:*` names are aliases); with no
+  provider configured they, and their schedules, do nothing (except that `orders:expire-unpaid` still
+  cancels, locally and 24 h past their stored expiry, unpaid orders of a switched-off / keyless driver).
   `RAJAONGKIR_COURIERS` is an optional override and should stay empty. Payment methods in the footer/checkout are matched against the
   official Komerce catalog (`GET /api/v1/user/methods`) and use its `display_name`/`logo_url`;
   `channel_code` in `sh_payment_methods` metadata must equal the catalog `bank_code` (e.g. `BRI`).
-- **Plan tier is detected at runtime, never configured.** `App\Support\KomerceCapabilities`
+- **Plan tier is detected at runtime, never configured.** `App\Integrations\Komerce\Support\KomerceCapabilities`
   learns entitlements from the APIs (2xx = entitled, "Invalid API key" 400/401/403 = not on the
   plan), counts Shipping Cost requests per WIB day, remembers 429/"limit" answers until midnight,
   and infers the tier (starter / pro / komship). `php artisan komerce:capabilities` probes and
-  prints it (scheduled 00:05, before `komerce:sync-carriers`); every real API response is also
+  prints it (scheduled 00:05, before `shipping:sync-carriers`); every real API response is also
   observed passively via `UsesKomerceHttp`, so a rejected product switches off within one call.
-  All `komerce_*_enabled()` helpers = key configured AND entitled.
+  `App\Integrations\Komerce\Komerce::*Enabled()` (module-internal; the old global
+  `komerce_*_enabled()` helpers are gone) = key configured AND entitled. Reads are memoised per
+  request/job, but every write (`observe()`/`touch()`) re-reads the cache and rewrites only that
+  product's entry under a short `Cache::lock`, so a concurrent 429 / "not entitled" verdict is never
+  erased by a stale memo; the daily counter uses atomic `Cache::add` + `increment`.
 - **The Collaborator account is currently on the free (Starter) plan**: Shipping Cost Check (100
   requests/day, 17 domestic couriers), Payment API and QRISLY only — **no Shipping Delivery API in
-  production** (sandbox keys do have it). Everything degrades by `komerce_shipping_delivery_enabled()`:
+  production** (sandbox keys do have it). Everything degrades by `Komerce::shippingDeliveryEnabled()`:
   checkout quotes via RajaOngkir Cost (cached 12 h per route+weight), destination searches are
-  cached 30 days, `komerce:sync-carriers` enables whatever Cost quotes, and cpanel falls back to
+  cached 30 days, `shipping:sync-carriers` enables whatever Cost quotes, and cpanel falls back to
   Shopper's manual AWB entry (`CreateShippingLabel::save()` → `parent::save()`), with tracking via
   Cost `track/waybill`. Keep an eye on the daily quota; upgrading the plan re-enables Delivery.
+  The `komerce` cpanel card renders for orders shipped (or quoted) through a Komerce driver
+  (`rajaongkir` or `komerce`), so it also shows on Starter; Delivery-only buttons inside it stay
+  hidden without the Delivery API.
 - **Mobile QA on sandbox.** The sandbox payment page cannot be completed and webhooks cannot reach a
   laptop: `php artisan komerce:simulate-payment ORD-...` (local env + sandbox host only) marks an order
-  paid through the real `MarkOrderPaidFromKomerce` path. Paid orders need `queue:listen` to reach
+  paid through the real `MarkOrderPaidFromKomerce` path (which hands over to the neutral
+  `App\Actions\Orders\MarkOrderPaid` and Shopper's `OrderPaid`). Paid orders need `queue:listen` to reach
   Delivery. Tester checklist and accounts: `mobile/TESTING.md`. Metro without watchman can miss newly
   created files ("Unable to resolve module") — restart with `npx expo start -c`.
+- **Komerce is a self-contained module: `app/Integrations/Komerce/**`.** `KomerceServiceProvider`
+  (listed in `bootstrap/providers.php`) owns everything Komerce: config merge (the ONLY credential
+  source is `app/Integrations/Komerce/config/komerce.php`, key `komerce.*`; publish with
+  `vendor:publish --tag=komerce-config`), `Payment::extend('komerce')`, `Shipping::extend('rajaongkir'|'komerce')`,
+  the `komerce` cpanel addon, webhook routes (`routes/webhooks.php`, names/URLs `webhooks.komerce.*`
+  unchanged), the `komerce:capabilities` / `komerce:uat` / `komerce:simulate-payment` commands, the
+  00:05 schedule, views (`komerce::`), carrier/payment logo sources, scoped contexts, its payment
+  method seeder (`PaymentMethodSeeder::extend`) and the critical log level for paid-after-cancel.
+  `config/shopper/{payment,shipping}.php` keep only `enabled` for its drivers. Generic code
+  (AppServiceProvider, routes/*.php, controllers, actions) must NEVER import `App\Integrations\Komerce`
+  — `tests/Feature/Komerce/KomerceModuleTest.php` enforces it. Removing the provider line + folder
+  leaves a pure-Shopper store (manual payment, zone shipping options, manual AWB). New providers go
+  in their own `app/Integrations/<Name>` module; see README "Adding a payment/shipping provider".
 - **Payment/shipping (Komerce / RajaOngkir).** Full checkout needs sandbox creds
-  (`KOMERCE_PAYMENT_API_KEY`, `KOMERCE_SHIPPING_*_API_KEY`, `KOMERCE_WEBHOOK_SECRET`, RajaOngkir base URLs). Storefront browsing, cart,
-  and the admin panel work without them. Stripe stays disabled (`PAYMENT_STRIPE_ENABLED=false`).
+  (`KOMERCE_PAYMENT_API_KEY`, `KOMERCE_SHIPPING_*_API_KEY`, `KOMERCE_WEBHOOK_SECRET`; base URLs stay
+  commented in `.env.example` so outside production they default to sandbox and in production they
+  must be set). Storefront browsing, cart, checkout (manual payment + zone shipping options) and the
+  admin panel work without them — see README "Running without Komerce". Stripe stays disabled
+  (`PAYMENT_STRIPE_ENABLED=false`).

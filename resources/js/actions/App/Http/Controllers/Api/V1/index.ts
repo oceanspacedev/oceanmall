@@ -7,6 +7,7 @@ import DestinationController from './DestinationController'
 import OrderController from './OrderController'
 import AddressController from './AddressController'
 import NotificationController from './NotificationController'
+import ReviewReportController from './ReviewReportController'
 const V1 = {
     AuthController: Object.assign(AuthController, AuthController),
 ProfileController: Object.assign(ProfileController, ProfileController),
@@ -17,6 +18,7 @@ DestinationController: Object.assign(DestinationController, DestinationControlle
 OrderController: Object.assign(OrderController, OrderController),
 AddressController: Object.assign(AddressController, AddressController),
 NotificationController: Object.assign(NotificationController, NotificationController),
+ReviewReportController: Object.assign(ReviewReportController, ReviewReportController),
 }
 
 export default V1

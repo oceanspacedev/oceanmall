@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::forgotPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:48
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:65
  * @route '/api/v1/auth/forgot-password'
  */
 export const forgotPassword = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ forgotPassword.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::forgotPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:48
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:65
  * @route '/api/v1/auth/forgot-password'
  */
 forgotPassword.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ forgotPassword.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::forgotPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:48
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:65
  * @route '/api/v1/auth/forgot-password'
  */
 forgotPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ forgotPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
 
     /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::forgotPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:48
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:65
  * @route '/api/v1/auth/forgot-password'
  */
     const forgotPasswordForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ forgotPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
 
             /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::forgotPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:48
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:65
  * @route '/api/v1/auth/forgot-password'
  */
         forgotPasswordForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ forgotPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
     forgotPassword.form = forgotPasswordForm
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::resetPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:61
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:81
  * @route '/api/v1/auth/reset-password'
  */
 export const resetPassword = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -71,7 +71,7 @@ resetPassword.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::resetPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:61
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:81
  * @route '/api/v1/auth/reset-password'
  */
 resetPassword.url = (options?: RouteQueryOptions) => {
@@ -80,7 +80,7 @@ resetPassword.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::resetPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:61
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:81
  * @route '/api/v1/auth/reset-password'
  */
 resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -90,7 +90,7 @@ resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
 
     /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::resetPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:61
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:81
  * @route '/api/v1/auth/reset-password'
  */
     const resetPasswordForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -100,7 +100,7 @@ resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
 
             /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::resetPassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:61
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:81
  * @route '/api/v1/auth/reset-password'
  */
         resetPasswordForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -111,7 +111,7 @@ resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
     resetPassword.form = resetPasswordForm
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::update
- * @see app/Http/Controllers/Api/V1/ProfileController.php:17
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:16
  * @route '/api/v1/auth/profile'
  */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -126,7 +126,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::update
- * @see app/Http/Controllers/Api/V1/ProfileController.php:17
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:16
  * @route '/api/v1/auth/profile'
  */
 update.url = (options?: RouteQueryOptions) => {
@@ -135,7 +135,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::update
- * @see app/Http/Controllers/Api/V1/ProfileController.php:17
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:16
  * @route '/api/v1/auth/profile'
  */
 update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -145,7 +145,7 @@ update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::update
- * @see app/Http/Controllers/Api/V1/ProfileController.php:17
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:16
  * @route '/api/v1/auth/profile'
  */
     const updateForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -160,7 +160,7 @@ update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::update
- * @see app/Http/Controllers/Api/V1/ProfileController.php:17
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:16
  * @route '/api/v1/auth/profile'
  */
         updateForm.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -176,7 +176,7 @@ update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::updatePassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:34
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:48
  * @route '/api/v1/auth/password'
  */
 export const updatePassword = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -191,7 +191,7 @@ updatePassword.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::updatePassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:34
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:48
  * @route '/api/v1/auth/password'
  */
 updatePassword.url = (options?: RouteQueryOptions) => {
@@ -200,7 +200,7 @@ updatePassword.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::updatePassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:34
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:48
  * @route '/api/v1/auth/password'
  */
 updatePassword.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -210,7 +210,7 @@ updatePassword.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::updatePassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:34
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:48
  * @route '/api/v1/auth/password'
  */
     const updatePasswordForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -225,7 +225,7 @@ updatePassword.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\ProfileController::updatePassword
- * @see app/Http/Controllers/Api/V1/ProfileController.php:34
+ * @see app/Http/Controllers/Api/V1/ProfileController.php:48
  * @route '/api/v1/auth/password'
  */
         updatePasswordForm.put = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

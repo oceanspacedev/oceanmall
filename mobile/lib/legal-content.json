@@ -19,7 +19,7 @@
         },
         {
           "heading": "4. Pembayaran",
-          "body": "Pembayaran dilakukan lewat virtual account bank atau QRIS, diproses oleh penyedia pembayaran kami (Komerce). Kamu membayar di halaman atau aplikasi bank atau e-wallet, bukan di aplikasi OceanMall, dan OceanMall tidak meminta atau menyimpan nomor kartu maupun rekeningmu.\n\nSetiap pembayaran punya batas waktu yang tertera di detail pesanan. Status pesanan diperbarui otomatis setelah pembayaran diterima. Pesanan yang tidak dibayar sampai batas waktu akan dibatalkan otomatis."
+          "body": "Pembayaran dilakukan dengan metode yang tersedia saat checkout, misalnya virtual account bank, QRIS, atau bayar di tempat (COD). Pembayaran non-tunai diproses oleh penyedia pembayaran yang bekerja sama dengan kami. Kamu membayar di halaman atau aplikasi bank atau e-wallet, bukan di aplikasi OceanMall, dan OceanMall tidak meminta atau menyimpan nomor kartu maupun rekeningmu.\n\nSetiap pembayaran punya batas waktu yang tertera di detail pesanan. Status pesanan diperbarui otomatis setelah pembayaran diterima. Pesanan yang tidak dibayar sampai batas waktu akan dibatalkan otomatis."
         },
         {
           "heading": "5. Pengiriman",
@@ -57,7 +57,7 @@
         },
         {
           "heading": "3. Dengan siapa data dibagikan",
-          "body": "Hanya sejauh yang diperlukan untuk menyelesaikan pesananmu:\n\n• Penyedia pembayaran (Komerce) menerima data pesanan untuk membuat virtual account atau kode QRIS. Data kartu atau rekeningmu tidak pernah melewati aplikasi ini.\n• Kurir, lewat Komerce dan RajaOngkir, menerima nama penerima, nomor HP, dan alamat tujuan untuk mengantar paketmu.\n\nSatu hal lagi bersifat publik: ulasan produk yang sudah disetujui tampil untuk semua pengunjung aplikasi, termasuk yang tanpa akun, bersama nama depan dan nama belakangmu. Data lain di akunmu tidak pernah tampil ke pengguna lain."
+          "body": "Hanya sejauh yang diperlukan untuk menyelesaikan pesananmu:\n\n• Penyedia pembayaran yang bekerja sama dengan kami menerima data pesanan untuk membuat virtual account atau kode QRIS. Data kartu atau rekeningmu tidak pernah melewati aplikasi ini.\n• Kurir, langsung atau lewat penyedia layanan pengiriman yang bekerja sama dengan kami, menerima nama penerima, nomor HP, dan alamat tujuan untuk mengantar paketmu.\n\nSatu hal lagi bersifat publik: ulasan produk yang sudah disetujui tampil untuk semua pengunjung aplikasi, termasuk yang tanpa akun, bersama nama depan dan nama belakangmu. Data lain di akunmu tidak pernah tampil ke pengguna lain."
         },
         {
           "heading": "4. Keamanan",

@@ -24,6 +24,7 @@ use App\Support\KomercePaymentLookupContext;
 use App\Support\KomerceTrackingContext;
 use App\Support\RajaOngkirQuoteContext;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -153,7 +154,6 @@ class AppServiceProvider extends ServiceProvider
             'mobile-cart' => [60, $byUserOrIp],
             'mobile-password-change' => [6, $byUserOrIp],
             'mobile-account-delete' => [5, $byUserOrIp],
-            'mobile-destinations' => [30, $byUserOrIp],
             'mobile-place-order' => [20, $byUserOrIp],
             'mobile-sync-payment' => [12, $byUserOrIp],
             'mobile-review' => [10, $byUserOrIp],
@@ -163,6 +163,21 @@ class AppServiceProvider extends ServiceProvider
         foreach ($limits as $name => [$perMinute, $key]) {
             RateLimiter::for($name, static fn (Request $request): Limit => Limit::perMinute($perMinute)->by($key($request)));
         }
+
+        // Shared by web and API so an account has one budget across both.
+        // Quotes and destination lookups spend the account-wide RajaOngkir
+        // Shipping Cost quota (100/day on Starter): the daily cap keeps one
+        // customer (or script) from breaking checkout for everyone else.
+        $perMinuteAndDay = static fn (int $perMinute, int $perDay): Closure => static fn (Request $request): array => [
+            Limit::perMinute($perMinute)->by('minute:'.$byUserOrIp($request)),
+            Limit::perDay($perDay)->by('day:'.$byUserOrIp($request)),
+        ];
+
+        RateLimiter::for('checkout-quote', $perMinuteAndDay(10, 40));
+        RateLimiter::for('checkout-destinations', $perMinuteAndDay(30, 300));
+        // Coupon codes are guessable; each payment attempt creates a Komerce payment.
+        RateLimiter::for('coupon', $perMinuteAndDay(5, 30));
+        RateLimiter::for('checkout-payment', static fn (Request $request): Limit => Limit::perMinute(10)->by($byUserOrIp($request)));
     }
 
     protected function configureAuthorization(): void
@@ -220,7 +235,7 @@ class AppServiceProvider extends ServiceProvider
             'ncs' => null,
         ];
 
-        $this->app->bind('shopper.carrier.logo', static function () use ($komerceIllustrationBase, $carrierLogoMap): \Closure {
+        $this->app->bind('shopper.carrier.logo', static function () use ($komerceIllustrationBase, $carrierLogoMap): Closure {
             return static function (Carrier $carrier) use ($komerceIllustrationBase, $carrierLogoMap): ?string {
                 $dbLogo = data_get($carrier->metadata, 'logo_url') ?? data_get($carrier->metadata, 'logo');
                 if (is_string($dbLogo) && $dbLogo !== '') {
@@ -259,7 +274,7 @@ class AppServiceProvider extends ServiceProvider
             };
         });
 
-        $this->app->bind('shopper.payment.logo', static function (): \Closure {
+        $this->app->bind('shopper.payment.logo', static function (): Closure {
             return static function (PaymentMethod $method): ?string {
                 $logo = data_get($method->metadata, 'logo');
                 if (is_string($logo) && $logo !== '') {

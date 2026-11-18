@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\DemoDataOnly;
 use Illuminate\Database\Seeder;
 use Shopper\Core\Enum\DiscountApplyTo;
 use Shopper\Core\Enum\DiscountEligibility;
@@ -13,8 +14,14 @@ use Shopper\Core\Models\Discount;
 
 final class DiscountSeeder extends Seeder
 {
+    use DemoDataOnly;
+
     public function run(): void
     {
+        if ($this->refuseInProduction()) {
+            return;
+        }
+
         $this->command?->warn(PHP_EOL.'Creating demo discount...');
 
         Discount::query()->updateOrCreate(

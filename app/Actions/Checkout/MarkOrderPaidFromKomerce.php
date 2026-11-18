@@ -7,11 +7,13 @@ namespace App\Actions\Checkout;
 use App\Actions\Notify\NotifyOrderCustomer;
 use App\Actions\Shipping\DispatchRajaOngkirDelivery;
 use App\Enums\OrderNotificationType;
+use App\Exceptions\KomercePaidAfterCancellation;
 use App\Support\KomercePaymentLookupContext;
 use Illuminate\Support\Facades\DB;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
+use Shopper\Payment\DataTransferObjects\PaymentResult;
 use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Enum\TransactionType;
 use Shopper\Payment\Facades\Payment;
@@ -47,8 +49,10 @@ final class MarkOrderPaidFromKomerce
             return 'no_order';
         }
 
+        $provider ??= $this->resolveProvider($transaction, $order);
+
         if ($this->isTerminallyCancelled($order)) {
-            return 'cancelled_order';
+            return $this->handleCancelledOrder($order, $paymentId, $provider);
         }
 
         if ($order->payment_status === PaymentStatus::Paid) {
@@ -57,16 +61,10 @@ final class MarkOrderPaidFromKomerce
             return 'already_processed';
         }
 
-        $provider ??= $this->resolveProvider($transaction, $order);
+        $retrieved = $this->retrieve($paymentId, $provider);
 
-        $this->lookupContext->setProvider($provider);
-
-        try {
-            $retrieved = Payment::driver('komerce')->retrievePayment($paymentId);
-        } catch (Throwable) {
-            return 'not_paid';
-        } finally {
-            $this->lookupContext->clear();
+        if (! $retrieved instanceof PaymentResult) {
+            return 'lookup_failed';
         }
 
         if ($retrieved->status !== 'captured') {
@@ -145,7 +143,14 @@ final class MarkOrderPaidFromKomerce
             return 'amount_mismatch';
         }
 
-        if ($result['status'] === 'cancelled_order' || $result['status'] === 'no_order') {
+        if ($result['status'] === 'cancelled_order') {
+            // Cancelled between the remote lookup and the row lock, yet Komerce says captured.
+            $this->alertPaidAfterCancellation($result['order'], $paymentId, $provider);
+
+            return 'paid_after_cancel';
+        }
+
+        if ($result['status'] === 'no_order') {
             return $result['status'];
         }
 
@@ -159,6 +164,44 @@ final class MarkOrderPaidFromKomerce
         $this->dispatchPendingDeliveries($processedOrder);
 
         return $result['status'];
+    }
+
+    /**
+     * A cancelled order is never revived, but money that still reaches Komerce
+     * afterwards (late VA transfer, QRIS without a remote cancel) has to be
+     * refunded by a human — so verify it and raise a critical alert.
+     */
+    private function handleCancelledOrder(Order $order, string $paymentId, string $provider): string
+    {
+        if (in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::Refunded], true)) {
+            return 'cancelled_order';
+        }
+
+        if ($this->retrieve($paymentId, $provider)?->status !== 'captured') {
+            return 'cancelled_order';
+        }
+
+        $this->alertPaidAfterCancellation($order, $paymentId, $provider);
+
+        return 'paid_after_cancel';
+    }
+
+    private function alertPaidAfterCancellation(Order $order, string $paymentId, string $provider): void
+    {
+        report(new KomercePaidAfterCancellation($order->number, $paymentId, $provider));
+    }
+
+    private function retrieve(string $paymentId, string $provider): ?PaymentResult
+    {
+        $this->lookupContext->setProvider($provider);
+
+        try {
+            return Payment::driver('komerce')->retrievePayment($paymentId);
+        } catch (Throwable) {
+            return null;
+        } finally {
+            $this->lookupContext->clear();
+        }
     }
 
     private function dispatchPendingDeliveries(Order $order): void

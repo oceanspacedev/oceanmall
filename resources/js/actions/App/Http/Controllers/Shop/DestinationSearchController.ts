@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Shop\DestinationSearchController::__invoke
- * @see app/Http/Controllers/Shop/DestinationSearchController.php:15
+ * @see app/Http/Controllers/Shop/DestinationSearchController.php:16
  * @route '/checkout/destinations'
  */
 const DestinationSearchController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ DestinationSearchController.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\DestinationSearchController::__invoke
- * @see app/Http/Controllers/Shop/DestinationSearchController.php:15
+ * @see app/Http/Controllers/Shop/DestinationSearchController.php:16
  * @route '/checkout/destinations'
  */
 DestinationSearchController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ DestinationSearchController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Shop\DestinationSearchController::__invoke
- * @see app/Http/Controllers/Shop/DestinationSearchController.php:15
+ * @see app/Http/Controllers/Shop/DestinationSearchController.php:16
  * @route '/checkout/destinations'
  */
 DestinationSearchController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ DestinationSearchController.get = (options?: RouteQueryOptions): RouteDefinition
 })
 /**
 * @see \App\Http\Controllers\Shop\DestinationSearchController::__invoke
- * @see app/Http/Controllers/Shop/DestinationSearchController.php:15
+ * @see app/Http/Controllers/Shop/DestinationSearchController.php:16
  * @route '/checkout/destinations'
  */
 DestinationSearchController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ DestinationSearchController.head = (options?: RouteQueryOptions): RouteDefinitio
 
     /**
 * @see \App\Http\Controllers\Shop\DestinationSearchController::__invoke
- * @see app/Http/Controllers/Shop/DestinationSearchController.php:15
+ * @see app/Http/Controllers/Shop/DestinationSearchController.php:16
  * @route '/checkout/destinations'
  */
     const DestinationSearchControllerForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ DestinationSearchController.head = (options?: RouteQueryOptions): RouteDefinitio
 
             /**
 * @see \App\Http\Controllers\Shop\DestinationSearchController::__invoke
- * @see app/Http/Controllers/Shop/DestinationSearchController.php:15
+ * @see app/Http/Controllers/Shop/DestinationSearchController.php:16
  * @route '/checkout/destinations'
  */
         DestinationSearchControllerForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ DestinationSearchController.head = (options?: RouteQueryOptions): RouteDefinitio
         })
             /**
 * @see \App\Http\Controllers\Shop\DestinationSearchController::__invoke
- * @see app/Http/Controllers/Shop/DestinationSearchController.php:15
+ * @see app/Http/Controllers/Shop/DestinationSearchController.php:16
  * @route '/checkout/destinations'
  */
         DestinationSearchControllerForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

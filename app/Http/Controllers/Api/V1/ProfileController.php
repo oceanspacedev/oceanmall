@@ -28,7 +28,17 @@ final class ProfileController extends Controller
             'phone_number' => ['nullable', 'string', 'max:20'],
         ]);
         $user->fill($data);
+
+        $emailChanged = $user->isDirty('email');
+        if ($emailChanged) {
+            $user->email_verified_at = null;
+        }
+
         $user->save();
+
+        if ($emailChanged) {
+            $user->sendEmailVerificationNotification();
+        }
 
         return response()->json([
             'data' => $this->payload($user->fresh()),

@@ -8,7 +8,11 @@ use App\Models\OrderShipment;
 use App\Models\OrderShipmentLine;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
+use RuntimeException;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Inventory;
@@ -30,6 +34,10 @@ final class ExpireUnpaidKomerceOrderTest extends TestCase
         config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
 
         Http::fake([
+            'https://payment.example.test/user/api/v1/user/payment/status/pay_expire_1' => Http::response([
+                'success' => true,
+                'data' => ['payment_id' => 'pay_expire_1', 'status' => 'PENDING', 'amount' => 10000],
+            ]),
             'https://payment.example.test/user/api/v1/user/payment/cancel' => Http::response([
                 'success' => true,
                 'data' => ['status' => 'CANCELLED'],
@@ -99,6 +107,78 @@ final class ExpireUnpaidKomerceOrderTest extends TestCase
 
         Http::assertSent(fn ($request): bool => $request->url() === 'https://payment.example.test/user/api/v1/user/payment/cancel'
             && $request['payment_id'] === 'pay_expire_1');
+    }
+
+    public function test_expire_settles_an_order_paid_just_before_expiry_instead_of_cancelling(): void
+    {
+        Bus::fake();
+        Notification::fake();
+        $order = $this->expiredKomerceOrder('pay_paid_late');
+
+        Http::fake([
+            'https://payment.example.test/user/api/v1/user/payment/status/pay_paid_late' => Http::response([
+                'success' => true,
+                'data' => ['payment_id' => 'pay_paid_late', 'status' => 'PAID', 'amount' => 10000],
+            ]),
+        ]);
+
+        $this->artisan('komerce:expire-unpaid-orders')->assertSuccessful();
+
+        $order->refresh();
+        $this->assertSame(PaymentStatus::Paid, $order->payment_status);
+        $this->assertNotSame(OrderStatus::Cancelled, $order->status);
+        Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/payment/cancel'));
+    }
+
+    public function test_expire_leaves_order_untouched_when_komerce_status_is_unreachable(): void
+    {
+        Exceptions::fake();
+        $order = $this->expiredKomerceOrder('pay_unreachable');
+
+        Http::fake([
+            'https://payment.example.test/user/api/v1/user/payment/status/pay_unreachable' => Http::response(['message' => 'boom'], 500),
+        ]);
+
+        $this->artisan('komerce:expire-unpaid-orders')->assertSuccessful();
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::New, $order->status);
+        $this->assertSame(PaymentStatus::Pending, $order->payment_status);
+        Exceptions::assertReported(RuntimeException::class);
+        Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/payment/cancel'));
+    }
+
+    private function expiredKomerceOrder(string $paymentRef): Order
+    {
+        config()->set('komerce.payment_api_key', 'test-komerce-key');
+        config()->set('komerce.enabled', true);
+        config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
+
+        $order = Order::factory()->create([
+            'customer_id' => User::factory()->create()->id,
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'price_amount' => 10000,
+            'currency_code' => 'IDR',
+            'metadata' => json_encode([
+                'komerce' => [
+                    'payment_ref' => $paymentRef,
+                    'expiry_date' => now()->subMinute()->toDateTimeString(),
+                ],
+            ], JSON_THROW_ON_ERROR),
+        ]);
+
+        PaymentTransaction::query()->create([
+            'order_id' => $order->id,
+            'reference' => $paymentRef,
+            'driver' => 'komerce',
+            'type' => TransactionType::Initiate,
+            'amount' => 10000,
+            'currency_code' => 'IDR',
+            'status' => TransactionStatus::Pending,
+        ]);
+
+        return $order;
     }
 
     public function test_expire_command_skips_orders_not_yet_expired(): void

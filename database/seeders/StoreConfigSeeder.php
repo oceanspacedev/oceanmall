@@ -16,6 +16,19 @@ class StoreConfigSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->isProduction()) {
+            // Never ship accounts with a known password. Create the first admin
+            // interactively instead: `php artisan shopper:user`.
+            $this->command->warn(PHP_EOL.'Skipping demo admin/customer accounts in production — run `php artisan shopper:user`.');
+        } else {
+            $this->seedDemoAccounts();
+        }
+
+        $this->seedStoreSettings();
+    }
+
+    private function seedDemoAccounts(): void
+    {
         $this->command->warn(PHP_EOL.'Creating admin user...');
 
         /** @var User $admin */
@@ -55,7 +68,10 @@ class StoreConfigSeeder extends Seeder
         }
 
         $this->command->info('Customer user created (customer@oceanmall.test / password123).');
+    }
 
+    private function seedStoreSettings(): void
+    {
         $this->command->warn(PHP_EOL.'Configuring store settings...');
 
         $indonesiaId = Country::query()->where('cca2', 'ID')->value('id');

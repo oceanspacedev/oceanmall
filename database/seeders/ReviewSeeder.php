@@ -6,11 +6,14 @@ namespace Database\Seeders;
 
 use App\Models\Product;
 use App\Models\User;
+use Database\Seeders\Concerns\DemoDataOnly;
 use Illuminate\Database\Seeder;
 use Shopper\Core\Models\Review;
 
 class ReviewSeeder extends Seeder
 {
+    use DemoDataOnly;
+
     /**
      * @var list<string>
      */
@@ -39,6 +42,10 @@ class ReviewSeeder extends Seeder
 
     public function run(): void
     {
+        if ($this->refuseInProduction()) {
+            return;
+        }
+
         $products = Product::query()->pluck('id');
         $customers = User::query()->scopes('customers')->pluck('id');
 

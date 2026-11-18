@@ -9,14 +9,13 @@ declare(strict_types=1);
  * Does NOT print API keys. Exits non-zero on failure.
  */
 
+use App\Integrations\Komerce\Komerce;
 use App\Models\User;
+use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Contracts\Console\Kernel;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
-use Shopper\Cart\CartSessionManager;
 use Shopper\Core\Models\Country;
-use Shopper\Core\Models\PaymentMethod;
+use Shopper\Core\Models\Order;
 use Shopper\Core\Models\Product;
 
 require __DIR__.'/../vendor/autoload.php';
@@ -24,13 +23,13 @@ $app = require __DIR__.'/../bootstrap/app.php';
 $kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
-if (! komerce_enabled()) {
-    fwrite(STDERR, "FAIL: komerce_enabled() is false — set Komerce keys in .env\n");
+if (! Komerce::enabled()) {
+    fwrite(STDERR, "FAIL: Komerce::enabled() is false — set Komerce keys in .env\n");
     exit(1);
 }
 
 $base = rtrim((string) (getenv('UAT_BASE_URL') ?: 'http://127.0.0.1:8000'), '/');
-$cookieJar = new \GuzzleHttp\Cookie\CookieJar;
+$cookieJar = new CookieJar;
 $client = Http::baseUrl($base)
     ->withOptions(['cookies' => $cookieJar, 'allow_redirects' => false])
     ->timeout(60)
@@ -270,7 +269,7 @@ if (! $orderId) {
     // Try latest order for customer
     $user = User::query()->where('email', 'customer@oceanmall.test')->first();
     $orderId = $user
-        ? \Shopper\Core\Models\Order::query()->where('customer_id', $user->id)->latest('id')->value('id')
+        ? Order::query()->where('customer_id', $user->id)->latest('id')->value('id')
         : null;
 }
 if (! $orderId) {

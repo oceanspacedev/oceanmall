@@ -10,17 +10,19 @@ declare(strict_types=1);
 
 use App\Actions\Cart\AddToCart;
 use App\Actions\Checkout\BuildShippingPackages;
-use App\Actions\Checkout\CreateKomercePayment;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
 use App\Actions\CreateOrder;
 use App\Actions\Warehouse\SuggestAllocation;
 use App\CheckoutSession;
+use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Services\PaymentClient;
+use App\Integrations\Komerce\Services\ShippingCostClient;
+use App\Integrations\Komerce\Services\ShippingDeliveryClient;
 use App\Models\Product;
 use App\Models\User;
-use App\Services\Komerce\PaymentClient;
-use App\Services\Komerce\ShippingCostClient;
-use App\Services\Komerce\ShippingDeliveryClient;
+use App\Shipping\InventoryOrigins;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Auth;
 use Shopper\Cart\CartSessionManager;
@@ -43,15 +45,15 @@ $fail = static function (string $step, string $detail) use (&$steps): never {
     exit(1);
 };
 
-if (! komerce_payment_enabled() || ! komerce_shipping_cost_enabled() || ! komerce_shipping_delivery_enabled()) {
-    $fail('keys', 'payment='.(komerce_payment_enabled() ? 'yes' : 'no').' cost='.(komerce_shipping_cost_enabled() ? 'yes' : 'no').' delivery='.(komerce_shipping_delivery_enabled() ? 'yes' : 'no'));
+if (! Komerce::paymentEnabled() || ! Komerce::shippingCostEnabled() || ! Komerce::shippingDeliveryEnabled()) {
+    $fail('keys', 'payment='.(Komerce::paymentEnabled() ? 'yes' : 'no').' cost='.(Komerce::shippingCostEnabled() ? 'yes' : 'no').' delivery='.(Komerce::shippingDeliveryEnabled() ? 'yes' : 'no'));
 }
-$ok('keys', 'payment/cost/delivery set; qrisly='.(qrisly_enabled() ? 'yes' : 'no').' webhook_secret='.(trim((string) config('komerce.webhook_secret')) !== '' ? 'yes' : 'no'));
+$ok('keys', 'payment/cost/delivery set; qrisly='.(Komerce::qrislyEnabled() ? 'yes' : 'no').' webhook_secret='.(trim((string) config('komerce.webhook_secret')) !== '' ? 'yes' : 'no'));
 
 $inventory = Inventory::query()->where('is_default', true)->first();
-$originId = trim((string) $inventory?->getAttribute('rajaongkir_origin_id'));
+$originId = trim((string) resolve(InventoryOrigins::class)->get($inventory, 'rajaongkir'));
 if ($originId === '') {
-    $fail('origin', 'default inventory missing rajaongkir_origin_id');
+    $fail('origin', 'default inventory missing its RajaOngkir origin (inventory_shipping_origins)');
 }
 
 $originHit = null;

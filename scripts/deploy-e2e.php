@@ -29,9 +29,10 @@ declare(strict_types=1);
  * Does NOT print secrets. Exit 0 on pass, 1 on fail.
  */
 
+use App\Integrations\Komerce\Support\KomerceCallbackSignature;
+use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Http;
-use App\Support\KomerceCallbackSignature;
 
 require __DIR__.'/../vendor/autoload.php';
 $app = require __DIR__.'/../bootstrap/app.php';
@@ -94,7 +95,7 @@ $warn = static function (string $step, string $detail) use (&$steps): void {
     echo "WARN [$step] — $detail\n";
 };
 
-$cookieJar = new \GuzzleHttp\Cookie\CookieJar;
+$cookieJar = new CookieJar;
 
 $makeClient = static function () use ($base, $cookieJar) {
     return Http::baseUrl($base)

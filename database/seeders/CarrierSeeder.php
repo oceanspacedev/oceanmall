@@ -8,134 +8,63 @@ use Illuminate\Database\Seeder;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\Zone;
 
+/**
+ * Shopper carriers. The store itself only needs Shopper's manual carrier
+ * (zone shipping options such as the flat "Reguler" rate). Shipping provider
+ * modules contribute their own carriers with extend(), called from their
+ * service provider, so removing a module removes its carriers from fresh
+ * seeds (the Komerce module registers its couriers this way).
+ */
 final class CarrierSeeder extends Seeder
 {
+    /**
+     * Seeders contributed by shipping provider modules.
+     *
+     * @var list<class-string<Seeder>>
+     */
+    private static array $providerSeeders = [];
+
+    /**
+     * @param  class-string<Seeder>  $seeder
+     */
+    public static function extend(string $seeder): void
+    {
+        if (! in_array($seeder, self::$providerSeeders, true)) {
+            self::$providerSeeders[] = $seeder;
+        }
+    }
+
+    /**
+     * Forget the registered provider seeders (a fresh app instance without
+     * a module, e.g. tests or long-running workers).
+     */
+    public static function flushState(): void
+    {
+        self::$providerSeeders = [];
+    }
+
     public function run(): void
     {
         $this->command->warn(PHP_EOL.'Creating carriers...');
 
-        $carriers = [
+        Carrier::query()->updateOrCreate(
+            ['slug' => 'manual'],
             [
-                'slug' => 'jnt',
-                'name' => 'J&T Express',
-                'description' => 'Pengiriman ekspres via J&T (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'jne',
-                'name' => 'JNE Express',
-                'description' => 'Pengiriman ekspres via JNE (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'sicepat',
-                'name' => 'SiCepat Ekspres',
-                'description' => 'Pengiriman ekspres via SiCepat (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'ide',
-                'name' => 'IDexpress',
-                'description' => 'Pengiriman ekspres via IDexpress (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'anteraja',
-                'name' => 'Anteraja',
-                'description' => 'Pengiriman ekspres via Anteraja (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'pos',
-                'name' => 'POS Indonesia',
-                'description' => 'Pengiriman pos via POS Indonesia (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'tiki',
-                'name' => 'TIKI',
-                'description' => 'Pengiriman ekspres via TIKI (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'lion',
-                'name' => 'Lion Parcel',
-                'description' => 'Pengiriman via Lion Parcel (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'ninja',
-                'name' => 'Ninja Xpress',
-                'description' => 'Pengiriman via Ninja Xpress (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'wahana',
-                'name' => 'Wahana Express',
-                'description' => 'Pengiriman via Wahana Express (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'rpx',
-                'name' => 'RPX Holding',
-                'description' => 'Pengiriman via RPX Holding (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'ncs',
-                'name' => 'Nusantara Card Semesta',
-                'description' => 'Pengiriman via NCS (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'sap',
-                'name' => 'SAP Express',
-                'description' => 'Pengiriman via SAP Express (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'gosend',
-                'name' => 'GoSend',
-                'description' => 'Pengiriman via GoSend (Komerce / RajaOngkir)',
-                'is_enabled' => true,
-                'driver' => 'rajaongkir',
-            ],
-            [
-                'slug' => 'manual',
                 'name' => 'Kurir Toko / Pengiriman Lokal',
                 'description' => 'Pengiriman manual oleh kurir toko',
                 'is_enabled' => true,
                 'driver' => 'manual',
             ],
-        ];
+        );
 
-        foreach ($carriers as $data) {
-            Carrier::query()->updateOrCreate(
-                ['slug' => $data['slug']],
-                $data,
-            );
+        foreach (self::$providerSeeders as $seeder) {
+            if (class_exists($seeder)) {
+                $this->call($seeder);
+            }
         }
 
-        // Cleanup legacy generic carrier if present
-        Carrier::query()->where('slug', 'rajaongkir')->delete();
-
-        // Populate carrier logos and metadata
-        \Illuminate\Support\Facades\Artisan::call('komerce:sync-carriers');
-
-        // Attach enabled carriers to existing zones
+        // Attach enabled carriers to existing zones (ZoneSeeder does the same
+        // for zones it creates later).
         $enabledIds = Carrier::query()->where('is_enabled', true)->pluck('id');
         foreach (Zone::all() as $zone) {
             $zone->carriers()->syncWithoutDetaching($enabledIds);

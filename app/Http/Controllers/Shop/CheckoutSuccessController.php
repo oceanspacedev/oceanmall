@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Shop;
 
-use App\Actions\Checkout\ResolveKomercePaymentInstructions;
 use App\CheckoutSession;
 use App\Http\Controllers\Controller;
+use App\Payment\PaymentActions;
 use Inertia\Inertia;
 use Inertia\Response;
-use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
 
 final class CheckoutSuccessController extends Controller
@@ -20,20 +19,19 @@ final class CheckoutSuccessController extends Controller
 
         $order->refresh();
 
-        $komercePayment = null;
-
-        if ($order->payment_status !== PaymentStatus::Paid) {
-            $komercePayment = session()->pull('komerce_payment')
-                ?? resolve(ResolveKomercePaymentInstructions::class)->handle($order);
-        } else {
-            session()->forget('komerce_payment');
-        }
+        // The action of the order just placed, else whatever the order's own
+        // payment driver reports now (e.g. after a reload or a status poll).
+        $placed = session()->pull(CheckoutController::PAYMENT_ACTION_SESSION);
+        $actions = resolve(PaymentActions::class);
+        $paymentAction = $actions->awaitingPayment($order)
+            ? $actions->forOrder($order) ?? (is_array($placed) ? $placed : null)
+            : null;
 
         // Clear leftover checkout/payment session only — do NOT wipe the live cart.
         // Cart is already completed (or forgotten) at place-order time. Re-forgetting
         // here would destroy items added while the success page is still open (polls).
         session()->forget([
-            'stripe_payment',
+            ...CheckoutController::CONFIRM_PAYMENT_KEYS,
             'stripe_order_number',
             'checkout_cart_id',
             CheckoutSession::KEY,
@@ -48,7 +46,7 @@ final class CheckoutSuccessController extends Controller
                 'status',
                 'payment_status',
             ]),
-            'komercePayment' => $komercePayment,
+            'paymentAction' => $paymentAction,
         ]);
     }
 }

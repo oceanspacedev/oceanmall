@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { Check, ChevronRight, Lock, ShoppingBag, Truck } from 'lucide-vue-next';
-import { computed, defineAsyncComponent, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue';
+import type { Component } from 'vue';
 import AuthTextField from '@/components/auth/auth-text-field.vue';
 import AppPageHeader from '@/components/shop/app-page-header.vue';
 import Container from '@/components/shop/container.vue';
 import CouponField from '@/components/shop/coupon-field.vue';
-import KomercePaymentPanel from '@/components/shop/komerce-payment-panel.vue';
-import type { KomercePaymentInstructions } from '@/components/shop/komerce-payment-panel.vue';
 import SelectableCard from '@/components/shop/selectable-card.vue';
 import ShipmentRatePicker from '@/components/shop/shipment-rate-picker.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -22,11 +21,29 @@ import { useShop } from '@/composables/useShop';
 import { formatMoney } from '@/lib/format';
 import { cart as cartRoute } from '@/routes/shop';
 import * as checkout from '@/routes/shop/checkout';
-import type { Address, Cart, CartContext, DeliveryOption } from '@/types/shop';
+import type {
+    Address,
+    AddressDestinationFields,
+    Cart,
+    CartContext,
+    DeliveryOption,
+    PaymentAction,
+    ShippingCapabilities,
+} from '@/types/shop';
 
-const StripePaymentForm = defineAsyncComponent(
-    () => import('@/components/shop/stripe-payment-form.vue'),
-);
+// Embedded payment forms for paymentAction kind 'client_secret', by driver.
+// A gateway that confirms in the page registers its form here.
+const inPagePaymentForms: Record<string, Component> = {
+    stripe: defineAsyncComponent(
+        () => import('@/components/shop/stripe-payment-form.vue'),
+    ),
+};
+
+type ClientSecretData = {
+    client_secret: string;
+    publishable_key?: string;
+    return_url?: string;
+};
 
 type ShipmentPackage = {
     inventory_id: number;
@@ -47,24 +64,25 @@ type ShippingAddressForm = {
     city: string;
     state: string;
     phone_number: string;
-    rajaongkir_destination_id: string;
-    rajaongkir_destination_label: string;
+    destination_id: string;
+    destination_label: string;
+    pin_point: string;
 };
 
-type SavedCheckoutAddress = Address & {
-    rajaongkir_destination_id?: string | null;
-    rajaongkir_destination_label?: string | null;
-};
+type SavedCheckoutAddress = Address & AddressDestinationFields;
 
+// Neutral destination search row (ResolvesDestinations): region keys are null
+// when the shipping provider does not know them.
 type DestinationResult = {
     id: string;
     label: string;
-    province_name: string | null;
-    city_name: string | null;
-    district_name: string | null;
-    subdistrict_name: string | null;
-    zip_code: string | null;
+    postal_code: string | null;
+    city: string | null;
+    state: string | null;
+    district?: string | null;
 };
+
+type RegionField = 'state' | 'city' | 'postal_code';
 
 const props = defineProps<{
     cart: Cart;
@@ -83,16 +101,12 @@ const props = defineProps<{
         logo?: string | null;
         channel_code?: string | null;
         payment_type?: string | null;
+        confirm_in_page?: boolean;
     }>;
     selectedPaymentMethod: number | null;
     step: 1 | 2 | 3;
-    stripeData: {
-        client_secret: string;
-        publishable_key: string;
-        return_url: string;
-    } | null;
-    komercePayment: KomercePaymentInstructions | null;
-    komerceEnabled: boolean;
+    paymentAction: PaymentAction | null;
+    shippingCapabilities: ShippingCapabilities;
     shippingRatesHint?: string | null;
     couponCode?: string | null;
 }>();
@@ -144,26 +158,101 @@ const addressForm = useForm<ShippingAddressForm>({
     city: props.shippingAddress?.city ?? '',
     state: props.shippingAddress?.state ?? '',
     phone_number: props.shippingAddress?.phone_number ?? '',
-    rajaongkir_destination_id:
-        props.shippingAddress?.rajaongkir_destination_id ?? '',
-    rajaongkir_destination_label:
-        props.shippingAddress?.rajaongkir_destination_label ?? '',
+    destination_id: props.shippingAddress?.destination_id ?? '',
+    destination_label: props.shippingAddress?.destination_label ?? '',
+    pin_point: props.shippingAddress?.pin_point ?? '',
 });
 
-const destinationQuery = ref(
-    props.shippingAddress?.rajaongkir_destination_label ?? '',
-);
+// A shipping driver that quotes by coordinates (shippingCapabilities
+// .requiresCoordinates) gets the customer's own location when they share
+// it; otherwise the driver resolves the pin from the address itself.
+const locating = ref<boolean>(false);
+const locationError = ref<string | null>(null);
+const canUseLocation =
+    typeof navigator !== 'undefined' && 'geolocation' in navigator;
+
+function useCurrentLocation(): void {
+    if (!canUseLocation) {
+        locationError.value = 'Browser ini tidak bisa membagikan lokasi.';
+
+        return;
+    }
+
+    locating.value = true;
+    locationError.value = null;
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            addressForm.pin_point = `${position.coords.latitude.toFixed(6)},${position.coords.longitude.toFixed(6)}`;
+            locating.value = false;
+        },
+        () => {
+            locationError.value =
+                'Lokasi tidak bisa diambil. Alamat tetap bisa dipakai tanpa titik lokasi.';
+            locating.value = false;
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+}
+
+function clearLocation(): void {
+    addressForm.pin_point = '';
+    locationError.value = null;
+}
+
+const destinationQuery = ref(props.shippingAddress?.destination_label ?? '');
 const destinationResults = ref<DestinationResult[]>([]);
 const destinationSearching = ref(false);
 const destinationSearchError = ref<string | null>(null);
 let destinationSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Province / city / postal code come from the picked destination only when the
+// configured shipping needs a destination id; otherwise they are typed freely
+// (Shopper's own carriers and zone options need nothing more). A field the
+// picked destination does not provide stays editable, so a provider whose
+// search rows lack e.g. a postal code never leaves an empty read-only field.
+const regionFromDestination = computed<boolean>(
+    () => props.shippingCapabilities.requiresDestination,
+);
+
+const providedByDestination = reactive<Record<RegionField, boolean>>({
+    state: Boolean(
+        props.shippingAddress?.destination_id && props.shippingAddress?.state,
+    ),
+    city: Boolean(
+        props.shippingAddress?.destination_id && props.shippingAddress?.city,
+    ),
+    postal_code: Boolean(
+        props.shippingAddress?.destination_id &&
+        props.shippingAddress?.postal_code,
+    ),
+});
+
+function regionLocked(field: RegionField): boolean {
+    if (!regionFromDestination.value) {
+        return false;
+    }
+
+    // Before a destination is picked the region waits for it.
+    return !addressForm.destination_id || providedByDestination[field];
+}
+
+function regionPlaceholder(field: RegionField, example: string): string {
+    if (regionLocked(field)) {
+        return 'Pilih dari kecamatan';
+    }
+
+    return example;
+}
 
 watch(destinationQuery, (value) => {
     if (destinationSearchTimer) {
         clearTimeout(destinationSearchTimer);
     }
 
-    if (!props.komerceEnabled || value.trim().length < 2) {
+    if (
+        !props.shippingCapabilities.destinationSearch ||
+        value.trim().length < 2
+    ) {
         destinationResults.value = [];
         destinationSearchError.value = null;
 
@@ -171,10 +260,7 @@ watch(destinationQuery, (value) => {
     }
 
     // Keep selected label when it matches the selected id's label.
-    if (
-        addressForm.rajaongkir_destination_id &&
-        value === addressForm.rajaongkir_destination_label
-    ) {
+    if (addressForm.destination_id && value === addressForm.destination_label) {
         return;
     }
 
@@ -223,8 +309,8 @@ function formatCourierTitle(option: DeliveryOption): string {
         (option.carrier_code ? option.carrier_code.toUpperCase() : '');
 
     if (!carrier) {
-return option.service_name;
-}
+        return option.service_name;
+    }
 
     if (option.service_name.toLowerCase().includes(carrier.toLowerCase())) {
         return option.service_name;
@@ -234,35 +320,44 @@ return option.service_name;
 }
 
 function selectDestination(result: DestinationResult): void {
-    addressForm.rajaongkir_destination_id = String(result.id);
-    addressForm.rajaongkir_destination_label = result.label;
+    addressForm.destination_id = String(result.id);
+    addressForm.destination_label = result.label;
     destinationQuery.value = result.label;
     destinationResults.value = [];
-    addressForm.clearErrors('rajaongkir_destination_id', 'postal_code', 'city', 'state');
+    addressForm.clearErrors('destination_id', 'postal_code', 'city', 'state');
 
-    // Always sync city/zip from RajaOngkir so typed placeholders don't
-    // leave the form looking filled while Inertia still posts blanks.
-    if (result.province_name) {
-        addressForm.state = result.province_name;
-    }
+    // Always sync the region from the picked destination so typed placeholders
+    // don't leave the form looking filled while Inertia still posts blanks.
+    // Fields the destination does not provide stay editable.
+    const region: Record<RegionField, string | null | undefined> = {
+        state: result.state,
+        city: result.city,
+        postal_code: result.postal_code,
+    };
 
-    if (result.city_name) {
-        addressForm.city = result.city_name;
-    }
+    for (const field of Object.keys(region) as RegionField[]) {
+        const value = (region[field] ?? '').trim();
+        providedByDestination[field] = value !== '';
 
-    if (result.zip_code) {
-        addressForm.postal_code = result.zip_code;
+        if (value !== '') {
+            addressForm[field] = value;
+        } else if (regionFromDestination.value) {
+            addressForm[field] = '';
+        }
     }
 }
 
 function clearDestination(): void {
-    addressForm.rajaongkir_destination_id = '';
-    addressForm.rajaongkir_destination_label = '';
+    addressForm.destination_id = '';
+    addressForm.destination_label = '';
     destinationQuery.value = '';
     destinationResults.value = [];
     addressForm.state = '';
     addressForm.city = '';
     addressForm.postal_code = '';
+    providedByDestination.state = false;
+    providedByDestination.city = false;
+    providedByDestination.postal_code = false;
 }
 
 const shippingForm = useForm<{ service_code: string }>({
@@ -294,8 +389,8 @@ const multiShippingTotal = computed<number>(() => {
         const code = ratesByShipment.value[pkg.inventory_id];
 
         if (!code) {
-continue;
-}
+            continue;
+        }
 
         const options = props.deliveryOptionsByShipment[pkg.inventory_id] ?? [];
         const opt = options.find(
@@ -303,8 +398,8 @@ continue;
         );
 
         if (opt) {
-sum += opt.amount;
-}
+            sum += opt.amount;
+        }
     }
 
     return sum;
@@ -315,8 +410,8 @@ const multiShippingCurrency = computed<string>(() => {
         const code = ratesByShipment.value[pkg.inventory_id];
 
         if (!code) {
-continue;
-}
+            continue;
+        }
 
         const options = props.deliveryOptionsByShipment[pkg.inventory_id] ?? [];
         const opt = options.find(
@@ -324,8 +419,8 @@ continue;
         );
 
         if (opt?.currency) {
-return opt.currency;
-}
+            return opt.currency;
+        }
     }
 
     return 'IDR';
@@ -373,26 +468,47 @@ const currentPaymentMethod = computed(
         ) ?? null,
 );
 
-const isStripeSelected = computed<boolean>(
-    () => currentPaymentMethod.value?.driver === 'stripe',
+// The method is paid in an embedded form before the order exists.
+const isInPageSelected = computed<boolean>(() =>
+    Boolean(currentPaymentMethod.value?.confirm_in_page),
 );
-const isKomerceSelected = computed<boolean>(
-    () => currentPaymentMethod.value?.driver === 'komerce',
-);
-const canPlaceOrder = computed<boolean>(
+// The prepared client-secret action for the selected method, if any.
+const inPageAction = computed<{
+    form: Component;
+    data: ClientSecretData;
+} | null>(() => {
+    const action = props.paymentAction;
+    const form = action ? inPagePaymentForms[action.driver] : undefined;
+
+    if (
+        !action ||
+        action.kind !== 'client_secret' ||
+        !form ||
+        action.driver !== currentPaymentMethod.value?.driver ||
+        typeof action.data.client_secret !== 'string'
+    ) {
+        return null;
+    }
+
+    return { form, data: action.data as ClientSecretData };
+});
+// Any driver other than Shopper's manual one takes the payment online.
+const isOnlinePaymentSelected = computed<boolean>(
     () =>
         Boolean(currentPaymentMethod.value) &&
-        !isStripeSelected.value &&
-        (!isKomerceSelected.value || !props.komercePayment),
+        (currentPaymentMethod.value?.driver ?? 'manual') !== 'manual',
 );
-const preparingStripe = ref<boolean>(false);
-const stripeMounted = ref<boolean>(false);
+const canPlaceOrder = computed<boolean>(
+    () => Boolean(currentPaymentMethod.value) && !isInPageSelected.value,
+);
+const preparingInPage = ref<boolean>(false);
+const inPageMounted = ref<boolean>(false);
 
 watch(
-    () => isStripeSelected.value && Boolean(props.stripeData),
+    () => isInPageSelected.value && Boolean(inPageAction.value),
     (active) => {
         if (active) {
-            stripeMounted.value = true;
+            inPageMounted.value = true;
         }
     },
     { immediate: true },
@@ -411,14 +527,14 @@ watch(
             return;
         }
 
-        if (method.driver === 'stripe' && !props.stripeData) {
-            preparingStripe.value = true;
+        if (method.confirm_in_page && !inPageAction.value) {
+            preparingInPage.value = true;
             router.post(
                 checkout.preparePayment.url(),
                 { payment_method_id: id },
                 {
                     preserveScroll: true,
-                    onFinish: () => (preparingStripe.value = false),
+                    onFinish: () => (preparingInPage.value = false),
                 },
             );
         }
@@ -444,29 +560,42 @@ function selectAddress(address: SavedCheckoutAddress): void {
     addressForm.city = address.city;
     addressForm.state = address.state ?? '';
     addressForm.phone_number = address.phone_number ?? '';
+    addressForm.pin_point = address.pin_point ?? '';
 
-    const destinationId = String(
-        address.rajaongkir_destination_id ?? '',
-    ).trim();
-    const destinationLabel = String(
-        address.rajaongkir_destination_label ?? '',
-    ).trim();
+    const destinationId = String(address.destination_id ?? '').trim();
+    const destinationLabel = String(address.destination_label ?? '').trim();
 
-    if (destinationId !== '') {
-        addressForm.rajaongkir_destination_id = destinationId;
-        addressForm.rajaongkir_destination_label = destinationLabel;
+    if (destinationId !== '' && props.shippingCapabilities.destinationSearch) {
+        addressForm.destination_id = destinationId;
+        addressForm.destination_label = destinationLabel;
+        providedByDestination.state = Boolean(address.state);
+        providedByDestination.city = Boolean(address.city);
+        providedByDestination.postal_code = Boolean(address.postal_code);
         destinationQuery.value = destinationLabel || destinationId;
         destinationResults.value = [];
-        addressForm.clearErrors('rajaongkir_destination_id');
+        addressForm.clearErrors('destination_id');
         // One tap: reuse street + district and jump to courier rates.
         submitAddress();
 
         return;
     }
 
+    addressForm.destination_id = '';
+    addressForm.destination_label = '';
+
+    if (!props.shippingCapabilities.requiresDestination) {
+        // City / postal code are enough for the configured shipping: one tap
+        // reuses the saved address and jumps to courier rates.
+        destinationQuery.value = '';
+        destinationResults.value = [];
+        submitAddress();
+
+        return;
+    }
+
     // Legacy saved addresses without district — prompt search.
-    addressForm.rajaongkir_destination_id = '';
-    addressForm.rajaongkir_destination_label = '';
+    addressForm.destination_id = '';
+    addressForm.destination_label = '';
     destinationQuery.value = [address.city, address.postal_code]
         .filter(Boolean)
         .join(' ');
@@ -500,11 +629,11 @@ function goToStep(target: 1 | 2 | 3): void {
 
 function submitAddress(): void {
     if (
-        props.komerceEnabled &&
-        !String(addressForm.rajaongkir_destination_id ?? '').trim()
+        props.shippingCapabilities.requiresDestination &&
+        !String(addressForm.destination_id ?? '').trim()
     ) {
         addressForm.setError(
-            'rajaongkir_destination_id',
+            'destination_id',
             'Pilih kecamatan dari daftar pencarian.',
         );
 
@@ -514,12 +643,8 @@ function submitAddress(): void {
     addressForm
         .transform((data) => ({
             ...data,
-            rajaongkir_destination_id: String(
-                data.rajaongkir_destination_id ?? '',
-            ).trim(),
-            rajaongkir_destination_label: String(
-                data.rajaongkir_destination_label ?? '',
-            ).trim(),
+            destination_id: String(data.destination_id ?? '').trim(),
+            destination_label: String(data.destination_label ?? '').trim(),
             postal_code: String(data.postal_code ?? '').trim(),
             city: String(data.city ?? '').trim(),
         }))
@@ -650,10 +775,10 @@ const steps = [
                                     {{ address.postal_code }}
                                 </p>
                                 <p
-                                    v-if="address.rajaongkir_destination_label"
+                                    v-if="address.destination_label"
                                     class="mt-1 text-[11px] text-emerald-700"
                                 >
-                                    {{ address.rajaongkir_destination_label }}
+                                    {{ address.destination_label }}
                                 </p>
                                 <p class="text-xs text-muted-foreground">
                                     {{ address.country?.name }}
@@ -737,10 +862,19 @@ const steps = [
                             :error="addressForm.errors.phone_number"
                         />
 
-                        <div class="flex flex-col gap-1.5">
+                        <div
+                            v-if="shippingCapabilities.destinationSearch"
+                            class="flex flex-col gap-1.5"
+                        >
                             <Label for="destination_search">
                                 Kecamatan pengiriman
-                                <span class="text-red-500">*</span>
+                                <span
+                                    v-if="
+                                        shippingCapabilities.requiresDestination
+                                    "
+                                    class="text-red-500"
+                                    >*</span
+                                >
                             </Label>
                             <p
                                 class="text-[11px] leading-snug text-muted-foreground"
@@ -755,11 +889,7 @@ const steps = [
                                     type="search"
                                     autocomplete="off"
                                     class="h-[var(--om-control-height)] w-full pr-14 text-[13px] [&::-webkit-search-cancel-button]:hidden"
-                                    :placeholder="
-                                        komerceEnabled
-                                            ? 'Contoh: Kedawung Cirebon'
-                                            : 'Pencarian kecamatan sedang tidak tersedia'
-                                    "
+                                    placeholder="Contoh: Kedawung Cirebon"
                                     @focus="
                                         destinationQuery.trim().length >= 2 &&
                                         searchDestinations(
@@ -768,7 +898,7 @@ const steps = [
                                     "
                                 />
                                 <Button
-                                    v-if="addressForm.rajaongkir_destination_id"
+                                    v-if="addressForm.destination_id"
                                     type="button"
                                     variant="ghost"
                                     size="sm"
@@ -808,9 +938,7 @@ const steps = [
                                 {{ destinationSearchError }}
                             </p>
                             <Alert
-                                v-else-if="
-                                    addressForm.rajaongkir_destination_id
-                                "
+                                v-else-if="addressForm.destination_id"
                                 variant="success"
                                 class="py-2"
                             >
@@ -819,27 +947,25 @@ const steps = [
                                 >
                                     ✓
                                     {{
-                                        addressForm.rajaongkir_destination_label ||
+                                        addressForm.destination_label ||
                                         destinationQuery
                                     }}
                                 </AlertDescription>
                             </Alert>
                             <p
-                                v-else-if="komerceEnabled"
+                                v-else-if="
+                                    shippingCapabilities.requiresDestination
+                                "
                                 class="text-xs text-amber-700"
                             >
                                 Wajib pilih dari daftar pencarian (jangan ketik
                                 manual saja).
                             </p>
                             <p
-                                v-if="
-                                    addressForm.errors.rajaongkir_destination_id
-                                "
+                                v-if="addressForm.errors.destination_id"
                                 class="text-xs text-red-600"
                             >
-                                {{
-                                    addressForm.errors.rajaongkir_destination_id
-                                }}
+                                {{ addressForm.errors.destination_id }}
                             </p>
                         </div>
 
@@ -848,29 +974,100 @@ const steps = [
                                 id="state"
                                 v-model="addressForm.state"
                                 label="Provinsi"
-                                placeholder="Pilih dari kecamatan"
+                                :placeholder="
+                                    regionPlaceholder(
+                                        'state',
+                                        'Contoh: Jawa Barat',
+                                    )
+                                "
                                 :error="addressForm.errors.state"
-                                readonly
+                                :readonly="regionLocked('state')"
                                 required
                             />
                             <AuthTextField
                                 id="city"
                                 v-model="addressForm.city"
                                 label="Kota"
-                                placeholder="Pilih dari kecamatan"
+                                :placeholder="
+                                    regionPlaceholder('city', 'Contoh: Cirebon')
+                                "
                                 :error="addressForm.errors.city"
-                                readonly
+                                :readonly="regionLocked('city')"
+                                autocomplete="address-level2"
                                 required
                             />
                             <AuthTextField
                                 id="postal_code"
                                 v-model="addressForm.postal_code"
                                 label="Kode pos"
-                                placeholder="Pilih dari kecamatan"
+                                :placeholder="
+                                    regionPlaceholder(
+                                        'postal_code',
+                                        'Contoh: 45153',
+                                    )
+                                "
                                 :error="addressForm.errors.postal_code"
-                                readonly
+                                :readonly="regionLocked('postal_code')"
+                                inputmode="numeric"
+                                autocomplete="postal-code"
                                 required
                             />
+                        </div>
+
+                        <div
+                            v-if="shippingCapabilities.requiresCoordinates"
+                            class="flex flex-col gap-1.5"
+                        >
+                            <Label>Titik lokasi (opsional)</Label>
+                            <p
+                                class="text-[11px] leading-snug text-muted-foreground"
+                            >
+                                Bagikan lokasi Anda saat ini agar kurir lebih
+                                mudah menemukan alamat.
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    :disabled="locating"
+                                    @click="useCurrentLocation"
+                                >
+                                    {{
+                                        locating
+                                            ? 'Mengambil lokasi…'
+                                            : addressForm.pin_point
+                                              ? 'Perbarui lokasi'
+                                              : 'Gunakan lokasi saya'
+                                    }}
+                                </Button>
+                                <template v-if="addressForm.pin_point">
+                                    <span class="text-xs text-muted-foreground">
+                                        ✓ {{ addressForm.pin_point }}
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        class="h-auto px-2 text-xs text-muted-foreground"
+                                        @click="clearLocation"
+                                    >
+                                        Hapus
+                                    </Button>
+                                </template>
+                            </div>
+                            <p
+                                v-if="locationError"
+                                class="text-xs text-amber-700"
+                            >
+                                {{ locationError }}
+                            </p>
+                            <p
+                                v-if="addressForm.errors.pin_point"
+                                class="text-xs text-red-600"
+                            >
+                                {{ addressForm.errors.pin_point }}
+                            </p>
                         </div>
 
                         <div class="flex">
@@ -879,8 +1076,8 @@ const steps = [
                                 size="xl"
                                 :disabled="
                                     addressForm.processing ||
-                                    (komerceEnabled &&
-                                        !addressForm.rajaongkir_destination_id)
+                                    (shippingCapabilities.requiresDestination &&
+                                        !addressForm.destination_id)
                                 "
                             >
                                 Lanjut ke pengiriman
@@ -968,42 +1165,74 @@ const steps = [
                                 {{ shippingForm.errors.service_code }}
                             </p>
 
-                        <RadioGroup
-                            v-model="selectedShippingServiceValue"
-                            class="flex flex-col gap-2"
-                        >
-                            <label
-                                v-for="option in deliveryOptions"
-                                :key="option.service_code"
-                                class="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-muted/50"
-                                :class="selectedShippingServiceValue === String(option.service_code) ? 'border-primary bg-primary/5' : 'border-border'"
+                            <RadioGroup
+                                v-model="selectedShippingServiceValue"
+                                class="flex flex-col gap-2"
                             >
-                                <div class="flex items-center gap-3">
-                                    <input
-                                        type="radio"
-                                        class="sr-only"
-                                        v-model="selectedShippingServiceValue"
-                                        :value="String(option.service_code)"
-                                    />
-                                    <div class="flex items-center justify-center h-10 w-16 rounded-md bg-white border border-border/60 p-1.5 shrink-0 shadow-2xs">
-                                        <img
-                                            v-if="option.carrier_logo"
-                                            :src="option.carrier_logo"
-                                            :alt="option.carrier_name ?? ''"
-                                            class="max-h-full max-w-full object-contain"
-                                            loading="lazy"
+                                <label
+                                    v-for="option in deliveryOptions"
+                                    :key="option.service_code"
+                                    class="flex cursor-pointer items-center justify-between rounded-md border p-3 hover:bg-muted/50"
+                                    :class="
+                                        selectedShippingServiceValue ===
+                                        String(option.service_code)
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-border'
+                                    "
+                                >
+                                    <div class="flex items-center gap-3">
+                                        <input
+                                            type="radio"
+                                            class="sr-only"
+                                            v-model="
+                                                selectedShippingServiceValue
+                                            "
+                                            :value="String(option.service_code)"
                                         />
-                                        <Truck v-else class="size-5 text-muted-foreground" />
+                                        <div
+                                            class="flex h-10 w-16 shrink-0 items-center justify-center rounded-md border border-border/60 bg-white p-1.5 shadow-2xs"
+                                        >
+                                            <img
+                                                v-if="option.carrier_logo"
+                                                :src="option.carrier_logo"
+                                                :alt="option.carrier_name ?? ''"
+                                                class="max-h-full max-w-full object-contain"
+                                                loading="lazy"
+                                            />
+                                            <Truck
+                                                v-else
+                                                class="size-5 text-muted-foreground"
+                                            />
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span
+                                                class="text-sm font-medium text-foreground"
+                                                >{{
+                                                    formatCourierTitle(option)
+                                                }}</span
+                                            >
+                                            <span
+                                                v-if="option.description"
+                                                class="text-xs font-normal text-muted-foreground"
+                                                >{{ option.description }}</span
+                                            >
+                                            <span
+                                                v-if="option.estimated_days"
+                                                class="text-[11px] text-muted-foreground/80"
+                                                >Estimasi:
+                                                {{ option.estimated_days }}
+                                                hari</span
+                                            >
+                                        </div>
                                     </div>
-                                    <div class="flex flex-col">
-                                        <span class="text-sm font-medium text-foreground">{{ formatCourierTitle(option) }}</span>
-                                        <span v-if="option.description" class="text-xs text-muted-foreground font-normal">{{ option.description }}</span>
-                                        <span v-if="option.estimated_days" class="text-[11px] text-muted-foreground/80">Estimasi: {{ option.estimated_days }} hari</span>
-                                    </div>
-                                </div>
-                                <span class="text-sm font-semibold">{{ formatMoney(option.amount, option.currency) }}</span>
-                            </label>
-                        </RadioGroup>
+                                    <span class="text-sm font-semibold">{{
+                                        formatMoney(
+                                            option.amount,
+                                            option.currency,
+                                        )
+                                    }}</span>
+                                </label>
+                            </RadioGroup>
 
                             <div class="flex">
                                 <Button
@@ -1078,7 +1307,7 @@ const steps = [
                             </RadioGroup>
 
                             <div
-                                v-if="isStripeSelected && stripeData"
+                                v-if="isInPageSelected && inPageAction"
                                 class="flex flex-col gap-4 pt-2"
                             >
                                 <div class="flex items-center gap-3">
@@ -1090,24 +1319,18 @@ const steps = [
                                     <Separator class="flex-1" />
                                 </div>
 
-                                <StripePaymentForm
-                                    v-if="stripeMounted && stripeData"
-                                    :key="stripeData.client_secret"
-                                    :client-secret="stripeData.client_secret"
-                                    :publishable-key="
-                                        stripeData.publishable_key
+                                <component
+                                    :is="inPageAction.form"
+                                    v-if="inPageMounted"
+                                    :key="inPageAction.data.client_secret"
+                                    :client-secret="
+                                        inPageAction.data.client_secret
                                     "
-                                    :return-url="stripeData.return_url"
+                                    :publishable-key="
+                                        inPageAction.data.publishable_key
+                                    "
+                                    :return-url="inPageAction.data.return_url"
                                     :total="total"
-                                />
-                            </div>
-
-                            <div
-                                v-if="isKomerceSelected && komercePayment"
-                                class="pt-2"
-                            >
-                                <KomercePaymentPanel
-                                    :payment="komercePayment"
                                 />
                             </div>
 
@@ -1138,7 +1361,7 @@ const steps = [
                                             {{
                                                 paymentForm.processing
                                                     ? 'Memproses…'
-                                                    : isKomerceSelected
+                                                    : isOnlinePaymentSelected
                                                       ? 'Bayar sekarang'
                                                       : 'Buat pesanan'
                                             }}
@@ -1158,9 +1381,9 @@ const steps = [
 
                             <div
                                 v-if="
-                                    isStripeSelected &&
-                                    !stripeData &&
-                                    preparingStripe
+                                    isInPageSelected &&
+                                    !inPageAction &&
+                                    preparingInPage
                                 "
                                 class="flex items-center gap-2 pt-3 text-sm text-muted-foreground"
                             >

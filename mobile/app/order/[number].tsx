@@ -20,7 +20,14 @@ import { DetailSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { api, errorMessage, type OrderDetail } from '@/lib/api';
+import {
+  api,
+  errorMessage,
+  isOfflinePayment,
+  offlinePaymentNote,
+  paymentFromAction,
+  type OrderDetail,
+} from '@/lib/api';
 import { announce, useReducedMotion } from '@/lib/a11y';
 import { useAuth } from '@/lib/auth';
 import { HAS_SUPPORT_CHANNEL, sendSupportMessage } from '@/lib/support';
@@ -126,7 +133,9 @@ export default function OrderScreen() {
     wasPaid.current = null;
   }, [number, userId]);
 
-  const applyOrder = useCallback((next: OrderDetail) => {
+  const applyOrder = useCallback((received: OrderDetail) => {
+    // The panel renders `payment`: derive it from the neutral payment_action when present.
+    const next = { ...received, payment: paymentFromAction(received) };
     const nowPaid = next.payment_status === 'paid';
     const before = wasPaid.current;
     wasPaid.current = nowPaid;
@@ -235,17 +244,25 @@ export default function OrderScreen() {
     }
     const orderNumber = order.number;
     const task = async () => {
-      const res = await api<{ data: { payment_status: string; payment: OrderDetail['payment'] } }>(
-        `/orders/${orderNumber}/sync-payment`,
-        { method: 'POST' }
-      );
+      const res = await api<{
+        data: {
+          payment_status: string;
+          payment: OrderDetail['payment'];
+          payment_action?: OrderDetail['payment_action'];
+        };
+      }>(`/orders/${orderNumber}/sync-payment`, { method: 'POST' });
       if (res.data.payment_status === 'paid') {
         await load();
         return;
       }
       setOrder((current) =>
         current
-          ? { ...current, payment_status: res.data.payment_status, payment: res.data.payment }
+          ? {
+              ...current,
+              payment_status: res.data.payment_status,
+              payment_action: res.data.payment_action,
+              payment: paymentFromAction(res.data),
+            }
           : current
       );
       if (!quiet) {
@@ -274,12 +291,19 @@ export default function OrderScreen() {
       return;
     }
     await run('retry', async () => {
-      const res = await api<{ data: { payment: OrderDetail['payment'] } }>(
-        `/orders/${order.number}/retry-payment`,
-        { method: 'POST' }
-      );
+      const res = await api<{
+        data: { payment: OrderDetail['payment']; payment_action?: OrderDetail['payment_action'] };
+      }>(`/orders/${order.number}/retry-payment`, { method: 'POST' });
       setNow(Date.now());
-      setOrder((current) => (current ? { ...current, payment: res.data.payment } : current));
+      setOrder((current) =>
+        current
+          ? {
+              ...current,
+              payment_action: res.data.payment_action,
+              payment: paymentFromAction(res.data),
+            }
+          : current
+      );
     });
   }
 
@@ -477,7 +501,14 @@ export default function OrderScreen() {
         </Section>
 
         {/* Payment */}
-        {unpaid ? (
+        {unpaid && isOfflinePayment(order) ? (
+          <Section title="Pembayaran" icon={CreditCard}>
+            <Text className="text-[13px] text-muted-foreground">
+              {offlinePaymentNote(order) ??
+                'Pembayaran tidak dilakukan di aplikasi. Kami konfirmasi setelah pembayaran diterima.'}
+            </Text>
+          </Section>
+        ) : unpaid ? (
           <Section title="Instruksi pembayaran" icon={CreditCard}>
             <PaymentPanel
               payment={order.payment}
@@ -565,9 +596,9 @@ export default function OrderScreen() {
                               )}>
                               {event.description}
                             </Text>
-                            {event.date ? (
+                            {(event.datetime ?? event.date) ? (
                               <Text className="text-[12px] text-muted-foreground">
-                                {formatDateTime(event.date)}
+                                {formatDateTime((event.datetime ?? event.date) as string)}
                               </Text>
                             ) : null}
                           </View>

@@ -6,7 +6,7 @@ namespace Tests\Feature\Cpanel;
 
 use App\Actions\Account\ConfirmOrderReceived;
 use App\Actions\Warehouse\OverrideAllocation;
-use App\Livewire\Shopper\KomerceOrderShipping;
+use App\Integrations\Komerce\Livewire\KomerceOrderShipping;
 use App\Livewire\Shopper\Pages\OrderDetail;
 use App\Livewire\Shopper\SlideOvers\ShipmentAddEvent;
 use App\Models\OrderShipment;
@@ -23,6 +23,7 @@ use Shopper\Core\Enum\ShipmentStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\OrderShipping;
+use Shopper\Core\Models\PaymentMethod;
 use Shopper\Livewire\Pages\Order\Detail as ShopperVendorOrderDetail;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -68,6 +69,8 @@ final class RootAlignmentHoleTest extends TestCase
             'currency_code' => 'IDR',
             'payment_status' => PaymentStatus::Pending,
             'status' => OrderStatus::New,
+            // Mark-paid is replaced per order, for orders paid through Komerce.
+            'payment_method_id' => PaymentMethod::factory()->create(['driver' => 'komerce', 'is_enabled' => true])->id,
         ]);
 
         $this->actingAs($admin)

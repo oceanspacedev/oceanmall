@@ -161,7 +161,7 @@
         </div>
 
         <div class="footer-note">
-            Order #{{ $order->number }} · RajaOngkir / Komerce Shipping · OceanMall Official Store
+            Order #{{ $order->number }} · {{ $shipment['carrier_name_display'] ?? $shipment['carrier'] }} · OceanMall Official Store
         </div>
     </div>
 @endforeach

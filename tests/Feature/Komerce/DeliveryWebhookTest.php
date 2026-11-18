@@ -76,6 +76,50 @@ final class DeliveryWebhookTest extends TestCase
         $this->assertSame('Selesai', data_get($shipment->metadata, 'komerce.tracking_status'));
     }
 
+    public function test_delivery_webhook_finds_the_shipment_by_its_indexed_external_reference(): void
+    {
+        config()->set('komerce.shipping_delivery_api_key', 'test-komerce-key');
+        config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
+        Http::fake([
+            'https://delivery.example.test/order/api/v1/orders/history-airway-bill*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => ['airway_bill' => 'JNE-REF-AWB', 'last_status' => 'ON_PROCESS', 'history' => []],
+            ]),
+        ]);
+
+        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        // A RajaOngkir-quoted parcel registered with Delivery: the provider
+        // order number lives only in the neutral column (no metadata bucket).
+        $shipment = OrderShipment::query()->create([
+            'order_id' => $order->id,
+            'inventory_id' => Inventory::factory()->create()->id,
+            'driver' => 'rajaongkir',
+            'external_reference' => 'RO-REF-1',
+            'carrier_code' => 'jne',
+            'status' => 'labeled',
+        ]);
+        // Same number on a parcel of an unrelated driver is never matched.
+        OrderShipment::query()->create([
+            'order_id' => $order->id,
+            'inventory_id' => Inventory::factory()->create()->id,
+            'driver' => 'otherprovider',
+            'external_reference' => 'RO-REF-1',
+            'carrier_code' => 'jne',
+            'status' => 'labeled',
+        ]);
+
+        $this->postJson(route('webhooks.komerce.delivery'), [
+            'order_no' => 'RO-REF-1',
+            'cnote' => 'JNE-REF-AWB',
+            'status' => 'Dikirim',
+        ])->assertOk()->assertJson(['status' => 'handled']);
+
+        $shipment->refresh();
+        $this->assertSame('JNE-REF-AWB', $shipment->awb);
+        $this->assertSame('in_transit', $shipment->status);
+        $this->assertSame('Dikirim', data_get($shipment->metadata, 'komerce.webhook_reported_status'));
+    }
+
     public function test_delivery_webhook_returns_404_when_shipment_missing(): void
     {
         config()->set('komerce.shipping_delivery_api_key', 'test-komerce-key');

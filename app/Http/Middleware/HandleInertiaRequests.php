@@ -7,18 +7,21 @@ namespace App\Http\Middleware;
 use App\Actions\GetCountriesByZone;
 use App\Actions\ZoneSessionManager;
 use App\Models\Channel;
+use App\Payment\PaymentMethodCatalog;
+use App\Shipping\Contracts\PresentsCarriers;
+use App\Shipping\ShippingCapabilities;
 use App\Support\EnabledCarriers;
-use App\Support\KomercePaymentCatalog;
-use App\Support\RajaOngkirCouriers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
+use InvalidArgumentException;
 use Shopper\Cart\CartSessionManager;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\Category;
 use Shopper\Core\Models\PaymentMethod;
-use Shopper\Payment\Facades\Payment;
 use Shopper\Payment\Services\PaymentProcessingService;
+use Shopper\Shipping\Facades\Shipping;
+use Throwable;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -94,119 +97,86 @@ class HandleInertiaRequests extends Middleware
      */
     private function footerPaymentMethods(): array
     {
-        $stripeEnabled = (bool) config('shopper.payment.drivers.stripe.enabled', false);
-        $komerceEnabled = komerce_payment_enabled() || qrisly_enabled();
+        $catalog = new PaymentMethodCatalog;
 
         return Cache::remember(
-            'footer.payment_methods.v5.'.$this->commerceCatalogSignature($stripeEnabled, $komerceEnabled),
+            'footer.payment_methods.v6.'.$this->commerceCatalogSignature($catalog->signature(), $this->quotingCarrierDrivers()),
             600,
-            function () use ($stripeEnabled, $komerceEnabled): array {
+            function () use ($catalog): array {
                 $service = resolve(PaymentProcessingService::class);
-                $catalog = resolve(KomercePaymentCatalog::class);
-                // Official Komerce catalog (null = provider unreachable → local fallback).
-                $official = $komerceEnabled ? $catalog->official() : null;
 
                 return PaymentMethod::query()
                     ->where('is_enabled', true)
                     ->orderBy('id')
                     ->get()
-                    ->filter(fn (PaymentMethod $method): bool => $this->paymentMethodAvailable($method, $stripeEnabled, $komerceEnabled))
-                    ->map(function (PaymentMethod $method) use ($service, $catalog, $official): ?array {
+                    // Same availability rule as checkout, for every driver.
+                    ->filter(fn (PaymentMethod $method): bool => $catalog->available($method))
+                    ->map(function (PaymentMethod $method) use ($service, $catalog): array {
                         try {
                             $logo = $service->getLogoUrl($method);
-                        } catch (\InvalidArgumentException) {
+                        } catch (InvalidArgumentException) {
                             $logo = null;
                         }
 
-                        $title = (string) $method->title;
-                        $driver = (string) ($method->driver ?? 'manual');
-
-                        if ($driver === 'komerce' && $official !== null) {
-                            $row = $catalog->match(KomercePaymentCatalog::decodeMeta($method->metadata), $official);
-
-                            // Not in the provider catalog → never offered at checkout, so not advertised.
-                            if ($row === null) {
-                                return null;
-                            }
-
-                            $title = $catalog->displayName($row) ?? $title;
-                            $logo = $catalog->logoUrl($row) ?? $logo;
-                        }
+                        // A provider catalog entry carries the official name and logo.
+                        $entry = $catalog->entry($method);
 
                         return [
                             'key' => (string) $method->slug,
-                            'title' => $title,
-                            'logo' => $logo,
-                            'driver' => $driver,
+                            'title' => $entry['display_name'] ?? (string) $method->title,
+                            'logo' => $entry['logo_url'] ?? $logo,
+                            'driver' => (string) ($method->driver ?? 'manual'),
                         ];
                     })
-                    ->filter()
                     ->values()
                     ->all();
             },
         );
     }
 
-    private function paymentMethodAvailable(PaymentMethod $method, bool $stripeEnabled, bool $komerceEnabled): bool
-    {
-        return match ($method->driver ?? 'manual') {
-            'stripe' => $stripeEnabled,
-            'komerce' => $komerceEnabled,
-            default => Payment::isConfigured($method->driver ?? 'manual'),
-        };
-    }
-
     /**
-     * Couriers advertised in the footer. With Komerce/RajaOngkir enabled this is
-     * exactly the set checkout quotes (enabled carriers ∩ RAJAONGKIR_COURIERS ∩
-     * the official RajaOngkir courier list), labelled with the official names.
-     * Without it, only the manual store courier is shown.
+     * Couriers advertised in the footer: the enabled carriers of the drivers
+     * that quote checkout rates (each driver may relabel or hide its own
+     * carriers, PresentsCarriers), or the store's manual carriers when no
+     * provider quotes.
      *
      * @return array<int, array{code: string, label: string, logo: string|null}>
      */
     private function footerShippingCouriers(): array
     {
-        $komerceEnabled = komerce_shipping_cost_enabled();
+        $owners = $this->quotingCarrierDrivers();
         /** @var \Closure(Carrier): ?string $logoResolver */
         $logoResolver = app('shopper.carrier.logo');
 
         return Cache::remember(
-            'footer.shipping_couriers.v3.'.$this->commerceCatalogSignature(
-                (bool) config('shopper.payment.drivers.stripe.enabled', false),
-                $komerceEnabled,
+            'footer.shipping_couriers.v5.'.$this->commerceCatalogSignature(
+                (new PaymentMethodCatalog)->signature(),
+                $owners,
             ),
             600,
-            function () use ($komerceEnabled, $logoResolver): array {
-                $carriers = EnabledCarriers::forDisplay()->keyBy(
-                    static fn (Carrier $carrier): string => strtolower((string) $carrier->slug),
-                );
-
-                if (! $komerceEnabled) {
-                    return $carriers
-                        ->filter(static fn (Carrier $carrier): bool => ($carrier->driver ?? 'manual') === 'manual')
-                        ->map(static fn (Carrier $carrier): array => [
-                            'code' => strtolower((string) $carrier->slug),
-                            'label' => (string) $carrier->name,
-                            'logo' => $logoResolver($carrier),
-                        ])
-                        ->values()
-                        ->all();
-                }
-
+            function () use ($owners, $logoResolver): array {
+                // Checkout offers provider quotes when a provider quotes, and the
+                // store's own (manual) carriers otherwise: advertise the same set.
+                $shown = $owners !== [] ? $owners : ['manual'];
                 $rows = [];
 
-                foreach (RajaOngkirCouriers::quotable() as $code) {
-                    $carrier = $carriers->get($code);
+                foreach (EnabledCarriers::forDisplay() as $carrier) {
+                    $driverCode = filled($carrier->driver) ? (string) $carrier->driver : 'manual';
 
-                    if (! $carrier instanceof Carrier) {
+                    if (! in_array($driverCode, $shown, true)) {
                         continue;
                     }
 
-                    $rows[] = [
-                        'code' => $code,
-                        'label' => RajaOngkirCouriers::name($code) ?? (string) $carrier->name,
-                        'logo' => $logoResolver($carrier),
-                    ];
+                    $row = ['code' => strtolower((string) $carrier->slug), 'label' => (string) $carrier->name];
+                    $driver = $driverCode !== 'manual' ? $this->shippingDriver($driverCode) : null;
+
+                    if ($driver instanceof PresentsCarriers) {
+                        $row = $driver->presentCarrier($carrier);
+                    }
+
+                    if ($row !== null) {
+                        $rows[] = [...$row, 'logo' => $logoResolver($carrier)];
+                    }
                 }
 
                 return $rows;
@@ -214,7 +184,29 @@ class HandleInertiaRequests extends Middleware
         );
     }
 
-    private function commerceCatalogSignature(bool $stripeEnabled, bool $komerceEnabled): string
+    /**
+     * Carrier-owning drivers whose carriers checkout quotes right now.
+     *
+     * @return list<string>
+     */
+    private function quotingCarrierDrivers(): array
+    {
+        return array_keys(resolve(ShippingCapabilities::class)->quoteChains());
+    }
+
+    private function shippingDriver(string $code): ?object
+    {
+        try {
+            return Shipping::driver($code);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  list<string>  $quotingDrivers
+     */
+    private function commerceCatalogSignature(string $readyPaymentDrivers, array $quotingDrivers): string
     {
         $paymentIds = PaymentMethod::query()
             ->where('is_enabled', true)
@@ -227,8 +219,8 @@ class HandleInertiaRequests extends Middleware
             ->map(static fn (mixed $slug): string => strtolower((string) $slug))
             ->implode(',');
 
-        return ($stripeEnabled ? '1' : '0')
-            .'.'.($komerceEnabled ? '1' : '0')
+        return $readyPaymentDrivers
+            .'.'.implode('+', $quotingDrivers)
             .'.'.$paymentIds
             .'.'.$carrierSlugs;
     }

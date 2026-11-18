@@ -144,7 +144,7 @@ return option.service_name;
                     <AlertDescription class="text-sm text-current">
                         {{
                             emptyHint ||
-                            'Belum ada opsi pengiriman untuk paket ini. Pastikan gudang punya origin RajaOngkir dan destinasi sudah dipilih.'
+                            'Belum ada opsi pengiriman untuk paket ini. Silakan periksa kembali alamat pengiriman atau hubungi kami.'
                         }}
                     </AlertDescription>
                 </Alert>

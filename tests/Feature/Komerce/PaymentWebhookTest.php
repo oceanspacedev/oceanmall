@@ -93,6 +93,8 @@ final class PaymentWebhookTest extends TestCase
     public function test_callback_with_invalid_hmac_signature_is_rejected(): void
     {
         config()->set('komerce.webhook_secret', 'webhook-secret');
+        // The signature is only checked while the Payment product is enabled.
+        config()->set('komerce.payment_api_key', 'test-komerce-key');
         config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
 
         Http::fake();

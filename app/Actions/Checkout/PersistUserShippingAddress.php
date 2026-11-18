@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Actions\Checkout;
 
 use App\Models\User;
+use App\Shipping\AddressDestination;
+use App\Shipping\ShippingCapabilities;
 use Shopper\Core\Enum\AddressType;
 use Shopper\Core\Models\Address;
 
@@ -12,7 +14,11 @@ final class PersistUserShippingAddress
 {
     /**
      * Upsert the checkout shipping address into the customer's address book
-     * so the next purchase can reuse street + RajaOngkir district.
+     * so the next purchase can reuse street + provider destination.
+     *
+     * Destination fields are stored under the neutral metadata keys
+     * (destination_id, destination_label, destination_driver, pin_point);
+     * legacy rajaongkir_* input is accepted.
      *
      * @param  array<string, mixed>  $shippingAddress
      */
@@ -67,11 +73,15 @@ final class PersistUserShippingAddress
     public function toCheckoutShippingAddress(Address $address): ?array
     {
         $metadata = $this->decodeMetadata($address->metadata);
-        $destinationId = trim((string) ($metadata['rajaongkir_destination_id'] ?? ''));
+        $capabilities = resolve(ShippingCapabilities::class);
 
-        if ($destinationId === '' && komerce_shipping_cost_enabled()) {
-            // District missing — still usable as form prefills, but not as a
-            // complete checkout session address for rate quotes.
+        // Only an id from the active destination driver's vocabulary counts:
+        // an id saved for another provider is stale after a switch.
+        $destinationId = AddressDestination::id($metadata, $capabilities->destinationDriverCode());
+
+        if ($destinationId === null && $capabilities->requiresDestination()) {
+            // Destination missing — still usable as form prefills, but not as
+            // a complete checkout session address for rate quotes.
             return null;
         }
 
@@ -85,27 +95,39 @@ final class PersistUserShippingAddress
             'state' => $address->state,
             'phone_number' => $address->phone_number,
             'country_id' => $address->country_id,
-            'rajaongkir_destination_id' => $destinationId !== '' ? $destinationId : null,
-            'rajaongkir_destination_label' => $metadata['rajaongkir_destination_label'] ?? null,
-            'rajaongkir_pin_point' => $metadata['rajaongkir_pin_point'] ?? null,
+            AddressDestination::ID => $destinationId,
+            AddressDestination::LABEL => $destinationId !== null ? AddressDestination::label($metadata) : null,
+            AddressDestination::DRIVER => $destinationId !== null ? AddressDestination::driver($metadata) : null,
+            AddressDestination::PIN_POINT => AddressDestination::pinPoint($metadata),
             'saved_address_id' => $address->id,
         ];
     }
 
     /**
+     * @param  bool  $withLegacyKeys  Also emit rajaongkir_* aliases (mobile API, for app builds released before the neutral keys)
      * @return list<array<string, mixed>>
      */
-    public function mapSavedAddressesForCheckout(User $user): array
+    public function mapSavedAddressesForCheckout(User $user, bool $withLegacyKeys = false): array
     {
+        // Only a destination in the vocabulary of today's destination driver
+        // is offered: clients post the id back without its driver and the
+        // checkout stamps the current one, so a stale id from a previous
+        // provider must never round-trip (the customer picks again instead).
+        // The address book itself keeps the stored id (see mergeMetadata()).
+        $destinationDriver = resolve(ShippingCapabilities::class)->destinationDriverCode();
+
         return $user->addresses()
             ->with('country')
             ->orderByDesc('shipping_default')
             ->orderByDesc('updated_at')
             ->get()
-            ->map(function (Address $address): array {
+            ->map(function (Address $address) use ($withLegacyKeys, $destinationDriver): array {
                 $metadata = $this->decodeMetadata($address->metadata);
+                // Without a destination driver nothing is quoted with the id,
+                // so it is listed as stored (the address book keeps it).
+                $destinationId = AddressDestination::id($metadata, $destinationDriver);
 
-                return [
+                $row = [
                     'id' => $address->id,
                     'first_name' => $address->first_name,
                     'last_name' => $address->last_name,
@@ -126,10 +148,17 @@ final class PersistUserShippingAddress
                             'cca2' => $address->country->cca2,
                         ]
                         : null,
-                    'rajaongkir_destination_id' => $metadata['rajaongkir_destination_id'] ?? null,
-                    'rajaongkir_destination_label' => $metadata['rajaongkir_destination_label'] ?? null,
-                    'rajaongkir_pin_point' => $metadata['rajaongkir_pin_point'] ?? null,
+                    AddressDestination::ID => $destinationId,
+                    AddressDestination::LABEL => $destinationId !== null ? AddressDestination::label($metadata) : null,
+                    AddressDestination::DRIVER => $destinationId !== null
+                        ? (AddressDestination::driver($metadata) ?? $destinationDriver)
+                        : null,
+                    AddressDestination::PIN_POINT => AddressDestination::pinPoint($metadata),
                 ];
+
+                return $withLegacyKeys
+                    ? AddressDestination::withLegacyKeys($row, freeTextFallback: $destinationDriver === null)
+                    : $row;
             })
             ->all();
     }
@@ -140,25 +169,30 @@ final class PersistUserShippingAddress
      */
     private function mergeMetadata(?Address $existing, array $shippingAddress): array
     {
-        $metadata = $existing ? $this->decodeMetadata($existing->metadata) : [];
+        // Existing rows may still carry legacy keys: rewrite them first.
+        $metadata = AddressDestination::normalize($existing ? $this->decodeMetadata($existing->metadata) : []);
+        $incoming = AddressDestination::fromInput($shippingAddress);
 
-        $destinationId = trim((string) ($shippingAddress['rajaongkir_destination_id'] ?? ''));
-        $destinationLabel = trim((string) ($shippingAddress['rajaongkir_destination_label'] ?? ''));
+        if (isset($incoming[AddressDestination::ID])) {
+            // The stored id coming back unchanged keeps its driver; a new id
+            // belongs to today's destination driver.
+            $unchanged = $incoming[AddressDestination::ID] === ($metadata[AddressDestination::ID] ?? null);
+            $storedDriver = $metadata[AddressDestination::DRIVER] ?? null;
 
-        if ($destinationId !== '') {
-            $metadata['rajaongkir_destination_id'] = $destinationId;
+            $metadata[AddressDestination::ID] = $incoming[AddressDestination::ID];
+            $metadata[AddressDestination::DRIVER] = $incoming[AddressDestination::DRIVER]
+                ?? ($unchanged ? $storedDriver : null)
+                ?? resolve(ShippingCapabilities::class)->destinationDriverCode()
+                ?? $storedDriver;
         }
 
-        if ($destinationLabel !== '') {
-            $metadata['rajaongkir_destination_label'] = $destinationLabel;
+        foreach ([AddressDestination::LABEL, AddressDestination::PIN_POINT] as $key) {
+            if (isset($incoming[$key])) {
+                $metadata[$key] = $incoming[$key];
+            }
         }
 
-        $pin = trim((string) ($shippingAddress['rajaongkir_pin_point'] ?? ''));
-        if ($pin !== '') {
-            $metadata['rajaongkir_pin_point'] = $pin;
-        }
-
-        return $metadata;
+        return array_filter($metadata, static fn (mixed $value): bool => $value !== null);
     }
 
     /**

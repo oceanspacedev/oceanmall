@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Cpanel;
 
-use App\Livewire\Shopper\KomerceOrderShipping;
+use App\Integrations\Komerce\Livewire\KomerceOrderShipping;
 use App\Models\OrderShipment;
 use App\Models\User;
 use App\Support\OrderShipmentOpsPresenter;

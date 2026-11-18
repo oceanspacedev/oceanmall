@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace App\Livewire\Shopper\SlideOvers;
 
-use App\Actions\Shipping\IssueRajaOngkirFulfillment;
+use App\Actions\Shipping\IssueOrderFulfillment;
 use App\Models\OrderShipment;
+use App\Shipping\ShippingCapabilities;
 use Filament\Notifications\Notification;
 use RuntimeException;
 use Shopper\Core\Models\Carrier;
 use Shopper\Livewire\SlideOvers\CreateShippingLabel as BaseCreateShippingLabel;
 use Throwable;
 
+/**
+ * Shopper's "create shipping label" slide-over. For an order whose shipments a
+ * provider fulfils, the provider issues the AWB instead of the form; every
+ * other order (manual carrier, zone option, COD) saves Shopper's own label,
+ * which fires Shopper's OrderShipmentCreated.
+ */
 final class CreateShippingLabel extends BaseCreateShippingLabel
 {
     public function mount(): void
@@ -38,7 +45,7 @@ final class CreateShippingLabel extends BaseCreateShippingLabel
 
         $awb = $shipment?->awb ?? $shipment?->tracking_number;
 
-        $state = $this->form->getState();
+        $state = $this->form->getRawState();
         $state['carrier_id'] = $carrierId;
         if ($awb !== null && $awb !== '') {
             $state['tracking_number'] = $awb;
@@ -50,19 +57,22 @@ final class CreateShippingLabel extends BaseCreateShippingLabel
 
     public function save(): void
     {
-        if (! komerce_shipping_delivery_enabled()) {
+        $fulfiller = resolve(ShippingCapabilities::class)->fulfillerForOrder($this->order);
+
+        if ($fulfiller === null) {
             parent::save();
 
             return;
         }
 
         $this->authorize('edit_orders');
+        $provider = $fulfiller->name();
 
         try {
-            $result = resolve(IssueRajaOngkirFulfillment::class)->handle($this->order);
+            $result = resolve(IssueOrderFulfillment::class)->handle($this->order);
         } catch (RuntimeException $e) {
             Notification::make()
-                ->title('RajaOngkir belum bisa menerbitkan resi.')
+                ->title("{$provider} belum bisa menerbitkan resi.")
                 ->body($e->getMessage())
                 ->danger()
                 ->send();
@@ -72,7 +82,7 @@ final class CreateShippingLabel extends BaseCreateShippingLabel
             report($e);
 
             Notification::make()
-                ->title('Gagal menerbitkan AWB RajaOngkir.')
+                ->title("Gagal menerbitkan AWB {$provider}.")
                 ->body($e->getMessage())
                 ->danger()
                 ->send();
@@ -81,13 +91,16 @@ final class CreateShippingLabel extends BaseCreateShippingLabel
         }
 
         Notification::make()
-            ->title('Resi RajaOngkir tercatat di Shopper.')
+            ->title("Resi {$provider} tercatat di Shopper.")
             ->body('AWB '.implode(', ', $result['awbs']).'. Shopper tidak membuat nomor resi sendiri.')
             ->success()
             ->send();
 
         $this->dispatch('order.shipping.created');
         $this->closePanel();
-        $this->redirect($result['print_route']);
+
+        if ($result['print_route'] !== null) {
+            $this->redirect($result['print_route']);
+        }
     }
 }

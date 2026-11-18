@@ -1,37 +1,38 @@
 {{--
-    Rendered by App\Livewire\Shopper\OrderFulfillment only when Komerce Delivery is on.
-    Shopper's own fulfillment view is included untouched (its "create shipping label"
-    button is suppressed via OrderFulfillment::hasUnfulfilledItems()); this wrapper only
-    puts the RajaOngkir AWB / sticker bar above it.
+    Rendered by App\Livewire\Shopper\OrderFulfillment only for orders whose
+    shipments a provider fulfils (App\Shipping\Contracts\FulfillsShipments).
+    Shopper's own fulfillment view is included untouched (its "create shipping
+    label" button is suppressed via OrderFulfillment::hasUnfulfilledItems());
+    this wrapper only puts the provider AWB / sticker bar above it.
 --}}
 <div>
     <div class="mb-5 flex flex-col gap-3 rounded-xl bg-gray-50/80 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-gray-800/50">
         <div class="text-sm text-gray-600 dark:text-gray-300">
-            @if ($rajaOngkirAwbs)
+            @if ($providerAwbs)
                 <p class="font-medium">
-                    Resi RajaOngkir:
-                    <span class="font-bold text-gray-900 dark:text-white">{{ implode(', ', $rajaOngkirAwbs) }}</span>
+                    Resi {{ $providerName }}:
+                    <span class="font-bold text-gray-900 dark:text-white">{{ implode(', ', $providerAwbs) }}</span>
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Shopper hanya mencatat AWB resmi. Nomor resi tidak diketik manual.</p>
             @elseif ($hasPickupRequested)
                 <p>Pickup kurir sudah dijadwalkan (<span class="font-semibold text-amber-600 dark:text-amber-400">Sedang Dipacking</span>). Menunggu nomor resi diterbitkan kurir.</p>
             @elseif ($orderIsPaid)
-                <p>Pembayaran lunas. Terbitkan AWB dan stiker dari RajaOngkir — bukan form resi Shopper.</p>
+                <p>Pembayaran lunas. Terbitkan AWB dan stiker dari {{ $providerName }} — bukan form resi Shopper.</p>
             @else
-                <p>Menunggu pelunasan. Setelah lunas, resi RajaOngkir terbit otomatis.</p>
+                <p>Menunggu pelunasan. Setelah lunas, resi {{ $providerName }} terbit otomatis.</p>
             @endif
         </div>
 
         <div class="flex flex-wrap items-center gap-2 shrink-0">
-            @if ($canPrintRajaOngkirLabel)
+            @if ($canPrintProviderLabel)
                 <x-filament::button
                     tag="a"
-                    :href="$printRajaOngkirRoute"
+                    :href="$printProviderLabelRoute"
                     target="_blank"
                     icon="heroicon-o-printer"
                     color="primary"
                 >
-                    Cetak Stiker RajaOngkir
+                    Cetak Stiker {{ $providerName }}
                 </x-filament::button>
             @elseif ($hasPickupRequested)
                 <x-filament::button
@@ -50,7 +51,7 @@
                     icon="heroicon-o-paper-airplane"
                     color="primary"
                 >
-                    <span wire:loading.remove wire:target="openShippingLabel">Terbitkan Resi RajaOngkir</span>
+                    <span wire:loading.remove wire:target="openShippingLabel">Terbitkan Resi {{ $providerName }}</span>
                     <span wire:loading wire:target="openShippingLabel">Menerbitkan…</span>
                 </x-filament::button>
             @endif

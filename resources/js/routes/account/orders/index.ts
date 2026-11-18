@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 import shipments from './shipments'
 /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:39
+ * @see app/Http/Controllers/Account/OrderController.php:41
  * @route '/account/orders/{order}'
  */
 export const show = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +17,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:39
+ * @see app/Http/Controllers/Account/OrderController.php:41
  * @route '/account/orders/{order}'
  */
 show.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -50,7 +50,7 @@ show.url = (args: { order: number | { id: number } } | [order: number | { id: nu
 
 /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:39
+ * @see app/Http/Controllers/Account/OrderController.php:41
  * @route '/account/orders/{order}'
  */
 show.get = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ show.get = (args: { order: number | { id: number } } | [order: number | { id: nu
 })
 /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:39
+ * @see app/Http/Controllers/Account/OrderController.php:41
  * @route '/account/orders/{order}'
  */
 show.head = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ show.head = (args: { order: number | { id: number } } | [order: number | { id: n
 
     /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:39
+ * @see app/Http/Controllers/Account/OrderController.php:41
  * @route '/account/orders/{order}'
  */
     const showForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +79,7 @@ show.head = (args: { order: number | { id: number } } | [order: number | { id: n
 
             /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:39
+ * @see app/Http/Controllers/Account/OrderController.php:41
  * @route '/account/orders/{order}'
  */
         showForm.get = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -88,7 +88,7 @@ show.head = (args: { order: number | { id: number } } | [order: number | { id: n
         })
             /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:39
+ * @see app/Http/Controllers/Account/OrderController.php:41
  * @route '/account/orders/{order}'
  */
         showForm.head = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -103,8 +103,8 @@ show.head = (args: { order: number | { id: number } } | [order: number | { id: n
     
     show.form = showForm
 /**
-* @see \App\Http\Controllers\Account\RetryKomercePaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryKomercePaymentController.php:15
+* @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
  * @route '/account/orders/{order}/retry-payment'
  */
 export const retryPayment = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -118,8 +118,8 @@ retryPayment.definition = {
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\Account\RetryKomercePaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryKomercePaymentController.php:15
+* @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
  * @route '/account/orders/{order}/retry-payment'
  */
 retryPayment.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -151,8 +151,8 @@ retryPayment.url = (args: { order: number | { id: number } } | [order: number | 
 }
 
 /**
-* @see \App\Http\Controllers\Account\RetryKomercePaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryKomercePaymentController.php:15
+* @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
  * @route '/account/orders/{order}/retry-payment'
  */
 retryPayment.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -161,8 +161,8 @@ retryPayment.post = (args: { order: number | { id: number } } | [order: number |
 })
 
     /**
-* @see \App\Http\Controllers\Account\RetryKomercePaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryKomercePaymentController.php:15
+* @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
  * @route '/account/orders/{order}/retry-payment'
  */
     const retryPaymentForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -171,8 +171,8 @@ retryPayment.post = (args: { order: number | { id: number } } | [order: number |
     })
 
             /**
-* @see \App\Http\Controllers\Account\RetryKomercePaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryKomercePaymentController.php:15
+* @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
  * @route '/account/orders/{order}/retry-payment'
  */
         retryPaymentForm.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -182,8 +182,8 @@ retryPayment.post = (args: { order: number | { id: number } } | [order: number |
     
     retryPayment.form = retryPaymentForm
 /**
-* @see \App\Http\Controllers\Account\SyncKomercePaymentStatusController::__invoke
- * @see app/Http/Controllers/Account/SyncKomercePaymentStatusController.php:16
+* @see \App\Http\Controllers\Account\SyncOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/SyncOrderPaymentController.php:16
  * @route '/account/orders/{order}/sync-payment'
  */
 export const syncPayment = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -197,8 +197,8 @@ syncPayment.definition = {
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\Account\SyncKomercePaymentStatusController::__invoke
- * @see app/Http/Controllers/Account/SyncKomercePaymentStatusController.php:16
+* @see \App\Http\Controllers\Account\SyncOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/SyncOrderPaymentController.php:16
  * @route '/account/orders/{order}/sync-payment'
  */
 syncPayment.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -230,8 +230,8 @@ syncPayment.url = (args: { order: number | { id: number } } | [order: number | {
 }
 
 /**
-* @see \App\Http\Controllers\Account\SyncKomercePaymentStatusController::__invoke
- * @see app/Http/Controllers/Account/SyncKomercePaymentStatusController.php:16
+* @see \App\Http\Controllers\Account\SyncOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/SyncOrderPaymentController.php:16
  * @route '/account/orders/{order}/sync-payment'
  */
 syncPayment.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -240,8 +240,8 @@ syncPayment.post = (args: { order: number | { id: number } } | [order: number | 
 })
 
     /**
-* @see \App\Http\Controllers\Account\SyncKomercePaymentStatusController::__invoke
- * @see app/Http/Controllers/Account/SyncKomercePaymentStatusController.php:16
+* @see \App\Http\Controllers\Account\SyncOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/SyncOrderPaymentController.php:16
  * @route '/account/orders/{order}/sync-payment'
  */
     const syncPaymentForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -250,8 +250,8 @@ syncPayment.post = (args: { order: number | { id: number } } | [order: number | 
     })
 
             /**
-* @see \App\Http\Controllers\Account\SyncKomercePaymentStatusController::__invoke
- * @see app/Http/Controllers/Account/SyncKomercePaymentStatusController.php:16
+* @see \App\Http\Controllers\Account\SyncOrderPaymentController::__invoke
+ * @see app/Http/Controllers/Account/SyncOrderPaymentController.php:16
  * @route '/account/orders/{order}/sync-payment'
  */
         syncPaymentForm.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

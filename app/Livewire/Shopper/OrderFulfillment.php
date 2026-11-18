@@ -4,72 +4,71 @@ declare(strict_types=1);
 
 namespace App\Livewire\Shopper;
 
-use App\Actions\Shipping\IssueRajaOngkirFulfillment;
+use App\Actions\Shipping\IssueOrderFulfillment;
 use App\Models\OrderShipment;
-use App\Support\OrderShipmentOpsPresenter;
+use App\Shipping\Contracts\PrintsLabels;
+use App\Shipping\ShippingCapabilities;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use RuntimeException;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Livewire\Components\Orders\Fulfillment as ShopperFulfillment;
+use Shopper\Shipping\Contracts\ShippingDriver;
 use Throwable;
 
+/**
+ * Shopper's fulfillment card, deciding per order: when the order's shipments
+ * are fulfilled by a provider (FulfillsShipments), the provider issues the AWB
+ * and Shopper's "create shipping label" form is replaced by an "issue AWB"
+ * bar; every other order (manual carriers, zone options, COD) keeps Shopper's
+ * own label flow, even while a provider is configured.
+ */
 final class OrderFulfillment extends ShopperFulfillment
 {
     /**
-     * With Komerce Delivery on, RajaOngkir issues the AWB, so Shopper's own
-     * "create shipping label" button (the only reader of this method, in
-     * Shopper's fulfillment view) must not show; the wrapper view renders the
-     * RajaOngkir bar instead. Side effect: once the order is shipped, Shopper's
-     * "all items fulfilled" note shows even if a second warehouse shipment has
-     * no AWB yet; the bar above still lists the AWBs that exist.
+     * The only reader is Shopper's fulfillment view ("create shipping label"
+     * button). Side effect for provider orders: once shipped, Shopper's
+     * "all items fulfilled" note shows even if a second warehouse shipment
+     * has no AWB yet; the bar above still lists the AWBs that exist.
      */
     public function hasUnfulfilledItems(): bool
     {
-        return ! komerce_shipping_delivery_enabled() && parent::hasUnfulfilledItems();
+        return $this->fulfiller() === null && parent::hasUnfulfilledItems();
     }
 
     public function openShippingLabel(): void
     {
-        if (! komerce_shipping_delivery_enabled()) {
+        $fulfiller = $this->fulfiller();
+
+        if ($fulfiller === null) {
             parent::openShippingLabel();
 
             return;
         }
 
         Gate::authorize('print-shipment-label', $this->order);
+        $provider = $fulfiller->name();
 
         try {
-            $result = resolve(IssueRajaOngkirFulfillment::class)->handle($this->order);
+            $result = resolve(IssueOrderFulfillment::class)->handle($this->order);
         } catch (RuntimeException $e) {
-            $hasPickup = OrderShipment::query()
-                ->where('order_id', $this->order->id)
-                ->get()
-                ->contains(
-                    static fn (OrderShipment $s): bool => is_array(data_get($s->metadata, 'komerce.pickup_response')),
-                );
+            $notification = Notification::make()->body($e->getMessage());
 
-            if ($hasPickup) {
-                Notification::make()
-                    ->title('Paket sedang dipacking kurir.')
-                    ->body($e->getMessage())
-                    ->warning()
-                    ->send();
+            if ($this->hasRegisteredShipment()) {
+                $notification->title('Paket sedang dipacking kurir.')->warning();
             } else {
-                Notification::make()
-                    ->title('Resi RajaOngkir belum terbit.')
-                    ->body($e->getMessage())
-                    ->danger()
-                    ->send();
+                $notification->title("Resi {$provider} belum terbit.")->danger();
             }
+
+            $notification->send();
 
             return;
         } catch (Throwable $e) {
             report($e);
 
             Notification::make()
-                ->title('Gagal menerbitkan resi RajaOngkir.')
+                ->title("Gagal menerbitkan resi {$provider}.")
                 ->body($e->getMessage())
                 ->danger()
                 ->send();
@@ -82,19 +81,22 @@ final class OrderFulfillment extends ShopperFulfillment
         $this->dispatch('order.updated');
 
         Notification::make()
-            ->title('Resi RajaOngkir tercatat di Shopper.')
+            ->title("Resi {$provider} tercatat di Shopper.")
             ->body('AWB '.implode(', ', $result['awbs']).'. Shopper tidak membuat nomor resi sendiri.')
             ->success()
             ->send();
 
-        $this->redirect($result['print_route']);
+        if ($result['print_route'] !== null) {
+            $this->redirect($result['print_route']);
+        }
     }
 
     public function render(): View
     {
         $view = parent::render();
+        $fulfiller = $this->fulfiller();
 
-        if (! komerce_shipping_delivery_enabled()) {
+        if ($fulfiller === null) {
             return $view;
         }
 
@@ -109,19 +111,28 @@ final class OrderFulfillment extends ShopperFulfillment
             ->values()
             ->all();
 
-        $hasPickupRequested = $shipments->contains(
-            static fn (OrderShipment $shipment): bool => is_array(data_get($shipment->metadata, 'komerce.pickup_response')),
-        );
-
         return view('shopper.livewire.order-fulfillment', [
             ...$view->getData(),
+            'providerName' => $fulfiller->name(),
             'orderIsPaid' => $this->order->payment_status === PaymentStatus::Paid,
-            'rajaOngkirAwbs' => $awbs,
-            'hasPickupRequested' => $hasPickupRequested,
-            'canPrintRajaOngkirLabel' => $shipments->contains(
-                static fn (OrderShipment $shipment): bool => resolve(OrderShipmentOpsPresenter::class)->canPrintLabel($shipment),
-            ),
-            'printRajaOngkirRoute' => route('shopper.orders.fulfillment.print-label', $this->order),
+            'providerAwbs' => $awbs,
+            'hasPickupRequested' => $awbs === [] && $this->hasRegisteredShipment(),
+            'canPrintProviderLabel' => $fulfiller instanceof PrintsLabels && $awbs !== [],
+            'printProviderLabelRoute' => route('shopper.orders.fulfillment.print-label', $this->order),
         ]);
+    }
+
+    private function fulfiller(): ?ShippingDriver
+    {
+        return resolve(ShippingCapabilities::class)->fulfillerForOrder($this->order);
+    }
+
+    private function hasRegisteredShipment(): bool
+    {
+        return OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->whereNotNull('external_reference')
+            ->where('external_reference', '!=', '')
+            ->exists();
     }
 }

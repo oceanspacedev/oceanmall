@@ -1,7 +1,7 @@
 {{--
     Rendered by App\Livewire\Shopper\OrderCustomer. Shopper's own view is included
     untouched with $shippingAddress = null, which hides its shipping block (the
-    Komerce shipping panel already shows the destination) and the billing block
+    provider shipping panel already shows the destination) and the billing block
     nested inside it. The billing address is re-added below only when it differs
     from the shipping address.
 --}}

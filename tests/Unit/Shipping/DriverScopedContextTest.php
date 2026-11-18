@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shipping;
 
+use App\Integrations\Komerce\Support\KomerceTrackingContext;
 use App\Models\OrderShipment;
-use App\Support\KomerceFulfillmentContext;
-use App\Support\KomerceTrackingContext;
-use App\Support\RajaOngkirQuoteContext;
+use App\Shipping\ShippingQuoteContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
@@ -39,7 +38,7 @@ final class DriverScopedContextTest extends TestCase
         config()->set('komerce.couriers', ['jne']);
     }
 
-    public function test_rajaongkir_calculate_rates_reads_quote_context_after_scoped_flush(): void
+    public function test_rajaongkir_calculate_rates_reads_the_neutral_quote_context_after_scoped_flush(): void
     {
         Http::fake([
             'https://shipping.example.test/api/v1/calculate/domestic-cost' => Http::response([
@@ -53,7 +52,10 @@ final class DriverScopedContextTest extends TestCase
         $driver = Shipping::driver('rajaongkir');
 
         app()->forgetScopedInstances();
-        resolve(RajaOngkirQuoteContext::class)->set('501', '114', ['jne']);
+        $inventory = Inventory::factory()->create(['rajaongkir_origin_id' => '501']);
+        $context = resolve(ShippingQuoteContext::class);
+        $context->begin(['destination_id' => '114', 'destination_driver' => 'rajaongkir'], $inventory);
+        $context->forCouriers(['jne']);
 
         $rates = Shipping::driver('rajaongkir')->calculateRates(
             $this->address(),
@@ -114,7 +116,7 @@ final class DriverScopedContextTest extends TestCase
         $this->assertSame('ON_PROCESS', data_get($context->lastRaw(), 'data.last_status'));
     }
 
-    public function test_komerce_create_shipment_reads_fulfillment_context_after_scoped_flush(): void
+    public function test_komerce_fulfillment_takes_the_shipment_directly_with_no_side_channel(): void
     {
         Http::fake();
 
@@ -129,11 +131,11 @@ final class DriverScopedContextTest extends TestCase
         Shipping::driver('komerce');
 
         app()->forgetScopedInstances();
-        resolve(KomerceFulfillmentContext::class)->set($shipment);
+        // Already labelled: the driver returns without calling Komerce.
+        Shipping::driver('komerce')->fulfillShipment($shipment);
 
-        $result = Shipping::driver('komerce')->createShipment($this->address(), $this->address(), [], 'jne:REG');
-
-        $this->assertSame('JNE-AFTER-FLUSH', $result->trackingNumber);
+        Http::assertNotSent(fn (ClientRequest $request): bool => str_contains($request->url(), 'delivery.example.test'));
+        $this->assertSame('JNE-AFTER-FLUSH', $shipment->refresh()->awb);
     }
 
     private function address(): Address

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Account;
 
-use App\Actions\Checkout\ResolveKomercePaymentInstructions;
 use App\Http\Controllers\Controller;
 use App\Models\OrderShipment;
+use App\Payment\PaymentActions;
+use App\Shipping\ShipmentTimeline;
+use App\Support\CarrierLogos;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -50,22 +52,18 @@ final class OrderController extends Controller
         $order->shippingAddress?->append('full_name');
         $order->billingAddress?->append('full_name');
 
-        $shipments = OrderShipment::query()
+        $orderShipments = OrderShipment::query()
             ->where('order_id', $order->id)
             ->with('inventory')
             ->orderBy('id')
-            ->get()
-            ->map(static function (OrderShipment $shipment): array {
-                $rawHistory = data_get($shipment->metadata, 'komerce.tracking_history')
-                    ?: data_get($shipment->metadata, 'tracking_history', []);
+            ->get();
+        // Provider history plus the events staff record in Shopper's own
+        // shipment log (manual AWB parcels).
+        $timelines = ShipmentTimeline::forShipments((int) $order->id, $orderShipments);
 
-                $history = collect(is_array($rawHistory) ? $rawHistory : [])->map(function ($event): array {
-                    return [
-                        'description' => data_get($event, 'description') ?? data_get($event, 'desc') ?? 'Paket diproses',
-                        'datetime' => data_get($event, 'datetime') ?? data_get($event, 'date') ?? null,
-                        'location' => data_get($event, 'location') ?? null,
-                    ];
-                })->values()->all();
+        $shipments = $orderShipments
+            ->map(static function (OrderShipment $shipment) use ($timelines): array {
+                $history = $timelines[(int) $shipment->id] ?? [];
 
                 return [
                     'id' => $shipment->id,
@@ -75,20 +73,22 @@ final class OrderController extends Controller
                     'tracking_number' => $shipment->tracking_number,
                     'carrier' => $shipment->carrier_name ?? $shipment->carrier_code,
                     'service' => $shipment->service_name ?? $shipment->service_code,
-                    'carrier_logo' => \App\Support\KomerceCourierAssets::logoUrl($shipment->carrier_code),
+                    'carrier_logo' => resolve(CarrierLogos::class)->forCode($shipment->carrier_code),
                     'cost' => $shipment->cost,
                     'currency' => $shipment->currency_code,
                     'tracking_history' => $history,
                 ];
             });
 
-        $resolvePayment = resolve(ResolveKomercePaymentInstructions::class);
+        $payments = resolve(PaymentActions::class);
 
         return Inertia::render('account/order-show', [
             'order' => $order,
             'shipments' => $shipments,
-            'komercePayment' => $resolvePayment->handle($order),
-            'canRetryPayment' => $resolvePayment->canRetry($order),
+            // Neutral action from the order's own payment driver (null when
+            // nothing is pending or the payment setup failed).
+            'paymentAction' => $payments->forOrder($order),
+            'canRetryPayment' => $payments->canRetry($order),
         ]);
     }
 }

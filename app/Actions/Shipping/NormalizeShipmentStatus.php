@@ -72,6 +72,8 @@ final class NormalizeShipmentStatus
             || str_contains($lower, 'dikirim')
             || str_contains($lower, 'out for delivery')
             || in_array($upper, ['ON_PROCESS', 'OTW', 'IN_TRANSIT', 'SHIPPING', 'PROCESS', 'DIKIRIM'], true)
+            // Shopper\Core\Enum\ShipmentStatus values a Shopper driver's track() may answer.
+            || in_array($lower, ['at_sorting_center', 'out_for_delivery'], true)
         ) {
             return self::IN_TRANSIT;
         }

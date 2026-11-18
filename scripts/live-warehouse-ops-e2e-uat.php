@@ -14,23 +14,24 @@ declare(strict_types=1);
 
 use App\Actions\Cart\AddToCart;
 use App\Actions\Checkout\BuildShippingPackages;
-use App\Actions\Checkout\CreateKomercePayment;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
-use App\Actions\Checkout\MarkOrderPaidFromKomerce;
 use App\Actions\CreateOrder;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\PrintShipmentLabels;
 use App\Actions\Shipping\SyncOrderShippingFromShipments;
 use App\Actions\Warehouse\SuggestAllocation;
 use App\CheckoutSession;
-use App\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
+use App\Integrations\Komerce\Actions\Payment\MarkOrderPaidFromKomerce;
+use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Services\ShippingCostClient;
+use App\Integrations\Komerce\Support\KomerceCallbackSignature;
+use App\Integrations\Komerce\Support\KomerceLabelResponse;
 use App\Models\OrderShipment;
 use App\Models\Product;
 use App\Models\User;
-use App\Services\Komerce\ShippingCostClient;
-use App\Support\KomerceCallbackSignature;
-use App\Support\KomerceLabelResponse;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -59,7 +60,7 @@ $fail = static function (string $step, string $detail) use (&$steps): never {
     exit(1);
 };
 
-if (! komerce_enabled()) {
+if (! Komerce::enabled()) {
     $fail('komerce', 'disabled');
 }
 $ok('komerce', 'enabled');

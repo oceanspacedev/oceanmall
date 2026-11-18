@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Checkout\BuildShippingPackages;
-use App\Actions\Checkout\CreateKomercePayment;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
+use App\Actions\Checkout\InitiateOrderPayment;
 use App\Actions\Checkout\PersistUserShippingAddress;
 use App\Actions\CreateOrder;
 use App\Actions\GetCountriesByZone;
@@ -17,12 +17,17 @@ use App\DTO\CountryByZoneData;
 use App\Enums\OrderNotificationType;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Payment\PaymentActions;
+use App\Shipping\AddressDestination;
+use App\Shipping\SelectedRate;
+use App\Shipping\ShippingCapabilities;
 use App\Support\CustomerCart;
 use App\Support\CustomerCatalogPresenter;
 use App\Support\CustomerCheckoutState;
 use App\Support\ShipmentItemValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Enum\AddressType;
@@ -44,6 +49,8 @@ final class CheckoutController extends Controller
         $cart = $this->customerCart->current($user)->load(['lines.purchasable.media']);
         $state = $this->checkoutState->get($user);
         $address = is_array($state['shipping_address'] ?? null) ? $state['shipping_address'] : null;
+        $capabilities = resolve(ShippingCapabilities::class);
+        $destinationDriver = $capabilities->destinationDriverCode();
 
         $rates = [];
         if (is_array($address) && $cart->lines->isNotEmpty()) {
@@ -55,19 +62,32 @@ final class CheckoutController extends Controller
             $countryId = (int) ($this->defaultCountry()?->countryId ?? 0);
         }
 
-        $methods = $countryId > 0 ? resolve(FetchPaymentMethods::class)->handle($countryId) : [];
+        $methods = $this->appPaymentMethods($countryId);
 
         $context = $cart->lines->isEmpty() ? null : resolve(CartManager::class)->calculate($cart);
 
         return response()->json([
             'data' => [
                 'cart' => $this->presenter->cart($cart, $context),
-                'shipping_address' => $address,
+                // Neutral destination keys plus rajaongkir_* aliases for app
+                // builds released before the neutral keys existed. Like web
+                // checkout, a destination outside today's driver vocabulary
+                // (stale after a provider switch) is cleared, so the app never
+                // posts a foreign id back as the current driver's. Without a
+                // destination driver nothing reads the id and it is echoed;
+                // an address without one gets a free-text legacy id so old
+                // builds reuse it without a new search.
+                'shipping_address' => is_array($address)
+                    ? AddressDestination::withLegacyKeys($destinationDriver !== null
+                        ? AddressDestination::forDriver($address, $destinationDriver)
+                        : $address, freeTextFallback: $destinationDriver === null)
+                    : null,
                 'shipping_option' => $state['shipping_option'][0] ?? null,
                 'shipping_rates' => $rates,
+                'shipping_capabilities' => $capabilities->toApi(),
                 'payment_methods' => $methods,
                 'payment' => $state['payment'][0] ?? null,
-                'saved_addresses' => resolve(PersistUserShippingAddress::class)->mapSavedAddressesForCheckout($user),
+                'saved_addresses' => resolve(PersistUserShippingAddress::class)->mapSavedAddressesForCheckout($user, withLegacyKeys: true),
             ],
         ]);
     }
@@ -83,7 +103,7 @@ final class CheckoutController extends Controller
         $mapped = resolve(PersistUserShippingAddress::class)->toCheckoutShippingAddress($address);
         if ($mapped === null) {
             return response()->json([
-                'message' => 'Alamat belum punya kecamatan RajaOngkir. Pilih kecamatan dulu.',
+                'message' => 'Alamat belum punya kecamatan tujuan. Pilih kecamatan dulu.',
             ], 422);
         }
 
@@ -94,17 +114,16 @@ final class CheckoutController extends Controller
 
     public function saveShippingAddress(Request $request): JsonResponse
     {
-        $destinationRule = komerce_shipping_cost_enabled()
+        $capabilities = resolve(ShippingCapabilities::class);
+        $destinationRule = $capabilities->requiresDestination()
             ? ['required', 'string', 'max:50']
             : ['nullable', 'string', 'max:50'];
 
-        $request->merge([
-            'rajaongkir_destination_id' => $this->normalizeDestinationId(
-                $request->input('rajaongkir_destination_id') ?? $request->input('destination_id'),
-            ),
-        ]);
+        // Neutral fields; app builds already in the stores send rajaongkir_*
+        // holding an id of today's destination driver (see fromRequest()).
+        $request->merge(AddressDestination::fromRequest($request->all(), $capabilities->destinationDriverCode()));
 
-        $data = $request->validate([
+        $data = $this->validateWithLegacyErrorKeys($request, [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'street_address' => ['required', 'string', 'max:255'],
@@ -113,12 +132,12 @@ final class CheckoutController extends Controller
             'city' => ['required', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
             'phone_number' => ['required', 'string', 'max:20'],
-            'rajaongkir_destination_id' => $destinationRule,
-            'rajaongkir_destination_label' => ['nullable', 'string', 'max:255'],
-            'rajaongkir_pin_point' => ['nullable', 'string', 'max:64'],
+            ...AddressDestination::rules($destinationRule),
             'latitude' => ['nullable', 'numeric'],
             'longitude' => ['nullable', 'numeric'],
         ]);
+
+        $data = AddressDestination::normalize($data, $capabilities->destinationDriverCode());
 
         $zone = $this->defaultCountry();
         $data['country_id'] = $zone?->countryId;
@@ -126,11 +145,21 @@ final class CheckoutController extends Controller
             return response()->json(['message' => 'Wilayah pengiriman belum tersedia.'], 422);
         }
 
-        if (filled($data['latitude'] ?? null) && filled($data['longitude'] ?? null) && blank($data['rajaongkir_pin_point'] ?? null)) {
-            $data['rajaongkir_pin_point'] = $data['latitude'].','.$data['longitude'];
+        if (filled($data['latitude'] ?? null) && filled($data['longitude'] ?? null) && blank($data[AddressDestination::PIN_POINT] ?? null)) {
+            $data[AddressDestination::PIN_POINT] = $data['latitude'].','.$data['longitude'];
         }
 
         $user = $this->customer($request);
+
+        // Builds released before shipping_capabilities reusing an address (no
+        // destination driver) send no province: keep the one of that region.
+        $current = $this->checkoutState->get($user)['shipping_address'] ?? null;
+        if (! $request->has('state') && is_array($current)
+            && (string) ($current['postal_code'] ?? '') === (string) $data['postal_code']
+            && (string) ($current['city'] ?? '') === (string) $data['city']) {
+            $data['state'] = $current['state'] ?? null;
+        }
+
         $saved = resolve(PersistUserShippingAddress::class)->handle($user, $data);
         $data['saved_address_id'] = $saved->id;
         $this->checkoutState->putShippingAddress($user, $data);
@@ -173,27 +202,8 @@ final class CheckoutController extends Controller
             return response()->json(['message' => 'Opsi pengiriman tidak tersedia.'], 422);
         }
 
-        $this->checkoutState->putShippingOption($user, [[
-            'id' => $selected['service_code'],
-            'name' => $selected['service_name'],
-            'price' => (int) $selected['amount'],
-            'service_code' => $selected['service_code'],
-            'service_name' => $selected['service_name'],
-            'carrier_code' => $selected['carrier_code'],
-            'carrier_name' => $selected['carrier_name'] ?? null,
-            'shipping_name' => $selected['shipping_name'] ?? $selected['carrier_name'] ?? null,
-            'shipping_cost' => (int) ($selected['shipping_cost'] ?? $selected['amount']),
-            // Official Komerce Delivery tariff fields (null when quoted via Shipping Cost).
-            'provider' => $selected['provider'] ?? null,
-            'group' => $selected['group'] ?? null,
-            'shipping_cashback' => isset($selected['shipping_cashback']) ? (int) $selected['shipping_cashback'] : null,
-            'shipping_cost_net' => isset($selected['shipping_cost_net']) ? (int) $selected['shipping_cost_net'] : null,
-            'service_fee' => isset($selected['service_fee']) ? (int) $selected['service_fee'] : null,
-            'grandtotal' => isset($selected['grandtotal']) ? (int) $selected['grandtotal'] : null,
-            'amount' => (int) $selected['amount'],
-            'currency' => $selected['currency'] ?? 'IDR',
-            'estimated_days' => $selected['estimated_days'] ?? null,
-        ]]);
+        // Generic fields plus whatever details the quoting driver attached.
+        $this->checkoutState->putShippingOption($user, [SelectedRate::fromQuote($selected)]);
 
         $state = $this->checkoutState->get($user);
         try {
@@ -228,8 +238,11 @@ final class CheckoutController extends Controller
             return response()->json(['message' => 'Metode pembayaran tidak tersedia.'], 422);
         }
 
-        if (($selected['driver'] ?? null) === 'stripe') {
-            return response()->json(['message' => 'Stripe tidak dipakai di aplikasi pelanggan.'], 422);
+        // Confirm-first gateways (ConfirmsBeforeOrder: card / embedded form)
+        // must be confirmed before the order exists, which only web checkout
+        // can do; the app would be left with an order it cannot pay.
+        if (PaymentActions::confirmFirstDriver($selected['driver'] ?? null) !== null) {
+            return response()->json(['message' => 'Metode pembayaran ini hanya tersedia di website.'], 422);
         }
 
         $this->checkoutState->putPayment($user, $selected);
@@ -275,15 +288,20 @@ final class CheckoutController extends Controller
             report($e);
         }
 
-        $instructions = null;
+        // Same shared step as web checkout: Shopper's PaymentProcessingService
+        // for every driver, answered with the driver's neutral payment action.
+        $action = null;
         $paymentError = null;
-        if (($selected['driver'] ?? null) === 'komerce') {
-            try {
-                $instructions = resolve(CreateKomercePayment::class)->handle($order, $selected);
-            } catch (Throwable $e) {
-                report($e);
+
+        try {
+            ['result' => $result, 'action' => $action] = resolve(InitiateOrderPayment::class)->handle($order, $selected);
+
+            if (! $result->success) {
                 $paymentError = 'Pesanan dibuat, tetapi pembayaran belum bisa dibuat. Coba bayar ulang dari halaman pesanan.';
             }
+        } catch (Throwable $e) {
+            report($e);
+            $paymentError = 'Pesanan dibuat, tetapi pembayaran belum bisa dibuat. Coba bayar ulang dari halaman pesanan.';
         }
 
         return response()->json([
@@ -293,11 +311,31 @@ final class CheckoutController extends Controller
                 'amount' => (int) $order->price_amount,
                 'currency' => $order->currency_code,
                 'payment_status' => $order->refresh()->payment_status->value,
-                'payment' => $instructions,
+                'payment_action' => $action,
+                // Legacy key for app builds that predate payment_action.
+                'payment' => PaymentActions::legacyInstructions($action),
                 'payment_error' => $paymentError,
-                'can_retry_payment' => $paymentError !== null,
+                'can_retry_payment' => $paymentError !== null && resolve(PaymentActions::class)->canRetry($order),
             ],
         ], 201);
+    }
+
+    /**
+     * Payment methods the app can pay with: every available method except
+     * confirm-first ones (embedded card forms the app cannot render).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function appPaymentMethods(int $countryId): array
+    {
+        if ($countryId < 1) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            resolve(FetchPaymentMethods::class)->handle($countryId),
+            static fn (array $method): bool => PaymentActions::confirmFirstDriver($method['driver'] ?? null) === null,
+        ));
     }
 
     /**
@@ -352,13 +390,28 @@ final class CheckoutController extends Controller
         return $rates;
     }
 
-    private function normalizeDestinationId(mixed $value): ?string
+    /**
+     * Validate, and mirror errors on neutral destination fields under their
+     * legacy rajaongkir_* names so older app builds still highlight the field.
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array<string, mixed>
+     */
+    private function validateWithLegacyErrorKeys(Request $request, array $rules): array
     {
-        if ($value === null || $value === '') {
-            return null;
-        }
+        try {
+            return $request->validate($rules);
+        } catch (ValidationException $e) {
+            $errors = $e->errors();
 
-        return is_scalar($value) ? trim((string) $value) : null;
+            foreach (AddressDestination::LEGACY_KEYS as $legacy => $neutral) {
+                if (isset($errors[$neutral]) && ! isset($errors[$legacy])) {
+                    $errors[$legacy] = $errors[$neutral];
+                }
+            }
+
+            throw ValidationException::withMessages($errors);
+        }
     }
 
     private function customer(Request $request): User

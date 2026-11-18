@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
-use App\Actions\Checkout\CreateKomercePayment;
+use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
+use App\Integrations\Komerce\Komerce;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -27,14 +28,14 @@ final class QrislyCheckoutTest extends TestCase
         config()->set('komerce.enabled', null);
         config()->set('komerce.qrisly_api_key', '');
         config()->set('komerce.qrisly_qris_id', '');
-        $this->assertFalse(qrisly_enabled());
+        $this->assertFalse(Komerce::qrislyEnabled());
 
         config()->set('komerce.qrisly_api_key', 'qrisly-key');
         config()->set('komerce.qrisly_qris_id', '');
-        $this->assertFalse(qrisly_enabled());
+        $this->assertFalse(Komerce::qrislyEnabled());
 
         config()->set('komerce.qrisly_qris_id', '18');
-        $this->assertTrue(qrisly_enabled());
+        $this->assertTrue(Komerce::qrislyEnabled());
     }
 
     public function test_create_qris_uses_qrisly_when_enabled(): void

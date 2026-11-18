@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Checkout;
 
 use App\Actions\Checkout\FetchDeliveryRates;
-use App\Support\RajaOngkirQuoteContext;
+use App\Shipping\ShippingQuoteContext;
+use App\Shipping\ShippingQuoteFailure;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -145,6 +146,8 @@ final class KomerceDeliveryRatesTest extends TestCase
         $options = resolve(FetchDeliveryRates::class)->handle($this->address, [new Package(10, 10, 10, 1.0)]);
 
         $this->assertSame([], $options);
-        $this->assertNotNull(resolve(RajaOngkirQuoteContext::class)->lastFailure());
+        $failure = resolve(ShippingQuoteContext::class)->lastFailure();
+        $this->assertNotNull($failure);
+        $this->assertSame(ShippingQuoteFailure::UNAVAILABLE, $failure->reason);
     }
 }

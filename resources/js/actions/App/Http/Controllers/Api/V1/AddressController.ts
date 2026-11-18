@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::index
- * @see app/Http/Controllers/Api/V1/AddressController.php:20
+ * @see app/Http/Controllers/Api/V1/AddressController.php:22
  * @route '/api/v1/addresses'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::index
- * @see app/Http/Controllers/Api/V1/AddressController.php:20
+ * @see app/Http/Controllers/Api/V1/AddressController.php:22
  * @route '/api/v1/addresses'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::index
- * @see app/Http/Controllers/Api/V1/AddressController.php:20
+ * @see app/Http/Controllers/Api/V1/AddressController.php:22
  * @route '/api/v1/addresses'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::index
- * @see app/Http/Controllers/Api/V1/AddressController.php:20
+ * @see app/Http/Controllers/Api/V1/AddressController.php:22
  * @route '/api/v1/addresses'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\AddressController::index
- * @see app/Http/Controllers/Api/V1/AddressController.php:20
+ * @see app/Http/Controllers/Api/V1/AddressController.php:22
  * @route '/api/v1/addresses'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\AddressController::index
- * @see app/Http/Controllers/Api/V1/AddressController.php:20
+ * @see app/Http/Controllers/Api/V1/AddressController.php:22
  * @route '/api/v1/addresses'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\AddressController::index
- * @see app/Http/Controllers/Api/V1/AddressController.php:20
+ * @see app/Http/Controllers/Api/V1/AddressController.php:22
  * @route '/api/v1/addresses'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::store
- * @see app/Http/Controllers/Api/V1/AddressController.php:33
+ * @see app/Http/Controllers/Api/V1/AddressController.php:35
  * @route '/api/v1/addresses'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::store
- * @see app/Http/Controllers/Api/V1/AddressController.php:33
+ * @see app/Http/Controllers/Api/V1/AddressController.php:35
  * @route '/api/v1/addresses'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::store
- * @see app/Http/Controllers/Api/V1/AddressController.php:33
+ * @see app/Http/Controllers/Api/V1/AddressController.php:35
  * @route '/api/v1/addresses'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\AddressController::store
- * @see app/Http/Controllers/Api/V1/AddressController.php:33
+ * @see app/Http/Controllers/Api/V1/AddressController.php:35
  * @route '/api/v1/addresses'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\AddressController::store
- * @see app/Http/Controllers/Api/V1/AddressController.php:33
+ * @see app/Http/Controllers/Api/V1/AddressController.php:35
  * @route '/api/v1/addresses'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -134,7 +134,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::update
- * @see app/Http/Controllers/Api/V1/AddressController.php:46
+ * @see app/Http/Controllers/Api/V1/AddressController.php:48
  * @route '/api/v1/addresses/{address}'
  */
 export const update = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -149,7 +149,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::update
- * @see app/Http/Controllers/Api/V1/AddressController.php:46
+ * @see app/Http/Controllers/Api/V1/AddressController.php:48
  * @route '/api/v1/addresses/{address}'
  */
 update.url = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -177,7 +177,7 @@ update.url = (args: { address: string | number } | [address: string | number ] |
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::update
- * @see app/Http/Controllers/Api/V1/AddressController.php:46
+ * @see app/Http/Controllers/Api/V1/AddressController.php:48
  * @route '/api/v1/addresses/{address}'
  */
 update.patch = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -187,7 +187,7 @@ update.patch = (args: { address: string | number } | [address: string | number ]
 
     /**
 * @see \App\Http\Controllers\Api\V1\AddressController::update
- * @see app/Http/Controllers/Api/V1/AddressController.php:46
+ * @see app/Http/Controllers/Api/V1/AddressController.php:48
  * @route '/api/v1/addresses/{address}'
  */
     const updateForm = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -202,7 +202,7 @@ update.patch = (args: { address: string | number } | [address: string | number ]
 
             /**
 * @see \App\Http\Controllers\Api\V1\AddressController::update
- * @see app/Http/Controllers/Api/V1/AddressController.php:46
+ * @see app/Http/Controllers/Api/V1/AddressController.php:48
  * @route '/api/v1/addresses/{address}'
  */
         updateForm.patch = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -218,7 +218,7 @@ update.patch = (args: { address: string | number } | [address: string | number ]
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::destroy
- * @see app/Http/Controllers/Api/V1/AddressController.php:55
+ * @see app/Http/Controllers/Api/V1/AddressController.php:57
  * @route '/api/v1/addresses/{address}'
  */
 export const destroy = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -233,7 +233,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::destroy
- * @see app/Http/Controllers/Api/V1/AddressController.php:55
+ * @see app/Http/Controllers/Api/V1/AddressController.php:57
  * @route '/api/v1/addresses/{address}'
  */
 destroy.url = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -261,7 +261,7 @@ destroy.url = (args: { address: string | number } | [address: string | number ] 
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::destroy
- * @see app/Http/Controllers/Api/V1/AddressController.php:55
+ * @see app/Http/Controllers/Api/V1/AddressController.php:57
  * @route '/api/v1/addresses/{address}'
  */
 destroy.delete = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -271,7 +271,7 @@ destroy.delete = (args: { address: string | number } | [address: string | number
 
     /**
 * @see \App\Http\Controllers\Api\V1\AddressController::destroy
- * @see app/Http/Controllers/Api/V1/AddressController.php:55
+ * @see app/Http/Controllers/Api/V1/AddressController.php:57
  * @route '/api/v1/addresses/{address}'
  */
     const destroyForm = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -286,7 +286,7 @@ destroy.delete = (args: { address: string | number } | [address: string | number
 
             /**
 * @see \App\Http\Controllers\Api\V1\AddressController::destroy
- * @see app/Http/Controllers/Api/V1/AddressController.php:55
+ * @see app/Http/Controllers/Api/V1/AddressController.php:57
  * @route '/api/v1/addresses/{address}'
  */
         destroyForm.delete = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -302,7 +302,7 @@ destroy.delete = (args: { address: string | number } | [address: string | number
     destroy.form = destroyForm
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultShipping
- * @see app/Http/Controllers/Api/V1/AddressController.php:62
+ * @see app/Http/Controllers/Api/V1/AddressController.php:64
  * @route '/api/v1/addresses/{address}/default-shipping'
  */
 export const setDefaultShipping = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -317,7 +317,7 @@ setDefaultShipping.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultShipping
- * @see app/Http/Controllers/Api/V1/AddressController.php:62
+ * @see app/Http/Controllers/Api/V1/AddressController.php:64
  * @route '/api/v1/addresses/{address}/default-shipping'
  */
 setDefaultShipping.url = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -345,7 +345,7 @@ setDefaultShipping.url = (args: { address: string | number } | [address: string 
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultShipping
- * @see app/Http/Controllers/Api/V1/AddressController.php:62
+ * @see app/Http/Controllers/Api/V1/AddressController.php:64
  * @route '/api/v1/addresses/{address}/default-shipping'
  */
 setDefaultShipping.patch = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -355,7 +355,7 @@ setDefaultShipping.patch = (args: { address: string | number } | [address: strin
 
     /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultShipping
- * @see app/Http/Controllers/Api/V1/AddressController.php:62
+ * @see app/Http/Controllers/Api/V1/AddressController.php:64
  * @route '/api/v1/addresses/{address}/default-shipping'
  */
     const setDefaultShippingForm = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -370,7 +370,7 @@ setDefaultShipping.patch = (args: { address: string | number } | [address: strin
 
             /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultShipping
- * @see app/Http/Controllers/Api/V1/AddressController.php:62
+ * @see app/Http/Controllers/Api/V1/AddressController.php:64
  * @route '/api/v1/addresses/{address}/default-shipping'
  */
         setDefaultShippingForm.patch = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -386,7 +386,7 @@ setDefaultShipping.patch = (args: { address: string | number } | [address: strin
     setDefaultShipping.form = setDefaultShippingForm
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultBilling
- * @see app/Http/Controllers/Api/V1/AddressController.php:71
+ * @see app/Http/Controllers/Api/V1/AddressController.php:73
  * @route '/api/v1/addresses/{address}/default-billing'
  */
 export const setDefaultBilling = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -401,7 +401,7 @@ setDefaultBilling.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultBilling
- * @see app/Http/Controllers/Api/V1/AddressController.php:71
+ * @see app/Http/Controllers/Api/V1/AddressController.php:73
  * @route '/api/v1/addresses/{address}/default-billing'
  */
 setDefaultBilling.url = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -429,7 +429,7 @@ setDefaultBilling.url = (args: { address: string | number } | [address: string |
 
 /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultBilling
- * @see app/Http/Controllers/Api/V1/AddressController.php:71
+ * @see app/Http/Controllers/Api/V1/AddressController.php:73
  * @route '/api/v1/addresses/{address}/default-billing'
  */
 setDefaultBilling.patch = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -439,7 +439,7 @@ setDefaultBilling.patch = (args: { address: string | number } | [address: string
 
     /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultBilling
- * @see app/Http/Controllers/Api/V1/AddressController.php:71
+ * @see app/Http/Controllers/Api/V1/AddressController.php:73
  * @route '/api/v1/addresses/{address}/default-billing'
  */
     const setDefaultBillingForm = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -454,7 +454,7 @@ setDefaultBilling.patch = (args: { address: string | number } | [address: string
 
             /**
 * @see \App\Http\Controllers\Api\V1\AddressController::setDefaultBilling
- * @see app/Http/Controllers/Api/V1/AddressController.php:71
+ * @see app/Http/Controllers/Api/V1/AddressController.php:73
  * @route '/api/v1/addresses/{address}/default-billing'
  */
         setDefaultBillingForm.patch = (args: { address: string | number } | [address: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

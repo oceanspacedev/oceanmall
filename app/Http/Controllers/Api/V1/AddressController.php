@@ -8,6 +8,8 @@ use App\Actions\Checkout\PersistUserShippingAddress;
 use App\Actions\GetCountriesByZone;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Shipping\AddressDestination;
+use App\Shipping\ShippingCapabilities;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,7 +24,7 @@ final class AddressController extends Controller
         $user = $this->customer($request);
 
         return response()->json([
-            'data' => resolve(PersistUserShippingAddress::class)->mapSavedAddressesForCheckout($user),
+            'data' => resolve(PersistUserShippingAddress::class)->mapSavedAddressesForCheckout($user, withLegacyKeys: true),
             'countries' => Country::query()
                 ->whereIn('id', resolve(GetCountriesByZone::class)->handle()->pluck('countryId'))
                 ->orderBy('name')
@@ -84,6 +86,21 @@ final class AddressController extends Controller
     {
         $allowedCountries = resolve(GetCountriesByZone::class)->handle()->pluck('countryId')->filter()->all();
 
+        // Neutral destination fields; app builds already in the stores send
+        // the legacy rajaongkir_* names. Remember which fields the client sent
+        // (in either spelling) before merging the neutral aliases.
+        $sent = [];
+        foreach ([AddressDestination::ID, AddressDestination::LABEL, AddressDestination::PIN_POINT] as $neutral) {
+            $legacy = array_search($neutral, AddressDestination::LEGACY_KEYS, true);
+            $sent[$neutral] = $request->exists($neutral) || (is_string($legacy) && $request->exists($legacy));
+        }
+        $sentDriver = is_string($request->input(AddressDestination::DRIVER)) && trim($request->input(AddressDestination::DRIVER)) !== ''
+            ? trim($request->input(AddressDestination::DRIVER))
+            : null;
+        $legacyOnly = AddressDestination::legacyOnly($request->all());
+        $currentDriver = resolve(ShippingCapabilities::class)->destinationDriverCode();
+        $request->merge(AddressDestination::fromRequest($request->all(), $currentDriver));
+
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
@@ -95,24 +112,43 @@ final class AddressController extends Controller
             'phone_number' => ['nullable', 'string', 'max:30'],
             'country_id' => ['required', 'integer', Rule::in($allowedCountries)],
             'type' => ['required', Rule::enum(AddressType::class)],
-            'rajaongkir_destination_id' => ['nullable', 'string', 'max:50'],
-            'rajaongkir_destination_label' => ['nullable', 'string', 'max:255'],
-            'rajaongkir_pin_point' => ['nullable', 'string', 'max:64'],
+            ...AddressDestination::rules(),
         ]);
 
         // On update, keys the client did not send keep their stored value
-        // (a partial edit must not erase the RajaOngkir destination or pin).
-        $current = $existing ? $this->metadataOf($existing) : [];
+        // (a partial edit must not erase the destination or pin).
+        $current = AddressDestination::normalize($existing ? $this->metadataOf($existing) : []);
         $metadata = [];
-        foreach (['rajaongkir_destination_id', 'rajaongkir_destination_label', 'rajaongkir_pin_point'] as $key) {
-            $metadata[$key] = $request->exists($key) ? ($data[$key] ?? null) : ($current[$key] ?? null);
+        foreach ($sent as $key => $wasSent) {
+            $metadata[$key] = $wasSent ? ($data[$key] ?? null) : ($current[$key] ?? null);
         }
+
+        if ($sent[AddressDestination::ID]) {
+            // The id posted back unchanged keeps the driver it was stored
+            // with (clients do not send destination_driver), so it is never
+            // re-stamped as today's destination driver after a provider switch.
+            // A new id (neutral or legacy key: old app builds post the id
+            // today's destination search returned) belongs to today's driver.
+            $unchanged = $metadata[AddressDestination::ID] !== null
+                && $metadata[AddressDestination::ID] === ($current[AddressDestination::ID] ?? null);
+
+            $metadata[AddressDestination::DRIVER] = $metadata[AddressDestination::ID] === null
+                ? null
+                : ($sentDriver
+                    ?? ($unchanged ? ($current[AddressDestination::DRIVER] ?? null) : null)
+                    ?? $currentDriver
+                    ?? ($legacyOnly ? AddressDestination::LEGACY_DRIVER : null)
+                    ?? ($current[AddressDestination::DRIVER] ?? null));
+        }
+
         $metadata = array_filter(
             [...$current, ...$metadata],
             static fn (mixed $value): bool => $value !== null && $value !== '',
         );
 
-        unset($data['rajaongkir_destination_id'], $data['rajaongkir_destination_label'], $data['rajaongkir_pin_point']);
+        foreach (array_keys(AddressDestination::rules()) as $key) {
+            unset($data[$key]);
+        }
         $data['metadata'] = $metadata === [] ? null : json_encode($metadata, JSON_THROW_ON_ERROR);
 
         return $data;
@@ -152,7 +188,7 @@ final class AddressController extends Controller
             return ['id' => $address->id];
         }
 
-        $list = resolve(PersistUserShippingAddress::class)->mapSavedAddressesForCheckout($owner);
+        $list = resolve(PersistUserShippingAddress::class)->mapSavedAddressesForCheckout($owner, withLegacyKeys: true);
         foreach ($list as $row) {
             if ((int) $row['id'] === (int) $address->id) {
                 return $row;

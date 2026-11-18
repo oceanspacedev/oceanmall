@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\OrderShipment;
+use App\Shipping\InventoryOrigins;
+use App\Shipping\ShipmentMetadata;
+use App\Shipping\ShippingCapabilities;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 
 /**
- * Shared shipment/inventory payloads for cpanel Komerce fulfillment UI.
+ * Shared shipment / inventory payloads for the cpanel order panels (allocation
+ * override, label printing and provider fulfilment cards).
  */
 final class OrderShipmentOpsPresenter
 {
@@ -30,7 +34,9 @@ final class OrderShipmentOpsPresenter
                 $canPrint = $this->canPrintLabel($shipment);
                 $needsPickup = $this->needsPickup($shipment);
                 $canOverride = ! $this->isLockedForOverride($shipment);
-                $hasPickup = is_array(data_get($shipment->metadata, 'komerce.pickup_response'));
+                $hasPickup = ShipmentMetadata::pickupRequested($shipment);
+                $providerFulfilled = $deliveryOrderNo !== null
+                    || resolve(ShippingCapabilities::class)->fulfillerFor($shipment) !== null;
 
                 $inventory = $shipment->inventory;
                 $shipperAddress = implode(', ', array_filter([
@@ -73,14 +79,7 @@ final class OrderShipmentOpsPresenter
                 $serviceCode = strtoupper(trim($service));
                 $serviceDesc = CourierServiceExplainer::explain($carrierCode, $serviceCode);
 
-                $carrierLogo = KomerceCourierAssets::logoUrl($carrierCode);
-                if ($carrierLogo === null) {
-                    if (file_exists(public_path("images/couriers/{$carrierCode}.svg"))) {
-                        $carrierLogo = asset("images/couriers/{$carrierCode}.svg");
-                    } elseif (file_exists(public_path("images/couriers/{$carrierCode}.png"))) {
-                        $carrierLogo = asset("images/couriers/{$carrierCode}.png");
-                    }
-                }
+                $carrierLogo = resolve(CarrierLogos::class)->forCode($carrierCode);
 
                 $carrierNameDisplay = match ($carrierCode) {
                     'jnt', 'j&t' => 'J&T Express',
@@ -113,18 +112,10 @@ final class OrderShipmentOpsPresenter
                     'cost' => (int) $shipment->cost,
                     'currency' => $shipment->currency_code,
                     'delivery_order_no' => $deliveryOrderNo,
-                    'fulfillment_error' => is_string(data_get($shipment->metadata, 'komerce.fulfillment_error'))
-                        ? (string) data_get($shipment->metadata, 'komerce.fulfillment_error')
-                        : null,
+                    'fulfillment_error' => ShipmentMetadata::fulfillmentError($shipment),
                     'can_print_label' => $canPrint,
                     'needs_pickup' => $needsPickup,
-                    'print_hint' => $canPrint
-                        ? null
-                        : ($hasPickup
-                            ? 'Pickup sudah diminta. Menunggu nomor resi terbit dari kurir Komerce.'
-                            : ($needsPickup
-                                ? 'Request pickup dulu. Stiker resi baru bisa dicetak setelah pickup Komerce berhasil.'
-                                : 'Daftarkan paket ke Komerce dulu, lalu request pickup. Setelah nomor resi terbit, stiker bisa dicetak.')),
+                    'print_hint' => $this->printHint($canPrint, $hasPickup, $needsPickup, $providerFulfilled),
                     'can_override' => $canOverride,
                     'shipper_name' => $inventory?->name ?? 'Gudang Utama',
                     'shipper_address' => $shipperAddress ?: 'Jl. Tuparev No. 109F, Cirebon',
@@ -154,19 +145,34 @@ final class OrderShipmentOpsPresenter
     /**
      * @return list<array<string, mixed>>
      */
-    public function inventories(): array
+    public function inventories(?string $originDriver = null): array
     {
-        return Inventory::query()
+        $inventories = Inventory::query()
             ->orderByDesc('is_default')
             ->orderBy('name')
-            ->get(['id', 'name', 'is_default', 'rajaongkir_origin_id'])
-            ->map(static fn (Inventory $inventory): array => [
-                'id' => $inventory->id,
-                'name' => $inventory->name,
-                'is_default' => (bool) $inventory->is_default,
-                'rajaongkir_origin_id' => $inventory->rajaongkir_origin_id,
-                'ready_for_shipping' => filled($inventory->rajaongkir_origin_id),
-            ])
+            ->get(['id', 'name', 'is_default']);
+
+        // Origins are keyed by the driver whose destination vocabulary they
+        // use: the caller's (a provider panel passes its own), otherwise the
+        // configured destination driver. Without one, every warehouse is
+        // ready: Shopper's manual shipping needs no provider origin.
+        $originDriver ??= resolve(ShippingCapabilities::class)->originDriverCode();
+        $origins = $originDriver !== null
+            ? resolve(InventoryOrigins::class)->forInventories($inventories->modelKeys(), $originDriver)
+            : collect();
+
+        return $inventories
+            ->map(static function (Inventory $inventory) use ($origins, $originDriver): array {
+                $originId = $origins->get($inventory->id);
+
+                return [
+                    'id' => $inventory->id,
+                    'name' => $inventory->name,
+                    'is_default' => (bool) $inventory->is_default,
+                    'shipping_origin_id' => $originId,
+                    'ready_for_shipping' => $originDriver === null || filled($originId),
+                ];
+            })
             ->values()
             ->all();
     }
@@ -179,13 +185,13 @@ final class OrderShipmentOpsPresenter
         return Collection::make($shipments)->where('can_print_label', true)->count();
     }
 
+    /**
+     * The provider order number of a shipment registered by any
+     * FulfillsShipments driver (order_shipments.external_reference).
+     */
     public function deliveryOrderNo(OrderShipment $shipment): ?string
     {
-        $orderNo = data_get($shipment->metadata, 'komerce.order_no');
-
-        return is_scalar($orderNo) && trim((string) $orderNo) !== ''
-            ? trim((string) $orderNo)
-            : null;
+        return ShipmentMetadata::externalReference($shipment);
     }
 
     public function isLockedForOverride(OrderShipment $shipment): bool
@@ -207,7 +213,7 @@ final class OrderShipmentOpsPresenter
             return false;
         }
 
-        if (is_array(data_get($shipment->metadata, 'komerce.pickup_response'))) {
+        if (ShipmentMetadata::pickupRequested($shipment)) {
             return false;
         }
 
@@ -231,8 +237,19 @@ final class OrderShipmentOpsPresenter
             'picked_up' => 'Sudah di-pickup',
             'in_transit' => 'Dalam pengiriman',
             'delivered' => 'Terkirim',
-            'cancelled' => 'Dibatalkan di Komerce',
+            'cancelled' => 'Dibatalkan',
             default => $status ? str_replace('_', ' ', ucfirst($status)) : 'Tidak diketahui',
+        };
+    }
+
+    private function printHint(bool $canPrint, bool $hasPickup, bool $needsPickup, bool $providerFulfilled): ?string
+    {
+        return match (true) {
+            $canPrint => null,
+            $hasPickup => 'Pickup sudah diminta. Menunggu nomor resi terbit dari kurir.',
+            $needsPickup => 'Request pickup dulu. Stiker resi baru bisa dicetak setelah pickup berhasil.',
+            $providerFulfilled => 'Daftarkan paket ke layanan pengiriman dulu, lalu request pickup. Setelah nomor resi terbit, stiker bisa dicetak.',
+            default => 'Pengiriman manual: isi nomor resi dari kartu pengiriman pesanan, lalu cetak label dari sana.',
         };
     }
 

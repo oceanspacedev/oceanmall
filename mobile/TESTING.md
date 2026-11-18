@@ -2,6 +2,8 @@
 
 Panduan untuk menguji aplikasi mobile (Expo) bersama backend Laravel di mesin lokal dengan kredensial **sandbox** Komerce.
 
+Tanpa key Komerce aplikasi tetap bisa diuji ujung ke ujung: alamat diketik bebas (kota / provinsi / kode pos), ongkir dari shipping option zone Shopper, dan pembayaran manual (COD). Lihat bagian "Running without Komerce" di [README](../README.md#running-without-komerce). Langkah sandbox di bawah hanya berlaku kalau key Komerce diisi.
+
 Dokumen ini untuk uji fungsional harian (build Debug + Metro). Uji khusus rilis (build Release, teks besar, pembaca layar, deep link dari kondisi mati, sinyal toko) ada di [store/README.md](store/README.md#checklist-qa-rilis).
 
 ## 1. Menjalankan backend

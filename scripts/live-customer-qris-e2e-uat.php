@@ -13,28 +13,37 @@ declare(strict_types=1);
  */
 
 use App\Actions\Cart\AddToCart;
-use App\Actions\Checkout\CreateKomercePayment;
+use App\Actions\Checkout\BuildShippingPackages;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
-use App\Actions\Checkout\MarkOrderPaidFromKomerce;
 use App\Actions\CreateOrder;
 use App\Actions\Shipping\NormalizeShipmentStatus;
+use App\Actions\Shipping\PrintShipmentLabels;
 use App\Actions\Warehouse\SuggestAllocation;
 use App\CheckoutSession;
+use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
+use App\Integrations\Komerce\Actions\Payment\MarkOrderPaidFromKomerce;
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Services\ShippingCostClient;
+use App\Integrations\Komerce\Support\KomerceCallbackSignature;
+use App\Integrations\Komerce\Support\KomerceLabelResponse;
 use App\Models\OrderShipment;
 use App\Models\Product;
 use App\Models\User;
-use App\Services\Komerce\ShippingCostClient;
-use App\Support\KomerceCallbackSignature;
+use App\Shipping\InventoryOrigins;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\CartSessionManager;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Country;
+use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\OrderItem;
 use Shopper\Core\Models\PaymentMethod;
@@ -63,10 +72,10 @@ $warn = static function (string $step, string $detail) use (&$steps): void {
     echo "WARN [$step] — $detail\n";
 };
 
-if (! komerce_enabled()) {
+if (! Komerce::enabled()) {
     $fail('komerce', 'disabled');
 }
-$ok('komerce', 'enabled qrisly='.(qrisly_enabled() ? 'yes' : 'no'));
+$ok('komerce', 'enabled qrisly='.(Komerce::qrislyEnabled() ? 'yes' : 'no'));
 
 $user = User::query()->where('email', 'customer@oceanmall.test')->first();
 if (! $user) {
@@ -165,7 +174,7 @@ $ok('allocation', 'shipments='.count($plan->shipments).(count($plan->shipments) 
 
 $selectedByShipment = [];
 foreach ($plan->shipments as $draft) {
-    $shipmentPackages = resolve(\App\Actions\Checkout\BuildShippingPackages::class)
+    $shipmentPackages = resolve(BuildShippingPackages::class)
         ->handleFromLines($draft->lines);
     $rates = resolve(FetchDeliveryRates::class)->handle(
         $shippingAddress,
@@ -246,7 +255,7 @@ resolve(CartSessionManager::class)->forget();
 session()->forget(CheckoutSession::KEY);
 
 // ── Simulate paid: fake remote status + signed webhook ───────────────────────
-Http::fake(function (\Illuminate\Http\Client\Request $request) use ($paymentId, $amount) {
+Http::fake(function (Illuminate\Http\Client\Request $request) use ($paymentId, $amount) {
     $url = $request->url();
 
     if (str_contains($url, '/payment/status/')) {
@@ -293,8 +302,8 @@ $webhookPayload = [
 $body = json_encode($webhookPayload, JSON_THROW_ON_ERROR);
 $signature = KomerceCallbackSignature::sign($body, $secret);
 
-$kernel = $app->make(\Illuminate\Contracts\Http\Kernel::class);
-$webhookRequest = \Illuminate\Http\Request::create(
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+$webhookRequest = Request::create(
     '/webhooks/komerce/payment',
     'POST',
     [],
@@ -330,7 +339,7 @@ $ok('paid_state', 'order='.$order->number.' status='.$order->status->value);
 
 // Process queued delivery jobs if any
 try {
-    \Illuminate\Support\Facades\Artisan::call('queue:work', [
+    Artisan::call('queue:work', [
         '--once' => true,
         '--stop-when-empty' => true,
         '--tries' => 1,
@@ -364,8 +373,8 @@ if (blank($shipment->awb) && blank($shipment->tracking_number)) {
 
 // ── Confirm received ─────────────────────────────────────────────────────────
 $confirm = Auth::loginUsingId($user->id);
-$confirmResponse = $app->make(\Illuminate\Contracts\Http\Kernel::class)->handle(
-    \Illuminate\Http\Request::create(
+$confirmResponse = $app->make(Illuminate\Contracts\Http\Kernel::class)->handle(
+    Request::create(
         '/account/orders/'.$order->id.'/confirm-received',
         'POST',
         ['_token' => csrf_token()],
@@ -427,7 +436,7 @@ if ($existing) {
 }
 
 // Verify store route accepts verified buyer (HTTP)
-$reviewPost = \Illuminate\Support\Facades\Route::has('shop.product.reviews.store');
+$reviewPost = Route::has('shop.product.reviews.store');
 $ok('product_review_route', $reviewPost ? 'shop.product.reviews.store' : 'missing');
 
 // ── Print label (admin path with faked delivery API) ─────────────────────────
@@ -446,10 +455,10 @@ if (! $admin) {
     }
 
     try {
-        $labelResponse = resolve(\App\Actions\Shipping\PrintShipmentLabels::class)
+        $labelResponse = resolve(PrintShipmentLabels::class)
             ->handle($order->fresh(), 'page_5');
-        $labelUrl = \App\Support\KomerceLabelResponse::absoluteUrl($labelResponse);
-        if ($labelUrl === null && \App\Support\KomerceLabelResponse::pdfBinary($labelResponse) === null) {
+        $labelUrl = KomerceLabelResponse::absoluteUrl($labelResponse);
+        if ($labelUrl === null && KomerceLabelResponse::pdfBinary($labelResponse) === null) {
             $fail('print_label', 'no url/pdf in response '.json_encode($labelResponse));
         }
         $ok('print_label', 'url='.($labelUrl ?? 'pdf-binary'));
@@ -467,9 +476,8 @@ try {
 }
 
 // ── Edge: empty rates (inventory without rajaongkir origin) ──────────────────
-$invWithoutOrigin = \Shopper\Core\Models\Inventory::query()
-    ->whereNull('rajaongkir_origin_id')
-    ->orWhere('rajaongkir_origin_id', '')
+$invWithoutOrigin = Inventory::query()
+    ->whereNotIn('id', resolve(InventoryOrigins::class)->inventoryIdsFor('rajaongkir'))
     ->first();
 if ($invWithoutOrigin) {
     $ok('edge_empty_rates_guard', 'inventory without origin exists id='.$invWithoutOrigin->id.' (SuggestAllocation filters these)');
@@ -498,7 +506,7 @@ PaymentTransaction::query()->create([
     'reference' => 'KPAY-RETRY-OLD',
     'metadata' => ['komerce_payment_ref' => 'KPAY-RETRY-OLD', 'komerce_provider' => 'payment_api'],
 ]);
-$retryRoute = \Illuminate\Support\Facades\Route::has('account.orders.retry-payment');
+$retryRoute = Route::has('account.orders.retry-payment');
 $ok('edge_retry_payment', 'route='.($retryRoute ? 'yes' : 'no').' unpaid_order='.$retryOrder->number);
 
 // ── Edge: expire unpaid ──────────────────────────────────────────────────────
@@ -532,7 +540,7 @@ PaymentTransaction::query()->create([
     ],
 ]);
 
-\Illuminate\Support\Facades\Artisan::call('komerce:expire-unpaid-orders');
+Artisan::call('komerce:expire-unpaid-orders');
 $expireOrder->refresh();
 if ($expireOrder->status === OrderStatus::Cancelled
     || $expireOrder->payment_status === PaymentStatus::Voided

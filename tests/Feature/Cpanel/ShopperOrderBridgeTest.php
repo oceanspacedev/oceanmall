@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Cpanel;
 
-use App\Actions\Checkout\CancelShopperOrderViaKomerce;
-use App\Livewire\Shopper\KomerceOrderShipping;
+use App\Actions\Orders\CancelOrderWithProviders;
+use App\Integrations\Komerce\Livewire\KomerceOrderShipping;
 use App\Livewire\Shopper\Pages\OrderDetail;
 use App\Models\OrderShipment;
 use App\Models\User;
@@ -17,6 +17,7 @@ use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
+use Shopper\Core\Models\PaymentMethod;
 use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Enum\TransactionType;
 use Shopper\Payment\Models\PaymentTransaction;
@@ -54,6 +55,7 @@ final class ShopperOrderBridgeTest extends TestCase
         $admin = $this->admin();
         $order = Order::factory()->create([
             'currency_code' => 'IDR',
+            'payment_method_id' => PaymentMethod::factory()->create(['driver' => 'komerce', 'is_enabled' => true])->id,
             'status' => OrderStatus::New,
             'payment_status' => PaymentStatus::Pending,
             'metadata' => json_encode([
@@ -144,7 +146,7 @@ final class ShopperOrderBridgeTest extends TestCase
             ]),
         ]);
 
-        resolve(CancelShopperOrderViaKomerce::class)->handle($order);
+        resolve(CancelOrderWithProviders::class)->handle($order);
 
         $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
         Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'

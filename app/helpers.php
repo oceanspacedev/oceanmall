@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Actions\ZoneSessionManager;
 use App\DTO\CountryByZoneData;
 use App\Models\Channel;
-use App\Support\KomerceCapabilities;
 use Shopper\Cart\CartSessionManager;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Models\TaxZone;
@@ -29,81 +28,6 @@ if (! function_exists('cartSession')) {
         }
 
         return $cart;
-    }
-}
-
-if (! function_exists('komerce_service_enabled')) {
-    /**
-     * Resolve one Komerce product independently from every other product key.
-     * KOMERCE_ENABLED=false is a master kill switch; true does not make a
-     * credential-less service ready.
-     */
-    function komerce_service_enabled(string $apiKeyConfig): bool
-    {
-        if (config('komerce.enabled') === false) {
-            return false;
-        }
-
-        if (trim((string) config($apiKeyConfig, '')) === '') {
-            return false;
-        }
-
-        // A configured key is not enough: the Collaborator plan must include
-        // the product. KomerceCapabilities learns that from the API itself.
-        $product = KomerceCapabilities::productForConfig($apiKeyConfig);
-
-        return $product === null || resolve(KomerceCapabilities::class)->entitled($product);
-    }
-}
-
-if (! function_exists('komerce_payment_enabled')) {
-    function komerce_payment_enabled(): bool
-    {
-        return komerce_service_enabled('komerce.payment_api_key');
-    }
-}
-
-if (! function_exists('komerce_shipping_cost_enabled')) {
-    function komerce_shipping_cost_enabled(): bool
-    {
-        return komerce_service_enabled('komerce.shipping_cost_api_key');
-    }
-}
-
-if (! function_exists('komerce_shipping_delivery_enabled')) {
-    function komerce_shipping_delivery_enabled(): bool
-    {
-        return komerce_service_enabled('komerce.shipping_delivery_api_key');
-    }
-}
-
-if (! function_exists('komerce_enabled')) {
-    /**
-     * Whether at least one independently configured Komerce product is ready.
-     * Product-specific callers should use the corresponding readiness helper.
-     */
-    function komerce_enabled(): bool
-    {
-        if (config('komerce.enabled') === false) {
-            return false;
-        }
-
-        return komerce_payment_enabled()
-            || komerce_shipping_cost_enabled()
-            || komerce_shipping_delivery_enabled()
-            || qrisly_enabled();
-    }
-}
-
-if (! function_exists('qrisly_enabled')) {
-    /**
-     * QRISLY product API is opt-in: both API key and merchant qris_id must be set.
-     * When disabled, checkout QRIS falls back to Komerce Payment API (`payment_type=qris`).
-     */
-    function qrisly_enabled(): bool
-    {
-        return komerce_service_enabled('komerce.qrisly_api_key')
-            && trim((string) config('komerce.qrisly_qris_id', '')) !== '';
     }
 }
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
-use App\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
 use App\Models\OrderShipment;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;

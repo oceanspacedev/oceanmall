@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::show
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:41
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:46
  * @route '/api/v1/checkout'
  */
 export const show = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::show
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:41
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:46
  * @route '/api/v1/checkout'
  */
 show.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ show.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::show
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:41
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:46
  * @route '/api/v1/checkout'
  */
 show.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ show.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::show
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:41
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:46
  * @route '/api/v1/checkout'
  */
 show.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ show.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::show
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:41
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:46
  * @route '/api/v1/checkout'
  */
     const showForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ show.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::show
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:41
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:46
  * @route '/api/v1/checkout'
  */
         showForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ show.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::show
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:41
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:46
  * @route '/api/v1/checkout'
  */
         showForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +79,7 @@ show.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     show.form = showForm
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:115
  * @route '/api/v1/checkout/shipping-address'
  */
 export const saveShippingAddress = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ saveShippingAddress.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:115
  * @route '/api/v1/checkout/shipping-address'
  */
 saveShippingAddress.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ saveShippingAddress.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:115
  * @route '/api/v1/checkout/shipping-address'
  */
 saveShippingAddress.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ saveShippingAddress.post = (options?: RouteQueryOptions): RouteDefinition<'post'
 
     /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:115
  * @route '/api/v1/checkout/shipping-address'
  */
     const saveShippingAddressForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ saveShippingAddress.post = (options?: RouteQueryOptions): RouteDefinition<'post'
 
             /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:115
  * @route '/api/v1/checkout/shipping-address'
  */
         saveShippingAddressForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -134,7 +134,7 @@ saveShippingAddress.post = (options?: RouteQueryOptions): RouteDefinition<'post'
     saveShippingAddress.form = saveShippingAddressForm
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::applySavedAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:75
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
  * @route '/api/v1/checkout/shipping-address/saved'
  */
 export const applySavedAddress = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -149,7 +149,7 @@ applySavedAddress.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::applySavedAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:75
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
  * @route '/api/v1/checkout/shipping-address/saved'
  */
 applySavedAddress.url = (options?: RouteQueryOptions) => {
@@ -158,7 +158,7 @@ applySavedAddress.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::applySavedAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:75
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
  * @route '/api/v1/checkout/shipping-address/saved'
  */
 applySavedAddress.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -168,7 +168,7 @@ applySavedAddress.post = (options?: RouteQueryOptions): RouteDefinition<'post'> 
 
     /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::applySavedAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:75
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
  * @route '/api/v1/checkout/shipping-address/saved'
  */
     const applySavedAddressForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -178,7 +178,7 @@ applySavedAddress.post = (options?: RouteQueryOptions): RouteDefinition<'post'> 
 
             /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::applySavedAddress
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:75
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:95
  * @route '/api/v1/checkout/shipping-address/saved'
  */
         applySavedAddressForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -189,7 +189,7 @@ applySavedAddress.post = (options?: RouteQueryOptions): RouteDefinition<'post'> 
     applySavedAddress.form = applySavedAddressForm
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingOption
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:153
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:182
  * @route '/api/v1/checkout/shipping-option'
  */
 export const saveShippingOption = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -204,7 +204,7 @@ saveShippingOption.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingOption
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:153
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:182
  * @route '/api/v1/checkout/shipping-option'
  */
 saveShippingOption.url = (options?: RouteQueryOptions) => {
@@ -213,7 +213,7 @@ saveShippingOption.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingOption
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:153
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:182
  * @route '/api/v1/checkout/shipping-option'
  */
 saveShippingOption.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -223,7 +223,7 @@ saveShippingOption.post = (options?: RouteQueryOptions): RouteDefinition<'post'>
 
     /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingOption
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:153
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:182
  * @route '/api/v1/checkout/shipping-option'
  */
     const saveShippingOptionForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -233,7 +233,7 @@ saveShippingOption.post = (options?: RouteQueryOptions): RouteDefinition<'post'>
 
             /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::saveShippingOption
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:153
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:182
  * @route '/api/v1/checkout/shipping-option'
  */
         saveShippingOptionForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -244,7 +244,7 @@ saveShippingOption.post = (options?: RouteQueryOptions): RouteDefinition<'post'>
     saveShippingOption.form = saveShippingOptionForm
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::placeOrder
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:210
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:220
  * @route '/api/v1/checkout/place-order'
  */
 export const placeOrder = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -259,7 +259,7 @@ placeOrder.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::placeOrder
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:210
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:220
  * @route '/api/v1/checkout/place-order'
  */
 placeOrder.url = (options?: RouteQueryOptions) => {
@@ -268,7 +268,7 @@ placeOrder.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::placeOrder
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:210
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:220
  * @route '/api/v1/checkout/place-order'
  */
 placeOrder.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -278,7 +278,7 @@ placeOrder.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::placeOrder
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:210
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:220
  * @route '/api/v1/checkout/place-order'
  */
     const placeOrderForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -288,7 +288,7 @@ placeOrder.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CheckoutController::placeOrder
- * @see app/Http/Controllers/Api/V1/CheckoutController.php:210
+ * @see app/Http/Controllers/Api/V1/CheckoutController.php:220
  * @route '/api/v1/checkout/place-order'
  */
         placeOrderForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

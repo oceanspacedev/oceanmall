@@ -38,13 +38,19 @@ class ZoneSeeder extends AbstractSeeder
                     ->pluck('id');
                 $zoneModel->countries()->attach($countryIds);
 
+                // The slugs zones.json names, plus every enabled carrier and
+                // payment method: provider modules seed their own rows
+                // (CarrierSeeder::extend / PaymentMethodSeeder::extend) and
+                // must not have to be listed in this generic file.
                 $carrierIds = Carrier::query()
                     ->whereIn('slug', $zone->carriers)
+                    ->orWhere('is_enabled', true)
                     ->pluck('id');
                 $zoneModel->carriers()->attach($carrierIds);
 
                 $paymentIds = PaymentMethod::query()
                     ->whereIn('slug', $zone->payment_methods)
+                    ->orWhere('is_enabled', true)
                     ->pluck('id');
                 $zoneModel->paymentMethods()->attach($paymentIds);
 

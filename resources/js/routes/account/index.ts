@@ -4,7 +4,7 @@ import notifications1ce82a from './notifications'
 import addresses2498c9 from './addresses'
 /**
 * @see \App\Http\Controllers\Account\OrderController::orders
- * @see app/Http/Controllers/Account/OrderController.php:19
+ * @see app/Http/Controllers/Account/OrderController.php:21
  * @route '/account/orders'
  */
 export const orders = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -19,7 +19,7 @@ orders.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\OrderController::orders
- * @see app/Http/Controllers/Account/OrderController.php:19
+ * @see app/Http/Controllers/Account/OrderController.php:21
  * @route '/account/orders'
  */
 orders.url = (options?: RouteQueryOptions) => {
@@ -28,7 +28,7 @@ orders.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Account\OrderController::orders
- * @see app/Http/Controllers/Account/OrderController.php:19
+ * @see app/Http/Controllers/Account/OrderController.php:21
  * @route '/account/orders'
  */
 orders.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -37,7 +37,7 @@ orders.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Account\OrderController::orders
- * @see app/Http/Controllers/Account/OrderController.php:19
+ * @see app/Http/Controllers/Account/OrderController.php:21
  * @route '/account/orders'
  */
 orders.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -47,7 +47,7 @@ orders.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Account\OrderController::orders
- * @see app/Http/Controllers/Account/OrderController.php:19
+ * @see app/Http/Controllers/Account/OrderController.php:21
  * @route '/account/orders'
  */
     const ordersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -57,7 +57,7 @@ orders.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Account\OrderController::orders
- * @see app/Http/Controllers/Account/OrderController.php:19
+ * @see app/Http/Controllers/Account/OrderController.php:21
  * @route '/account/orders'
  */
         ordersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -66,7 +66,7 @@ orders.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Account\OrderController::orders
- * @see app/Http/Controllers/Account/OrderController.php:19
+ * @see app/Http/Controllers/Account/OrderController.php:21
  * @route '/account/orders'
  */
         ordersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

@@ -10,21 +10,23 @@ declare(strict_types=1);
  */
 
 use App\Actions\Cart\AddToCart;
-use App\Actions\Checkout\CreateKomercePayment;
+use App\Actions\Checkout\BuildShippingPackages;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
 use App\Actions\CreateOrder;
 use App\Actions\Warehouse\SuggestAllocation;
 use App\CheckoutSession;
+use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Services\ShippingCostClient;
+use App\Models\OrderShipment;
 use App\Models\Product;
 use App\Models\User;
-use App\Services\Komerce\ShippingCostClient;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Auth;
 use Shopper\Cart\CartSessionManager;
 use Shopper\Core\Models\Country;
 use Shopper\Core\Models\Order;
-use Shopper\Core\Models\PaymentMethod;
 
 require __DIR__.'/../vendor/autoload.php';
 $app = require __DIR__.'/../bootstrap/app.php';
@@ -42,7 +44,7 @@ $fail = static function (string $step, string $detail) use (&$steps): never {
     exit(1);
 };
 
-if (! komerce_enabled()) {
+if (! Komerce::enabled()) {
     $fail('komerce', 'disabled');
 }
 $ok('komerce', 'enabled');
@@ -124,11 +126,11 @@ if ($plan->shipments === []) {
 session()->put(CheckoutSession::ALLOCATION_PLAN, $plan);
 $ok('allocation', 'shipments='.count($plan->shipments));
 
-$packages = resolve(\App\Actions\Checkout\BuildShippingPackages::class)->handle();
+$packages = resolve(BuildShippingPackages::class)->handle();
 $allRates = [];
 $selectedByShipment = [];
 foreach ($plan->shipments as $draft) {
-    $shipmentPackages = resolve(\App\Actions\Checkout\BuildShippingPackages::class)
+    $shipmentPackages = resolve(BuildShippingPackages::class)
         ->handleFromLines($draft->lines);
     $rates = resolve(FetchDeliveryRates::class)->handle(
         $shippingAddress,
@@ -218,7 +220,7 @@ if (! $accountOrder) {
 }
 $ok('account_order', 'visible order_id='.$accountOrder->id.' payment_status='.$accountOrder->payment_status->value);
 
-$shipments = \App\Models\OrderShipment::query()->where('order_id', $order->id)->count();
+$shipments = OrderShipment::query()->where('order_id', $order->id)->count();
 $ok('shipments_persisted', 'count='.$shipments);
 
 echo json_encode([

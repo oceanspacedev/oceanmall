@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
+use App\Integrations\Komerce\Services\ShippingDeliveryClient;
 use App\Models\OrderShipment;
 use App\Models\User;
-use App\Services\Komerce\ShippingDeliveryClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;

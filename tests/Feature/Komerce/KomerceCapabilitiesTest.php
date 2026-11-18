@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
-use App\Services\Komerce\ShippingDeliveryClient;
-use App\Support\KomerceCapabilities;
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Services\ShippingDeliveryClient;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -48,9 +49,9 @@ final class KomerceCapabilitiesTest extends TestCase
         $this->assertSame(100, $capabilities->dailyQuota());
 
         // The product helpers follow the detected entitlement even though a key is configured.
-        $this->assertTrue(komerce_shipping_cost_enabled());
-        $this->assertFalse(komerce_shipping_delivery_enabled());
-        $this->assertTrue(komerce_payment_enabled());
+        $this->assertTrue(Komerce::shippingCostEnabled());
+        $this->assertFalse(Komerce::shippingDeliveryEnabled());
+        $this->assertTrue(Komerce::paymentEnabled());
     }
 
     public function test_komship_account_is_detected_when_delivery_accepts_the_key(): void
@@ -65,7 +66,7 @@ final class KomerceCapabilitiesTest extends TestCase
 
         $this->assertSame('komship', resolve(KomerceCapabilities::class)->plan());
         $this->assertNull(resolve(KomerceCapabilities::class)->dailyQuota());
-        $this->assertTrue(komerce_shipping_delivery_enabled());
+        $this->assertTrue(Komerce::shippingDeliveryEnabled());
     }
 
     public function test_real_api_calls_are_observed_passively_so_a_rejected_product_switches_off(): void
@@ -74,7 +75,7 @@ final class KomerceCapabilitiesTest extends TestCase
             'https://delivery.example.test/tariff/api/v1/destination/search*' => Http::response(['meta' => ['message' => 'Invalid API Key', 'code' => 401, 'status' => 'failed'], 'data' => []], 401),
         ]);
 
-        $this->assertTrue(komerce_shipping_delivery_enabled());
+        $this->assertTrue(Komerce::shippingDeliveryEnabled());
 
         try {
             resolve(ShippingDeliveryClient::class)->searchDestinations('Gambir');
@@ -82,7 +83,7 @@ final class KomerceCapabilitiesTest extends TestCase
             // The client throws on 401; the observer must have recorded it anyway.
         }
 
-        $this->assertFalse(komerce_shipping_delivery_enabled());
+        $this->assertFalse(Komerce::shippingDeliveryEnabled());
     }
 
     public function test_quota_exhaustion_is_remembered_until_the_next_wib_day(): void
@@ -100,7 +101,38 @@ final class KomerceCapabilitiesTest extends TestCase
         $this->assertTrue($capabilities->quotaExhausted());
         $this->assertSame('2026-10-14 00:00', $capabilities->quotaExhaustedUntil()?->setTimezone('Asia/Jakarta')->format('Y-m-d H:i'));
         // Being rate-limited is not "not entitled": the product stays enabled.
-        $this->assertTrue(komerce_shipping_cost_enabled());
+        $this->assertTrue(Komerce::shippingCostEnabled());
+
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_a_concurrent_verdict_is_not_erased_by_a_stale_memo(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-13 15:00:00', 'Asia/Jakarta'));
+
+        // Request A reads (and memoises) the plan state at the start of a
+        // long checkout...
+        $requestA = new KomerceCapabilities;
+        $this->assertFalse($requestA->quotaExhausted());
+        $this->assertTrue($requestA->entitled('payment'));
+
+        // ...meanwhile request B (another worker) learns the quota is gone
+        // and the payment key was rejected.
+        $requestB = new KomerceCapabilities;
+        $requestB->observe('shipping_cost', 429, json_encode(['meta' => ['message' => 'Daily request limit exceeded']]));
+        $requestB->observe('payment', 401, json_encode(['meta' => ['message' => 'Invalid API Key']]));
+
+        // Then A gets a 2xx on both products and a probe error.
+        $requestA->observe('shipping_cost', 200);
+        $requestA->observe('shipping_delivery', 200);
+
+        $fresh = new KomerceCapabilities;
+        $this->assertTrue($fresh->quotaExhausted());
+        $this->assertFalse($fresh->entitled('payment'));
+        $this->assertTrue($fresh->entitled('shipping_delivery'));
+        $this->assertSame(1, $fresh->requestsToday());
+        // A's own memo is refreshed by its write.
+        $this->assertTrue($requestA->quotaExhausted());
 
         CarbonImmutable::setTestNow();
     }

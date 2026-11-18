@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Checkout;
 
-use App\Actions\Checkout\CreateKomercePayment;
-use App\Actions\Checkout\ResolveKomercePaymentInstructions;
+use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
+use App\Integrations\Komerce\Actions\Payment\ResolveKomercePaymentInstructions;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Shopper\Cart\Models\Cart;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
@@ -128,6 +129,8 @@ final class KomercePaymentInstructionsTest extends TestCase
         $user = User::factory()->create();
         $order = Order::factory()->create([
             'customer_id' => $user->id,
+            // The action comes from the order's own payment driver.
+            'payment_method_id' => PaymentMethod::factory()->create(['driver' => 'komerce', 'is_enabled' => true])->id,
             'payment_status' => PaymentStatus::Pending,
             'status' => OrderStatus::New,
             'price_amount' => 50000,
@@ -154,8 +157,11 @@ final class KomercePaymentInstructionsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('shop/checkout-success')
-                ->where('komercePayment.virtual_account_number', '1122334455')
-                ->where('komercePayment.amount', 50000)
+                ->where('paymentAction.driver', 'komerce')
+                ->where('paymentAction.kind', 'instructions')
+                ->where('paymentAction.data.virtual_account_number', '1122334455')
+                ->where('paymentAction.data.amount', 50000)
+                ->missing('komercePayment')
             );
     }
 
@@ -166,6 +172,7 @@ final class KomercePaymentInstructionsTest extends TestCase
         $user = User::factory()->create();
         $order = Order::factory()->create([
             'customer_id' => $user->id,
+            'payment_method_id' => PaymentMethod::factory()->create(['driver' => 'komerce', 'is_enabled' => true])->id,
             'payment_status' => PaymentStatus::Pending,
             'status' => OrderStatus::New,
             'price_amount' => 75000,
@@ -192,8 +199,9 @@ final class KomercePaymentInstructionsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('account/order-show')
-                ->where('komercePayment.payment_type', 'qris')
-                ->where('komercePayment.amount', 75000)
+                ->where('paymentAction.kind', 'qr')
+                ->where('paymentAction.data.payment_type', 'qris')
+                ->where('paymentAction.data.amount', 75000)
                 ->where('canRetryPayment', true)
             );
     }
@@ -432,7 +440,7 @@ final class KomercePaymentInstructionsTest extends TestCase
             ], JSON_THROW_ON_ERROR),
         ]);
 
-        $cart = \Shopper\Cart\Models\Cart::query()->create([
+        $cart = Cart::query()->create([
             'currency_code' => 'IDR',
             'customer_id' => $user->id,
         ]);

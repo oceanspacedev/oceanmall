@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shipping;
 
-use App\Shipping\Drivers\RajaOngkirDriver;
-use App\Support\KomerceTrackingContext;
-use App\Support\RajaOngkirQuoteContext;
+use App\Integrations\Komerce\Shipping\RajaOngkirDriver;
+use App\Integrations\Komerce\Support\KomerceTrackingContext;
+use App\Shipping\ShippingQuoteContext;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
+use Shopper\Core\Models\Inventory;
 use Shopper\Shipping\DataTransferObjects\Address;
 use Shopper\Shipping\DataTransferObjects\Package;
 use Shopper\Shipping\DataTransferObjects\ShippingRate;
@@ -17,6 +19,8 @@ use Tests\TestCase;
 
 final class RajaOngkirDriverTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -64,7 +68,12 @@ final class RajaOngkirDriverTest extends TestCase
             ]),
         ]);
 
-        resolve(RajaOngkirQuoteContext::class)->set('501', '114', ['jne', 'jnt']);
+        $context = resolve(ShippingQuoteContext::class);
+        $context->begin(
+            ['destination_id' => '114', 'destination_driver' => 'rajaongkir'],
+            Inventory::factory()->create(['rajaongkir_origin_id' => '501']),
+        );
+        $context->forCouriers(['jne', 'jnt']);
 
         $rates = Shipping::driver('rajaongkir')->calculateRates(
             $this->address(),
@@ -95,6 +104,9 @@ final class RajaOngkirDriverTest extends TestCase
 
     public function test_calculate_rates_without_quote_context_returns_empty_collection(): void
     {
+        // Called directly with no warehouse origin: the derived context
+        // (ShippingQuoteContext::beginFromAddress) does not even search the
+        // destination. With an origin it quotes, see DirectRateCallTest.
         Http::fake();
 
         $rates = Shipping::driver('rajaongkir')->calculateRates(

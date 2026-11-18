@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature\Cpanel;
 
 use App\Actions\Shipping\NormalizeShipmentStatus;
-use App\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Support\KomerceCallbackSignature;
 use App\Models\OrderShipment;
 use App\Models\Product;
 use App\Models\User;
-use App\Support\KomerceCallbackSignature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Shopper\Core\Enum\OrderStatus;
@@ -48,6 +48,7 @@ final class WarehouseOpsE2ETest extends TestCase
         config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
         config()->set('komerce.pickup_time', '10:00:00');
         config()->set('komerce.pickup_vehicle', 'Motor');
+        $this->registerKomerceAddon();
     }
 
     /**

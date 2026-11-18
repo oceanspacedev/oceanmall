@@ -113,8 +113,10 @@ class StoreConfigSeeder extends Seeder
                 'state' => 'Jawa Barat',
                 'is_default' => true,
                 'country_id' => $indonesiaId,
+                // Warehouse origin per shipping driver, saved to
+                // inventory_shipping_origins by InventoryObserver.
                 // KERTAWINANGUN, KEDAWUNG, CIREBON — RajaOngkir domestic destination id
-                'rajaongkir_origin_id' => '17248',
+                'shipping_origins' => ['rajaongkir' => '17248'],
             ],
         );
 

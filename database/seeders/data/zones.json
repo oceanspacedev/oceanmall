@@ -9,13 +9,6 @@
       "IDN"
     ],
     "carriers": [
-      "jnt",
-      "jne",
-      "sicepat",
-      "ide",
-      "anteraja",
-      "pos",
-      "tiki",
       "manual"
     ],
     "shipping_options": [
@@ -28,12 +21,7 @@
       }
     ],
     "payment_methods": [
-      "komerce-va-bca",
-      "komerce-va-bri",
-      "komerce-va-mandiri",
-      "komerce-va-bni",
-      "komerce-va-permata",
-      "komerce-qris"
+      "cod"
     ],
     "collections": []
   }

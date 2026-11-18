@@ -34,7 +34,6 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
-        <env name="KOMERCE_API_KEY" value=""/>
         <env name="KOMERCE_PAYMENT_API_KEY" value=""/>
         <env name="KOMERCE_SHIPPING_COST_API_KEY" value=""/>
         <env name="KOMERCE_SHIPPING_DELIVERY_API_KEY" value=""/>

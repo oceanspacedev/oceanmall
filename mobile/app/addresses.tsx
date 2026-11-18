@@ -195,7 +195,9 @@ export default function AddressesScreen() {
               <Text className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
                 {address.street_address}
                 {'\n'}
-                {address.rajaongkir_destination_label ?? `${address.city} ${address.postal_code}`}
+                {address.destination_label ??
+                  address.rajaongkir_destination_label ??
+                  `${address.city} ${address.postal_code}`}
               </Text>
               <View className="mt-3 flex-row gap-2 border-t border-border pt-3">
                 {!address.shipping_default ? (

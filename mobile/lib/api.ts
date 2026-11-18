@@ -447,6 +447,69 @@ export type PaymentInstructions = {
   expiry_date?: string | null;
 };
 
+/**
+ * How to pay an order, from the order's own payment driver (API `payment_action`).
+ * instructions / qr: `data` is the VA or QR payload (same shape as PaymentInstructions);
+ * redirect: `data.url` is the payment page; none: nothing to pay online (manual / COD),
+ * `data` carries the method's title, description and instructions.
+ */
+export type PaymentAction = {
+  driver: string;
+  kind: 'instructions' | 'redirect' | 'client_secret' | 'qr' | 'none';
+  data: Record<string, unknown>;
+};
+
+type PaymentSource = {
+  payment?: PaymentInstructions | null;
+  payment_action?: PaymentAction | null;
+};
+
+/**
+ * The instructions the payment panel renders. Reads the neutral `payment_action` and falls back
+ * to the legacy `payment` field for API versions that predate it.
+ */
+export function paymentFromAction(source: PaymentSource): PaymentInstructions | null {
+  const action = source.payment_action;
+
+  if (action === undefined) {
+    return source.payment ?? null;
+  }
+
+  if (action === null) {
+    return null;
+  }
+
+  if (action.kind === 'instructions' || action.kind === 'qr') {
+    return action.data as PaymentInstructions;
+  }
+
+  if (action.kind === 'redirect' && typeof action.data.url === 'string') {
+    return { payment_url: action.data.url };
+  }
+
+  return null;
+}
+
+/** Manual / cash-on-delivery: nothing to pay online, so no instructions or retry to offer. */
+export function isOfflinePayment(source: PaymentSource): boolean {
+  return source.payment_action?.kind === 'none';
+}
+
+/** The method's own note for an offline payment (instructions, else description). */
+export function offlinePaymentNote(source: PaymentSource): string | null {
+  if (!isOfflinePayment(source)) {
+    return null;
+  }
+
+  const { instructions, description } = source.payment_action?.data ?? {};
+
+  if (typeof instructions === 'string' && instructions.trim() !== '') {
+    return instructions.trim();
+  }
+
+  return typeof description === 'string' && description.trim() !== '' ? description.trim() : null;
+}
+
 export type ShippingRate = {
   service_code: string;
   service_name: string;
@@ -481,18 +544,58 @@ export type SavedAddress = {
   postal_code: string;
   state?: string | null;
   phone_number?: string | null;
+  /** Provider-neutral destination (preferred). */
+  destination_id?: string | null;
+  destination_label?: string | null;
+  destination_driver?: string | null;
+  pin_point?: string | null;
+  /** @deprecated Legacy aliases still emitted by the API for older builds. */
   rajaongkir_destination_id?: string | null;
+  /** @deprecated Legacy alias of destination_label. */
   rajaongkir_destination_label?: string | null;
   shipping_default?: boolean;
 };
 
+/** What the configured shipping drivers need before an address is complete. */
+export type ShippingCapabilities = {
+  destination_search: boolean;
+  requires_destination: boolean;
+  requires_coordinates: boolean;
+};
+
+/**
+ * Destination search row. The neutral region keys can be null when the shipping
+ * provider does not know them: the form then lets the customer type that field.
+ */
 export type Destination = {
   id: string;
   label: string;
+  postal_code?: string | null;
+  city?: string | null;
+  state?: string | null;
+  district?: string | null;
+  /** @deprecated Legacy RajaOngkir names; read only as a fallback for older API versions. */
   province_name?: string | null;
+  /** @deprecated See province_name. */
   city_name?: string | null;
+  /** @deprecated See province_name. */
   zip_code?: string | null;
 };
+
+/** Region fields a destination row provides (neutral keys first, legacy names as fallback). */
+export function destinationRegion(row: Destination): {
+  postal_code: string | null;
+  city: string | null;
+  state: string | null;
+} {
+  const pick = (...values: (string | null | undefined)[]) =>
+    values.map((value) => (value ?? '').trim()).find((value) => value !== '') ?? null;
+  return {
+    postal_code: pick(row.postal_code, row.zip_code),
+    city: pick(row.city, row.city_name),
+    state: pick(row.state, row.province_name),
+  };
+}
 
 export type CheckoutPayload = {
   cart: Cart;
@@ -501,9 +604,16 @@ export type CheckoutPayload = {
     last_name?: string;
     street_address?: string;
     city?: string;
+    state?: string | null;
     postal_code?: string;
     phone_number?: string;
+    destination_id?: string | null;
+    destination_label?: string | null;
+    destination_driver?: string | null;
+    pin_point?: string | null;
+    /** @deprecated Legacy alias of destination_id. */
     rajaongkir_destination_id?: string;
+    /** @deprecated Legacy alias of destination_label. */
     rajaongkir_destination_label?: string;
   } | null;
   shipping_option: {
@@ -513,6 +623,8 @@ export type CheckoutPayload = {
     carrier_name?: string | null;
   } | null;
   shipping_rates: ShippingRate[];
+  /** Absent on API versions older than the provider-neutral checkout. */
+  shipping_capabilities?: ShippingCapabilities;
   payment_methods: PaymentMethodOption[];
   saved_addresses: SavedAddress[];
 };
@@ -568,8 +680,16 @@ export type OrderDetail = OrderSummary & {
     service?: string | null;
     cost?: number | null;
     carrier_logo?: string | null;
-    tracking_history?: { description?: string; date?: string }[];
+    tracking_history?: {
+      description?: string;
+      datetime?: string | null;
+      location?: string | null;
+      /** @deprecated Alias of datetime. */
+      date?: string | null;
+    }[];
   }[];
+  /** Legacy instruction payload; prefer payment_action (see paymentFromAction). */
   payment?: PaymentInstructions | null;
+  payment_action?: PaymentAction | null;
   can_retry_payment?: boolean;
 };

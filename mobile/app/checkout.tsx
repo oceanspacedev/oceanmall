@@ -16,6 +16,7 @@ import {
   PROVIDER_TIMEOUT_MS,
   api,
   apiFieldErrors,
+  destinationRegion,
   errorMessage,
   type Cart,
   type CheckoutPayload,
@@ -23,6 +24,7 @@ import {
   type OrderSummary,
   type PaymentMethodOption,
   type SavedAddress,
+  type ShippingCapabilities,
   type ShippingRate,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -64,7 +66,45 @@ import {
 /** What the checkout is waiting for. One value instead of a shared boolean, so each control shows its own progress. */
 type Busy = 'address' | 'saved' | 'rate' | 'order' | null;
 
-type AddressField = 'first_name' | 'last_name' | 'phone_number' | 'street_address' | 'destination';
+type AddressField =
+  | 'first_name'
+  | 'last_name'
+  | 'phone_number'
+  | 'street_address'
+  | 'destination'
+  | 'city'
+  | 'state'
+  | 'postal_code';
+
+/**
+ * Before the API sent `shipping_capabilities` the store always required a destination picked from
+ * the search, so that is the fallback.
+ */
+const LEGACY_CAPABILITIES: ShippingCapabilities = {
+  destination_search: true,
+  requires_destination: true,
+  requires_coordinates: false,
+};
+
+/** Neutral destination keys first, then the rajaongkir_* aliases older API versions send. */
+function destinationOf(
+  address:
+    | {
+        destination_id?: string | null;
+        destination_label?: string | null;
+        rajaongkir_destination_id?: string | null;
+        rajaongkir_destination_label?: string | null;
+      }
+    | null
+    | undefined
+): { id: string | null; label: string | null } {
+  // A "text:" alias is the server's placeholder for builds that predate shipping_capabilities.
+  const legacyId = address?.rajaongkir_destination_id;
+  return {
+    id: address?.destination_id || (legacyId && !legacyId.startsWith('text:') ? legacyId : null),
+    label: address?.destination_label || address?.rajaongkir_destination_label || null,
+  };
+}
 
 /** The sticky bar here is taller than the product page's (it carries a trust line), so lift toasts clear of it. */
 const TOAST_OFFSET = 104;
@@ -79,6 +119,9 @@ export default function CheckoutScreen() {
   const streetRef = useRef<TextInput>(null);
   const firstNameRef = useRef<TextInput>(null);
   const destinationRef = useRef<TextInput>(null);
+  const cityRef = useRef<TextInput>(null);
+  const provinceRef = useRef<TextInput>(null);
+  const postalRef = useRef<TextInput>(null);
   const courierY = useRef(0);
   const courierScrollPending = useRef(false);
   const destinationLabelId = useId();
@@ -99,6 +142,9 @@ export default function CheckoutScreen() {
   const [lastName, setLastName] = useState('');
   const [street, setStreet] = useState('');
   const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [postal, setPostal] = useState('');
   const [destinationQuery, setDestinationQuery] = useState('');
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [destination, setDestination] = useState<Destination | null>(null);
@@ -110,6 +156,11 @@ export default function CheckoutScreen() {
   const [selectedPayment, setSelectedPayment] = useState<number | null>(null);
   const [editingAddress, setEditingAddress] = useState(false);
   const [newAddressOpen, setNewAddressOpen] = useState(false);
+  /**
+   * With a required destination the region comes from the picked row; when the row lacks
+   * a field (the provider does not know the postal code, say) the region fields open up.
+   */
+  const [regionEditable, setRegionEditable] = useState(false);
 
   const applyCheckout = useCallback(
     (data: CheckoutPayload) => {
@@ -126,13 +177,14 @@ export default function CheckoutScreen() {
         setLastName(address.last_name ?? '');
         setStreet(address.street_address ?? '');
         setPhone(address.phone_number ?? '');
-        if (address.rajaongkir_destination_id) {
+        setCity(address.city ?? '');
+        setProvince(address.state ?? '');
+        setPostal(address.postal_code ?? '');
+        const current = destinationOf(address);
+        if (current.id) {
           setDestination({
-            id: address.rajaongkir_destination_id,
-            label:
-              address.rajaongkir_destination_label ??
-              address.city ??
-              address.rajaongkir_destination_id,
+            id: current.id,
+            label: current.label ?? address.city ?? current.id,
           });
         }
       }
@@ -177,9 +229,14 @@ export default function CheckoutScreen() {
     void load();
   }, [load]);
 
+  const capabilities = checkout?.shipping_capabilities ?? LEGACY_CAPABILITIES;
+  const searchEnabled = capabilities.destination_search;
+  /** City, province and postal code come from the picked destination instead of free text. */
+  const regionFromDestination = capabilities.requires_destination;
+
   useEffect(() => {
     const query = destinationQuery.trim();
-    if (query.length < 2) {
+    if (!searchEnabled || query.length < 2) {
       setDestinations([]);
       setDestIssue(null);
       setSearching(false);
@@ -226,7 +283,7 @@ export default function CheckoutScreen() {
       stale = true;
       clearTimeout(handle);
     };
-  }, [destinationQuery]);
+  }, [destinationQuery, searchEnabled]);
 
   function clearFieldError(field: AddressField) {
     setFieldErrors((current) => {
@@ -277,8 +334,28 @@ export default function CheckoutScreen() {
     if (!street.trim()) {
       errors.street_address = 'Isi alamat lengkap';
     }
-    if (!destination) {
-      errors.destination = 'Pilih kecamatan dari daftar';
+    if (regionFromDestination) {
+      if (!destination) {
+        errors.destination = 'Pilih kecamatan dari daftar';
+        return errors;
+      }
+      // The picked destination fills the region; a field it lacks is typed by the customer.
+      if (!city.trim()) {
+        errors.city = 'Isi kota atau kabupaten';
+      }
+      if (!postal.trim()) {
+        errors.postal_code = 'Isi kode pos';
+      }
+      return errors;
+    }
+    if (!city.trim()) {
+      errors.city = 'Isi kota atau kabupaten';
+    }
+    if (!province.trim()) {
+      errors.state = 'Isi provinsi';
+    }
+    if (!/^\d{5}$/.test(postal.trim())) {
+      errors.postal_code = postal.trim() ? 'Kode pos 5 angka' : 'Isi kode pos';
     }
     return errors;
   }
@@ -290,6 +367,9 @@ export default function CheckoutScreen() {
       ['phone_number', phoneRef],
       ['street_address', streetRef],
       ['destination', destinationRef],
+      ['city', cityRef],
+      ['state', provinceRef],
+      ['postal_code', postalRef],
     ];
     const first = order.find(([field]) => errors[field]);
     first?.[1].current?.focus();
@@ -301,19 +381,18 @@ export default function CheckoutScreen() {
     }
     const errors = validateAddress();
     if (Object.keys(errors).length > 0) {
+      if (errors.city || errors.postal_code || errors.state) {
+        setRegionEditable(true);
+      }
       setFieldErrors(errors);
       setDestTouched(true);
       setAddressError(null);
       focusFirstInvalid(errors);
       return;
     }
-    const picked = destination as Destination;
-    const postal = picked.zip_code ?? checkout?.shipping_address?.postal_code;
-    if (!postal) {
-      setFieldErrors({ destination: 'Kecamatan ini belum punya kode pos. Pilih kecamatan lain.' });
-      destinationRef.current?.focus();
-      return;
-    }
+    // The region fields hold what the picked destination provided (or what was typed).
+    const picked = destination;
+    const region = { postal_code: postal.trim(), city: city.trim(), state: province.trim() };
     Keyboard.dismiss();
     setBusy('address');
     setAddressError(null);
@@ -326,12 +405,9 @@ export default function CheckoutScreen() {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           street_address: street.trim(),
-          postal_code: postal,
-          city: picked.city_name ?? picked.label,
-          state: picked.province_name,
+          ...region,
           phone_number: phone.trim(),
-          rajaongkir_destination_id: picked.id,
-          rajaongkir_destination_label: picked.label,
+          ...(picked ? { destination_id: picked.id, destination_label: picked.label } : {}),
         }),
       });
       applyCheckout(res.data);
@@ -358,6 +434,13 @@ export default function CheckoutScreen() {
           case 'postal_code':
           case 'city':
           case 'state':
+            if (regionFromDestination && !regionEditable) {
+              mapped.destination = message;
+            } else {
+              mapped[key] = message;
+            }
+            break;
+          case 'destination_id':
           case 'rajaongkir_destination_id':
             mapped.destination = message;
             break;
@@ -583,7 +666,9 @@ export default function CheckoutScreen() {
   const destinationMessage =
     fieldErrors.destination ??
     (destIssue?.error ? destIssue.text : null) ??
-    (destTouched && !destFocused && !destination ? 'Pilih kecamatan dari daftar' : null);
+    (regionFromDestination && destTouched && !destFocused && !destination
+      ? 'Pilih kecamatan dari daftar'
+      : null);
   const destinationState = destFocused
     ? 'focused'
     : destinationMessage
@@ -627,7 +712,7 @@ export default function CheckoutScreen() {
               </Text>
               <Text className="mt-1 text-[13px] leading-5">{address.street_address}</Text>
               <Text className="text-[12px] leading-5 text-muted-foreground">
-                {address.rajaongkir_destination_label ?? address.city}
+                {destinationOf(address).label ?? address.city}
               </Text>
             </View>
           ) : null}
@@ -650,7 +735,7 @@ export default function CheckoutScreen() {
                         loading={busy === 'saved' && busyAddress === row.id}
                         onPress={() => void useSavedAddress(row)}
                         title={`${row.first_name} ${row.last_name}`}
-                        subtitle={`${row.street_address}, ${row.rajaongkir_destination_label ?? row.city}`}
+                        subtitle={`${row.street_address}, ${destinationOf(row).label ?? row.city}`}
                       />
                     );
                   })}
@@ -735,58 +820,62 @@ export default function CheckoutScreen() {
                     autoCapitalize="words"
                     returnKeyType="next"
                     submitBehavior="submit"
-                    onSubmitEditing={() => destinationRef.current?.focus()}
+                    onSubmitEditing={() =>
+                      (searchEnabled ? destinationRef : cityRef).current?.focus()
+                    }
                   />
-                  <FieldFrame
-                    label="Kecamatan atau kode pos"
-                    labelId={destinationLabelId}
-                    error={destinationMessage}
-                    hint={destIssue && !destIssue.error ? destIssue.text : undefined}>
-                    <View
-                      className={cn(
-                        'min-h-11 flex-row items-center rounded-sm bg-white',
-                        destinationState === 'focused' && 'border-2 border-ring px-[11px]',
-                        destinationState === 'error' && 'border-2 border-destructive px-[11px]',
-                        destinationState === 'chosen' && 'border-2 border-om-success px-[11px]',
-                        destinationState === 'idle' && 'border border-input px-3'
-                      )}>
-                      <Icon as={Search} size={16} color={COLORS.slate} />
-                      <TextInput
-                        ref={destinationRef}
-                        placeholder="Contoh: Kebayoran Baru atau 12120"
-                        placeholderTextColor={PLACEHOLDER_COLOR}
-                        selectionColor={COLORS.navy}
-                        cursorColor={COLORS.navy}
-                        maxFontSizeMultiplier={1.3}
-                        value={destination ? destination.label : destinationQuery}
-                        onChangeText={(value) => {
-                          setDestination(null);
-                          setDestinationQuery(value);
-                          clearFieldError('destination');
-                        }}
-                        onFocus={() => setDestFocused(true)}
-                        onBlur={() => {
-                          setDestFocused(false);
-                          setDestTouched(true);
-                        }}
-                        returnKeyType="search"
-                        onSubmitEditing={() => Keyboard.dismiss()}
-                        autoComplete="postal-code"
-                        autoCorrect={false}
-                        {...inputA11yProps(
-                          'Kecamatan atau kode pos',
-                          destinationLabelId,
-                          destinationMessage
-                        )}
-                        className="ml-2 min-h-11 flex-1 py-1 text-[15px] leading-5 text-foreground"
-                      />
-                      {searching ? <Spinner size="small" /> : null}
-                      {destination && !searching ? (
-                        <Icon as={Check} size={18} color={COLORS.success} />
-                      ) : null}
-                    </View>
-                  </FieldFrame>
-                  {destinations.length > 0 ? (
+                  {searchEnabled ? (
+                    <FieldFrame
+                      label="Kecamatan atau kode pos"
+                      labelId={destinationLabelId}
+                      error={destinationMessage}
+                      hint={destIssue && !destIssue.error ? destIssue.text : undefined}>
+                      <View
+                        className={cn(
+                          'min-h-11 flex-row items-center rounded-sm bg-white',
+                          destinationState === 'focused' && 'border-2 border-ring px-[11px]',
+                          destinationState === 'error' && 'border-2 border-destructive px-[11px]',
+                          destinationState === 'chosen' && 'border-2 border-om-success px-[11px]',
+                          destinationState === 'idle' && 'border border-input px-3'
+                        )}>
+                        <Icon as={Search} size={16} color={COLORS.slate} />
+                        <TextInput
+                          ref={destinationRef}
+                          placeholder="Contoh: Kebayoran Baru atau 12120"
+                          placeholderTextColor={PLACEHOLDER_COLOR}
+                          selectionColor={COLORS.navy}
+                          cursorColor={COLORS.navy}
+                          maxFontSizeMultiplier={1.3}
+                          value={destination ? destination.label : destinationQuery}
+                          onChangeText={(value) => {
+                            setDestination(null);
+                            setDestinationQuery(value);
+                            clearFieldError('destination');
+                          }}
+                          onFocus={() => setDestFocused(true)}
+                          onBlur={() => {
+                            setDestFocused(false);
+                            setDestTouched(true);
+                          }}
+                          returnKeyType="search"
+                          onSubmitEditing={() => Keyboard.dismiss()}
+                          autoComplete="postal-code"
+                          autoCorrect={false}
+                          {...inputA11yProps(
+                            'Kecamatan atau kode pos',
+                            destinationLabelId,
+                            destinationMessage
+                          )}
+                          className="ml-2 min-h-11 flex-1 py-1 text-[15px] leading-5 text-foreground"
+                        />
+                        {searching ? <Spinner size="small" /> : null}
+                        {destination && !searching ? (
+                          <Icon as={Check} size={18} color={COLORS.success} />
+                        ) : null}
+                      </View>
+                    </FieldFrame>
+                  ) : null}
+                  {searchEnabled && destinations.length > 0 ? (
                     <View className="-mt-1 overflow-hidden rounded-sm border border-border bg-white">
                       {destinations.map((row, index) => (
                         <Pressable
@@ -799,6 +888,18 @@ export default function CheckoutScreen() {
                             setDestinations([]);
                             setDestIssue(null);
                             clearFieldError('destination');
+                            const region = destinationRegion(row);
+                            if (regionFromDestination) {
+                              // The row is the source of the region; what it lacks is typed.
+                              setCity(region.city ?? '');
+                              setProvince(region.state ?? '');
+                              setPostal(region.postal_code ?? '');
+                              setRegionEditable(!region.city || !region.postal_code);
+                            } else {
+                              setCity(region.city ?? city);
+                              setProvince(region.state ?? province);
+                              setPostal(region.postal_code ?? postal);
+                            }
                           }}
                           android_ripple={ripple.row}
                           className={cn(
@@ -810,6 +911,63 @@ export default function CheckoutScreen() {
                         </Pressable>
                       ))}
                     </View>
+                  ) : null}
+                  {!regionFromDestination || regionEditable ? (
+                    <>
+                      <Field
+                        ref={cityRef}
+                        label="Kota / kabupaten"
+                        value={city}
+                        onChangeText={(value) => {
+                          setCity(value);
+                          clearFieldError('city');
+                        }}
+                        error={fieldErrors.city}
+                        placeholder="Contoh: Jakarta Selatan"
+                        autoComplete="postal-address-locality"
+                        autoCapitalize="words"
+                        returnKeyType="next"
+                        submitBehavior="submit"
+                        onSubmitEditing={() => provinceRef.current?.focus()}
+                      />
+                      <View className="flex-row gap-2.5">
+                        <View className="flex-1">
+                          <Field
+                            ref={provinceRef}
+                            label="Provinsi"
+                            value={province}
+                            onChangeText={(value) => {
+                              setProvince(value);
+                              clearFieldError('state');
+                            }}
+                            error={fieldErrors.state}
+                            placeholder="Contoh: DKI Jakarta"
+                            autoComplete="postal-address-region"
+                            autoCapitalize="words"
+                            returnKeyType="next"
+                            submitBehavior="submit"
+                            onSubmitEditing={() => postalRef.current?.focus()}
+                          />
+                        </View>
+                        <View className="w-32">
+                          <Field
+                            ref={postalRef}
+                            label="Kode pos"
+                            value={postal}
+                            onChangeText={(value) => {
+                              setPostal(value.replace(/\D/g, '').slice(0, 5));
+                              clearFieldError('postal_code');
+                            }}
+                            error={fieldErrors.postal_code}
+                            placeholder="12120"
+                            keyboardType="number-pad"
+                            autoComplete="postal-code"
+                            returnKeyType="done"
+                            onSubmitEditing={() => Keyboard.dismiss()}
+                          />
+                        </View>
+                      </View>
+                    </>
                   ) : null}
                   {addressBanner}
                   <Button

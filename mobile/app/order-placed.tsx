@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { announce, useReducedMotion } from '@/lib/a11y';
-import { api, errorMessage, type OrderDetail } from '@/lib/api';
+import { api, errorMessage, paymentFromAction, type OrderDetail } from '@/lib/api';
 import { useCountdown, usePolling } from '@/lib/countdown';
 import { formatDateTime, formatIdr } from '@/lib/format';
 import { orderStage } from '@/lib/order-status';
@@ -57,7 +57,9 @@ export default function OrderPlacedScreen() {
     });
   }
 
-  const applyOrder = useCallback((next: OrderDetail) => {
+  const applyOrder = useCallback((received: OrderDetail) => {
+    // The panel renders `payment`: derive it from the neutral payment_action when present.
+    const next = { ...received, payment: paymentFromAction(received) };
     const nowPaid = next.payment_status === 'paid';
     const before = wasPaid.current;
     wasPaid.current = nowPaid;

@@ -3,8 +3,18 @@
 declare(strict_types=1);
 
 /**
- * AST verification of the paid → RajaOngkir AWB path.
- * Parses PHP sources (not runtime) and asserts the call graph still exists.
+ * AST verification of the paid → provider AWB path after the provider-neutral
+ * refactor (Komerce lives in app/Integrations/Komerce, generic code reaches it
+ * only through Shopper events and the App\Shipping contracts).
+ * Parses PHP sources (not runtime) and asserts the call graph still exists:
+ *
+ *   Komerce webhook → MarkOrderPaidFromKomerce → MarkOrderPaid → Shopper OrderPaid
+ *   → FulfillShipmentsOnOrderPaid → DispatchShipmentFulfillment (after commit)
+ *   → FulfillOrderShipment job → ShippingCapabilities::fulfillerFor()->fulfillShipment()
+ *   → KomerceShippingDriver → KomerceDeliveryFulfillment (store-order + pickup + label)
+ *   → SyncOrderShippingFromShipments (Shopper OrderShipping + events).
+ *
+ * Manual QA tool: php scripts/ast-fulfillment-verify.php
  */
 
 require __DIR__.'/../vendor/autoload.php';
@@ -20,20 +30,24 @@ $parser = (new ParserFactory)->createForVersion(PhpVersion::fromComponents(8, 4)
 $finder = new NodeFinder;
 
 $files = [
-    'webhook_payment' => 'app/Http/Controllers/Webhooks/KomercePaymentWebhookController.php',
-    'webhook_qrisly' => 'app/Http/Controllers/Webhooks/KomerceQrislyWebhookController.php',
-    'webhook_delivery' => 'app/Http/Controllers/Webhooks/KomerceDeliveryWebhookController.php',
-    'mark_paid' => 'app/Actions/Checkout/MarkOrderPaidFromKomerce.php',
-    'dispatch' => 'app/Actions/Shipping/DispatchRajaOngkirDelivery.php',
-    'job' => 'app/Jobs/CreateRajaOngkirDeliveryForShipment.php',
-    'driver' => 'app/Shipping/Drivers/KomerceShippingDriver.php',
-    'delivery_client' => 'app/Services/Komerce/ShippingDeliveryClient.php',
+    'webhook_payment' => 'app/Integrations/Komerce/Http/Controllers/KomercePaymentWebhookController.php',
+    'webhook_qrisly' => 'app/Integrations/Komerce/Http/Controllers/KomerceQrislyWebhookController.php',
+    'webhook_delivery' => 'app/Integrations/Komerce/Http/Controllers/KomerceDeliveryWebhookController.php',
+    'mark_paid_komerce' => 'app/Integrations/Komerce/Actions/Payment/MarkOrderPaidFromKomerce.php',
+    'mark_paid' => 'app/Actions/Orders/MarkOrderPaid.php',
+    'listener' => 'app/Listeners/FulfillShipmentsOnOrderPaid.php',
+    'dispatch' => 'app/Actions/Shipping/DispatchShipmentFulfillment.php',
+    'job' => 'app/Jobs/FulfillOrderShipment.php',
+    'driver' => 'app/Integrations/Komerce/Shipping/KomerceShippingDriver.php',
+    'fulfillment' => 'app/Integrations/Komerce/Services/KomerceDeliveryFulfillment.php',
+    'delivery_client' => 'app/Integrations/Komerce/Services/ShippingDeliveryClient.php',
     'print_labels' => 'app/Actions/Shipping/PrintShipmentLabels.php',
     'sync_shopper' => 'app/Actions/Shipping/SyncOrderShippingFromShipments.php',
-    'issue' => 'app/Actions/Shipping/IssueRajaOngkirFulfillment.php',
+    'issue' => 'app/Actions/Shipping/IssueOrderFulfillment.php',
     'fulfillment_ui' => 'app/Livewire/Shopper/OrderFulfillment.php',
+    'events' => 'app/Providers/AppServiceProvider.php',
     'schedule' => 'routes/console.php',
-    'routes' => 'routes/web.php',
+    'routes' => 'app/Integrations/Komerce/routes/webhooks.php',
 ];
 
 /**
@@ -52,7 +66,7 @@ function astIndex(Parser $parser, NodeFinder $finder, string $path): array
     }
 
     $calls = [];
-    foreach ($finder->findInstanceOf($ast, Node\Expr\MethodCall::class) as $node) {
+    foreach ([...$finder->findInstanceOf($ast, Node\Expr\MethodCall::class), ...$finder->findInstanceOf($ast, Node\Expr\NullsafeMethodCall::class)] as $node) {
         if ($node->name instanceof Node\Identifier) {
             $calls[] = $node->name->toString();
         }
@@ -158,18 +172,23 @@ $expectClass = static function (string $file, string $needle, string $why) use (
 $expectCall('webhook_payment', 'handleWebhook', 'Payment webhook must verify HMAC via Komerce driver');
 $expectCall('webhook_payment', 'handle', 'Payment webhook must mark the order paid');
 $expectCall('webhook_qrisly', 'handle', 'QRISLY webhook must mark the order paid');
-$expectCall('mark_paid', 'retrievePayment', 'Paid transition must confirm remote PAID status');
-$expectClass('mark_paid', 'DispatchRajaOngkirDelivery', 'Paid transition must dispatch RajaOngkir delivery');
+$expectCall('webhook_delivery', 'handle', 'Delivery webhook must apply tracking');
+$expectClass('mark_paid_komerce', 'MarkOrderPaid', 'Komerce confirmation must hand over to the neutral MarkOrderPaid');
+$expectClass('mark_paid', 'OrderPaid', 'MarkOrderPaid must fire Shopper OrderPaid');
+$expectClass('events', 'FulfillShipmentsOnOrderPaid', 'OrderPaid must be wired to the fulfilment listener');
+$expectClass('listener', 'DispatchShipmentFulfillment', 'Listener must dispatch shipment fulfilment');
 $expectMethod('dispatch', 'handle', 'Dispatcher must exist');
 $expectMethod('dispatch', 'dispatchOne', 'Dispatcher must send per-shipment work');
 $expectCall('dispatch', 'terminating', 'HTTP path must run AWB after the webhook 200, not wait on unique queue lock');
 $expectCall('dispatch', 'dispatch', 'Failed HTTP attempt must fall back to the queue');
 $expectCall('dispatch', 'afterCommit', 'Must not create AWB before payment commit');
-$expectCall('job', 'createShipment', 'Job must go through the Shopper komerce shipping driver');
-$expectCall('job', 'storeOrder', 'Job must call official store-order');
-$expectCall('job', 'requestPickup', 'Job must call official pickup to obtain AWB');
-$expectCall('job', 'printOfficialLabel', 'Job must fetch official print-label after pickup');
-$expectClass('job', 'SyncOrderShippingFromShipments', 'Job must record AWB on Shopper OrderShipping');
+$expectCall('job', 'fulfillerFor', 'Job must route by the shipment driver');
+$expectCall('job', 'fulfillShipment', 'Job must go through the FulfillsShipments driver');
+$expectCall('driver', 'fulfill', 'Komerce driver must delegate to the Delivery fulfilment service');
+$expectCall('fulfillment', 'storeOrder', 'Fulfilment must call official store-order');
+$expectCall('fulfillment', 'requestPickup', 'Fulfilment must call official pickup to obtain AWB');
+$expectCall('fulfillment', 'printOfficialLabel', 'Fulfilment must fetch official print-label after pickup');
+$expectClass('fulfillment', 'SyncOrderShippingFromShipments', 'Fulfilment must record AWB on Shopper OrderShipping');
 $expectMethod('delivery_client', 'storeOrder', 'Official store-order client method');
 $expectMethod('delivery_client', 'requestPickup', 'Official pickup client method');
 $expectMethod('delivery_client', 'printLabel', 'Official print-label client method');
@@ -179,12 +198,12 @@ $expectString('delivery_client', '/order/api/v1/orders/print-label', 'Print-labe
 $expectString('routes', 'webhooks/komerce/payment', 'Payment webhook route');
 $expectString('routes', 'webhooks/komerce/qrisly', 'QRISLY webhook route');
 $expectString('routes', 'webhooks/komerce/delivery', 'Delivery webhook route');
-$expectString('schedule', 'komerce:fulfill-paid-orders', 'Scheduler must retry paid orders without AWB');
-$expectClass('issue', 'CreateRajaOngkirDeliveryForShipment', 'Admin issue path must use the same job');
-$expectClass('fulfillment_ui', 'IssueRajaOngkirFulfillment', 'Shopper label button must not open CRUD');
-$expectCall('print_labels', 'printLabels', 'Print action must use Komerce driver labels');
-$expectCall('sync_shopper', 'updateOrCreate', 'Shopper must record tracking, not invent it');
-$expectCall('webhook_delivery', 'handle', 'Delivery webhook must apply tracking');
+$expectString('schedule', 'shipping:fulfill-paid', 'Scheduler must retry paid orders without AWB');
+$expectCall('issue', 'fulfillShipment', 'Admin issue path must use the same driver call');
+$expectClass('fulfillment_ui', 'IssueOrderFulfillment', 'Shopper label button must not open CRUD');
+$expectCall('print_labels', 'printShipmentLabels', 'Print action must use the PrintsLabels driver');
+$expectCall('sync_shopper', 'firstOrCreate', 'Shopper must record tracking, not invent it');
+$expectCall('sync_shopper', 'logEvent', 'Provider scans must reach the Shopper shipment event log');
 
 fwrite(STDOUT, 'AST files parsed: '.count($index).PHP_EOL);
 foreach ($files as $key => $relative) {
@@ -205,5 +224,5 @@ if ($failures !== []) {
     exit(1);
 }
 
-fwrite(STDOUT, PHP_EOL.'AST OK: paid webhook → mark paid → dispatch after commit → store-order + pickup + print-label → Shopper record.'.PHP_EOL);
+fwrite(STDOUT, PHP_EOL.'AST OK: paid webhook → MarkOrderPaid → OrderPaid → dispatch after commit → FulfillsShipments driver → store-order + pickup + print-label → Shopper record.'.PHP_EOL);
 exit(0);

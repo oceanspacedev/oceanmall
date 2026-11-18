@@ -92,10 +92,10 @@ final class ReusableShippingAddressTest extends TestCase
             ? json_decode($address->metadata, true)
             : $address->metadata;
         $this->assertIsArray($metadata);
-        $this->assertSame('17549', data_get($metadata, 'rajaongkir_destination_id'));
+        $this->assertSame('17549', data_get($metadata, 'destination_id'));
         $this->assertSame(
             'KEBAYORAN LAMA SELATAN, JAKARTA SELATAN',
-            data_get($metadata, 'rajaongkir_destination_label'),
+            data_get($metadata, 'destination_label'),
         );
     }
 
@@ -143,7 +143,7 @@ final class ReusableShippingAddressTest extends TestCase
         $metadata = is_string($address->metadata)
             ? json_decode($address->metadata, true)
             : $address->metadata;
-        $this->assertSame('17549', data_get($metadata, 'rajaongkir_destination_id'));
+        $this->assertSame('17549', data_get($metadata, 'destination_id'));
         $this->assertSame('081234567890', $address->phone_number);
     }
 
@@ -178,12 +178,12 @@ final class ReusableShippingAddressTest extends TestCase
             ->get(route('shop.checkout.index'), ['X-Inertia' => 'true'])
             ->assertOk()
             ->assertJsonPath('props.shippingAddress.street_address', 'Jl. Melawai Raya No. 1')
-            ->assertJsonPath('props.shippingAddress.rajaongkir_destination_id', '17549')
+            ->assertJsonPath('props.shippingAddress.destination_id', '17549')
             ->assertJsonPath('props.step', 2);
 
         $this->assertSame(
             '17549',
-            session(CheckoutSession::SHIPPING_ADDRESS.'.rajaongkir_destination_id'),
+            session(CheckoutSession::SHIPPING_ADDRESS.'.destination_id'),
         );
     }
 
@@ -228,8 +228,8 @@ final class ReusableShippingAddressTest extends TestCase
             ])
             ->get(route('shop.checkout.index', ['step' => 1]), ['X-Inertia' => 'true'])
             ->assertOk()
-            ->assertJsonPath('props.savedAddresses.0.rajaongkir_destination_id', '99001')
-            ->assertJsonPath('props.savedAddresses.0.rajaongkir_destination_label', 'BANDUNG WETAN');
+            ->assertJsonPath('props.savedAddresses.0.destination_id', '99001')
+            ->assertJsonPath('props.savedAddresses.0.destination_label', 'BANDUNG WETAN');
     }
 
     public function test_missing_address_fields_report_indonesian_attribute_names(): void
@@ -254,7 +254,7 @@ final class ReusableShippingAddressTest extends TestCase
                 'city' => 'Kota wajib diisi.',
                 'postal_code' => 'Kode pos wajib diisi.',
                 'state' => 'Provinsi maksimal berisi 255 karakter.',
-                'rajaongkir_destination_id' => 'Kecamatan wajib diisi.',
+                'destination_id' => 'Kecamatan wajib diisi.',
             ]);
     }
 }

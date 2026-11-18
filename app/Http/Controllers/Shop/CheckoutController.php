@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Shop;
 
 use App\Actions\Checkout\BuildShippingPackages;
-use App\Actions\Checkout\CreateKomercePayment;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
+use App\Actions\Checkout\InitiateOrderPayment;
 use App\Actions\Checkout\PersistUserShippingAddress;
 use App\Actions\CreateOrder;
 use App\Actions\Notify\NotifyOrderCustomer;
@@ -18,13 +18,19 @@ use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
 use App\Enums\OrderNotificationType;
 use App\Http\Controllers\Controller;
-use App\Support\RajaOngkirQuoteContext;
+use App\Payment\Contracts\ConfirmsBeforeOrder;
+use App\Payment\PaymentActions;
+use App\Shipping\AddressDestination;
+use App\Shipping\SelectedRate;
+use App\Shipping\ShippingCapabilities;
+use App\Shipping\ShippingQuoteContext;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Shopper\Cart\CartManager;
@@ -32,18 +38,32 @@ use Shopper\Cart\CartSessionManager;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Enum\AddressType;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Events\Orders\OrderPaid;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
-use Shopper\Payment\Enum\TransactionStatus;
-use Shopper\Payment\Enum\TransactionType;
-use Shopper\Payment\Facades\Payment;
 use Shopper\Payment\Models\PaymentTransaction;
-use Shopper\Payment\Services\PaymentProcessingService;
-use Stripe\StripeClient;
 use Throwable;
 
 final class CheckoutController extends Controller
 {
+    /** Session key holding the payment action of the order just placed. */
+    public const PAYMENT_ACTION_SESSION = 'payment_action';
+
+    /**
+     * Session key of the payment prepared in an embedded form before the
+     * order exists (drivers implementing ConfirmsBeforeOrder):
+     * {driver, reference, data}.
+     */
+    public const CONFIRM_PAYMENT_SESSION = 'confirm_payment';
+
+    /**
+     * Session keys of a prepared confirm-first payment, including the ones
+     * written by releases before ConfirmsBeforeOrder.
+     *
+     * @var list<string>
+     */
+    public const CONFIRM_PAYMENT_KEYS = [self::CONFIRM_PAYMENT_SESSION, 'stripe_payment', 'stripe_intent_id'];
+
     public function index(Request $request): RedirectResponse|Response
     {
         $cart = resolve(CartSessionManager::class)->current();
@@ -58,7 +78,7 @@ final class CheckoutController extends Controller
         $checkoutCartId = session()->get('checkout_cart_id');
 
         if ($checkoutCartId !== null && $checkoutCartId !== $cart->id) {
-            session()->forget([CheckoutSession::KEY, 'stripe_payment', 'stripe_intent_id', 'checkout_cart_id']);
+            session()->forget([CheckoutSession::KEY, ...self::CONFIRM_PAYMENT_KEYS, 'checkout_cart_id']);
         }
 
         session()->put('checkout_cart_id', $cart->id);
@@ -123,7 +143,15 @@ final class CheckoutController extends Controller
         }
 
         if ($countryId) {
-            $paymentOptions = resolve(FetchPaymentMethods::class)->handle((int) $countryId);
+            // confirm_in_page: the method is paid in an embedded form before
+            // the order exists (paymentAction kind 'client_secret').
+            $paymentOptions = array_map(
+                static fn (array $option): array => [
+                    ...$option,
+                    'confirm_in_page' => self::confirmFirstDriver($option['driver'] ?? null) !== null,
+                ],
+                resolve(FetchPaymentMethods::class)->handle((int) $countryId),
+            );
         }
 
         $maxStep = match (true) {
@@ -135,8 +163,7 @@ final class CheckoutController extends Controller
         $requestedStep = (int) $request->integer('step', $maxStep);
         $step = min(max($requestedStep, 1), $maxStep);
 
-        $stripeData = session()->get('stripe_payment');
-        $komercePayment = session()->get('komerce_payment');
+        $prepared = session()->get(self::CONFIRM_PAYMENT_SESSION);
 
         $selectedByShipment = data_get($checkout, 'shipping_options_by_shipment', []);
 
@@ -148,7 +175,11 @@ final class CheckoutController extends Controller
             'savedAddresses' => $user
                 ? $persistAddress->mapSavedAddressesForCheckout($user)
                 : [],
-            'shippingAddress' => $shippingAddress,
+            // Neutral keys for the form (sessions saved before the neutral keys
+            // still carry rajaongkir_*), destination only in today's vocabulary.
+            'shippingAddress' => is_array($shippingAddress)
+                ? AddressDestination::forDriver($shippingAddress, resolve(ShippingCapabilities::class)->destinationDriverCode())
+                : $shippingAddress,
             'deliveryOptions' => $deliveryOptions,
             'selectedDeliveryOption' => is_array($shippingOption)
                 ? ($shippingOption['id'] ?? $shippingOption[0]['id'] ?? null)
@@ -161,13 +192,11 @@ final class CheckoutController extends Controller
             'paymentOptions' => $paymentOptions,
             'selectedPaymentMethod' => $payment['id'] ?? null,
             'step' => $step,
-            'stripeData' => $stripeData && config('shopper.payment.drivers.stripe.enabled', false) ? [
-                'client_secret' => $stripeData['client_secret'],
-                'publishable_key' => $stripeData['publishable_key'],
-                'return_url' => route('shop.checkout.stripe-return'),
-            ] : null,
-            'komercePayment' => $komercePayment,
-            'komerceEnabled' => komerce_shipping_cost_enabled(),
+            // Neutral payment action for a confirm-in-page method prepared
+            // before the order exists (ConfirmsBeforeOrder): the page renders
+            // the embedded form registered for `driver`.
+            'paymentAction' => $this->preparedPaymentAction($prepared),
+            'shippingCapabilities' => resolve(ShippingCapabilities::class)->toInertia(),
             'shippingRatesHint' => $this->shippingRatesHint(
                 is_array($shippingAddress) ? $shippingAddress : null,
                 $allocation,
@@ -203,11 +232,10 @@ final class CheckoutController extends Controller
             return null;
         }
 
-        if (! komerce_shipping_cost_enabled()) {
-            return __('Pengiriman Komerce/RajaOngkir belum dikonfigurasi (API key belum diisi di .env).');
-        }
+        $capabilities = resolve(ShippingCapabilities::class);
 
-        if (blank(data_get($shippingAddress, 'rajaongkir_destination_id'))) {
+        if ($capabilities->requiresDestination()
+            && AddressDestination::id($shippingAddress, $capabilities->destinationDriverCode()) === null) {
             return __('Kecamatan tujuan pengiriman belum dipilih. Silakan kembali ke langkah Alamat dan pilih kecamatan dari hasil pencarian otomatis.');
         }
 
@@ -215,32 +243,59 @@ final class CheckoutController extends Controller
             return __('Stok produk di keranjang tidak dapat dipenuhi oleh lokasi gudang toko saat ini.');
         }
 
-        $failure = resolve(RajaOngkirQuoteContext::class)->lastFailure();
+        $failure = resolve(ShippingQuoteContext::class)->lastFailure();
 
-        if (is_string($failure) && str_starts_with($failure, 'quota:')) {
-            return __('Kuota cek ongkir harian RajaOngkir untuk toko ini sudah habis. Silakan coba lagi setelah :time WIB atau hubungi kami untuk menyelesaikan pesanan.', ['time' => trim(substr($failure, 6)) ?: '00:00']);
+        // Shoppers get neutral copy; the configuration hint goes to the log,
+        // once per address and cause per hour (every step-2/3 render and
+        // status poll lands here, so a zone without CarrierOptions would
+        // otherwise flood the log).
+        $context = [
+            'country_id' => $shippingAddress['country_id'] ?? null,
+            'provider_failure' => $failure === null ? null : [
+                'driver' => $failure->driver,
+                'reason' => $failure->reason,
+                'message' => $failure->message,
+            ],
+            'configured_drivers' => $capabilities->drivers()->keys()->all(),
+            'hint' => 'Enable a carrier with a CarrierOption for this zone in /cpanel (Settings > Zones), configure a shipping provider, or set shopper.shipping.fallback_to_zone_options.',
+        ];
+        $fingerprint = sha1(json_encode([
+            $context['country_id'],
+            $shippingAddress['postal_code'] ?? null,
+            $shippingAddress['city'] ?? null,
+            AddressDestination::id($shippingAddress),
+            $failure?->driver,
+            $failure?->reason,
+            $context['configured_drivers'],
+        ]) ?: '');
+
+        if (Cache::add('checkout:no-shipping-option:'.$fingerprint, true, now()->addHour())) {
+            Log::notice('Checkout found no shipping option for the address.', $context);
+        }
+
+        if ($failure?->isQuota()) {
+            return __('Batas cek ongkir harian toko ini sudah tercapai. Silakan coba lagi setelah :time WIB atau hubungi kami untuk menyelesaikan pesanan.', [
+                'time' => $failure->retryAfter?->copy()->setTimezone('Asia/Jakarta')->format('d M Y H:i') ?? '00:00',
+            ]);
         }
 
         if ($failure !== null) {
-            return __('Gagal mengambil tarif ongkir dari RajaOngkir (gangguan koneksi ke provider). Silakan muat ulang halaman atau coba lagi beberapa saat.');
+            return __('Gagal mengambil tarif ongkir (gangguan koneksi ke layanan pengiriman). Silakan muat ulang halaman atau coba lagi beberapa saat.');
         }
 
-        return __('Tidak ada opsi kurir yang tersedia untuk rute tujuan ini. Silakan periksa kembali kecamatan alamat pengiriman.');
+        return __('Belum ada opsi pengiriman untuk alamat ini. Silakan periksa kembali alamat pengiriman atau hubungi kami.');
     }
 
     public function saveShippingAddress(Request $request): RedirectResponse
     {
-        $destinationRule = komerce_shipping_cost_enabled()
+        $capabilities = resolve(ShippingCapabilities::class);
+        $destinationRule = $capabilities->requiresDestination()
             ? ['required', 'string', 'max:50']
             : ['nullable', 'string', 'max:50'];
 
-        // Coerce numeric destination ids from JSON/Inertia before string rules.
-        $request->merge([
-            'rajaongkir_destination_id' => $this->normalizeDestinationId(
-                $request->input('rajaongkir_destination_id') ?? $request->input('destination_id'),
-            ),
-            'destination_id' => $this->normalizeDestinationId($request->input('destination_id')),
-        ]);
+        // Neutral fields; legacy rajaongkir_* names are still accepted and
+        // numeric ids from JSON/Inertia are coerced before string rules.
+        $request->merge(AddressDestination::fromRequest($request->all(), $capabilities->destinationDriverCode()));
 
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
@@ -251,18 +306,13 @@ final class CheckoutController extends Controller
             'city' => ['required', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
             'phone_number' => ['nullable', 'string', 'max:20'],
-            'rajaongkir_destination_id' => $destinationRule,
-            'rajaongkir_destination_label' => ['nullable', 'string', 'max:255'],
-            'destination_id' => ['nullable', 'string', 'max:50'],
+            ...AddressDestination::rules($destinationRule),
         ]);
+
+        $data = AddressDestination::normalize($data, $capabilities->destinationDriverCode());
 
         $zone = ZoneSessionManager::ensureSession();
         $data['country_id'] = $zone?->countryId;
-
-        $destinationId = $data['rajaongkir_destination_id'] ?? $data['destination_id'] ?? null;
-        if ($destinationId !== null && $destinationId !== '') {
-            $data['rajaongkir_destination_id'] = (string) $destinationId;
-        }
 
         if (! $data['country_id']) {
             return back()->withErrors([
@@ -336,27 +386,8 @@ final class CheckoutController extends Controller
         }
 
         session()->forget(CheckoutSession::SHIPPING_OPTION);
-        session()->push(CheckoutSession::SHIPPING_OPTION, [
-            'id' => $selected['service_code'],
-            'name' => $selected['service_name'],
-            'price' => (int) $selected['amount'],
-            'service_code' => $selected['service_code'],
-            'service_name' => $selected['service_name'],
-            'carrier_code' => $selected['carrier_code'],
-            'carrier_name' => $selected['carrier_name'] ?? null,
-            'shipping_name' => $selected['shipping_name'] ?? $selected['carrier_name'] ?? null,
-            'shipping_cost' => (int) ($selected['shipping_cost'] ?? $selected['amount']),
-            // Official Komerce Delivery tariff fields (null when quoted via Shipping Cost).
-            'provider' => $selected['provider'] ?? null,
-            'group' => $selected['group'] ?? null,
-            'shipping_cashback' => isset($selected['shipping_cashback']) ? (int) $selected['shipping_cashback'] : null,
-            'shipping_cost_net' => isset($selected['shipping_cost_net']) ? (int) $selected['shipping_cost_net'] : null,
-            'service_fee' => isset($selected['service_fee']) ? (int) $selected['service_fee'] : null,
-            'grandtotal' => isset($selected['grandtotal']) ? (int) $selected['grandtotal'] : null,
-            'amount' => (int) $selected['amount'],
-            'currency' => $selected['currency'],
-            'estimated_days' => $selected['estimated_days'],
-        ]);
+        // Generic fields plus whatever details the quoting driver attached.
+        session()->push(CheckoutSession::SHIPPING_OPTION, SelectedRate::fromQuote($selected));
 
         Inertia::flash('toast', [
             'type' => 'success',
@@ -418,16 +449,7 @@ final class CheckoutController extends Controller
                 return back()->withErrors(['rates' => __('Selected option is no longer available.')]);
             }
 
-            $selectedRates[$inventoryId] = [
-                'id' => $selected['service_code'],
-                'service_code' => $selected['service_code'],
-                'carrier_code' => $selected['carrier_code'],
-                'carrier_name' => $selected['carrier_name'] ?? null,
-                'service_name' => $selected['service_name'],
-                'amount' => (int) $selected['amount'],
-                'currency' => $selected['currency'],
-                'estimated_days' => $selected['estimated_days'] ?? null,
-            ];
+            $selectedRates[$inventoryId] = SelectedRate::fromQuote($selected);
 
             $totalPrice += (int) $selected['amount'];
         }
@@ -454,8 +476,10 @@ final class CheckoutController extends Controller
     }
 
     /**
-     * Save payment method selection. If Stripe driver, create PaymentIntent (no order created yet).
-     * Order is created only after Stripe confirmPayment succeeds (stripeReturn) or COD placeOrder.
+     * Save the payment method selection. For a confirm-first driver
+     * (ConfirmsBeforeOrder) also prepare its payment for the cart total: the
+     * order is created only once the provider confirms it (confirmReturn).
+     * Every other driver creates the order in placeOrder.
      */
     public function preparePayment(Request $request): RedirectResponse
     {
@@ -472,8 +496,11 @@ final class CheckoutController extends Controller
         session()->forget(CheckoutSession::PAYMENT);
         session()->push(CheckoutSession::PAYMENT, $selectedMethod);
 
-        if (($selectedMethod['driver'] ?? null) !== 'stripe') {
-            session()->forget(['stripe_payment', 'stripe_intent_id']);
+        $code = (string) ($selectedMethod['driver'] ?? '');
+        $driver = self::confirmFirstDriver($code);
+
+        if ($driver === null) {
+            session()->forget(self::CONFIRM_PAYMENT_KEYS);
 
             return redirect()->route('shop.checkout.index', ['step' => 3]);
         }
@@ -492,40 +519,32 @@ final class CheckoutController extends Controller
         $amount = (int) $context->total + $shippingPrice;
 
         try {
-            $result = Payment::driver('stripe')->initiatePayment(
-                amount: $amount,
-                currency: $cart->currency_code,
-                context: [
-                    'metadata' => [
-                        'cart_id' => $cart->id,
-                        'customer_id' => Auth::id() ?? 0,
-                    ],
-                ],
-            );
+            $prepared = $driver->prepareBeforeOrder($amount, (string) $cart->currency_code, [
+                'cart_id' => $cart->id,
+                'customer_id' => Auth::id() ?? 0,
+            ]);
         } catch (Throwable $e) {
             report($e);
 
             return back()->withErrors(['payment' => __('Unable to prepare payment. Please try again.')]);
         }
 
-        if (! $result->success || ! $result->clientSecret) {
-            return back()->withErrors(['payment' => $result->message ?? __('Payment preparation failed.')]);
-        }
-
-        $intentId = explode('_secret_', $result->clientSecret)[0] ?? null;
-
-        session()->put('stripe_payment', [
-            'client_secret' => $result->clientSecret,
-            'publishable_key' => $result->data['publishable_key']
-                ?? config('shopper.payment.drivers.stripe.credentials.publishable_key'),
+        session()->forget(self::CONFIRM_PAYMENT_KEYS);
+        session()->put(self::CONFIRM_PAYMENT_SESSION, [
+            'driver' => $code,
+            'reference' => $prepared['reference'],
+            'data' => $prepared['data'],
         ]);
-        session()->put('stripe_intent_id', $intentId);
 
         return redirect()->route('shop.checkout.index', ['step' => 3]);
     }
 
     /**
-     * COD / Komerce path: places the order immediately. Stripe path uses stripeReturn instead.
+     * Every driver but a confirm-first one: create the order, then initiate its payment
+     * through Shopper's PaymentProcessingService (InitiateOrderPayment). The
+     * driver's neutral payment action decides what the customer sees next:
+     * instructions / QR on the success page, or a hosted payment page.
+     * Confirm-first drivers (ConfirmsBeforeOrder) use confirmReturn.
      */
     public function placeOrder(Request $request): RedirectResponse
     {
@@ -539,71 +558,29 @@ final class CheckoutController extends Controller
             return $error;
         }
 
-        if (($selectedMethod['driver'] ?? null) === 'stripe') {
-            return back()->withErrors(['payment' => __('Use the Stripe payment form to complete this order.')]);
+        if (self::confirmFirstDriver($selectedMethod['driver'] ?? null) !== null) {
+            return back()->withErrors(['payment' => __('Gunakan formulir pembayaran di halaman ini untuk menyelesaikan pesanan.')]);
         }
 
         session()->forget(CheckoutSession::PAYMENT);
         session()->push(CheckoutSession::PAYMENT, $selectedMethod);
 
-        if (($selectedMethod['driver'] ?? null) === 'komerce') {
-            return $this->placeKomerceOrder($selectedMethod);
-        }
-
-        try {
-            $order = resolve(CreateOrder::class)->handle();
-            resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
-            $result = resolve(PaymentProcessingService::class)->initiate($order);
-
-            session()->forget(CheckoutSession::KEY);
-
-            if (! $result->success) {
-                return redirect()
-                    ->route('shop.checkout.success', ['order' => $order->id])
-                    ->with('error', $result->message ?? __('Payment initiation failed.'));
-            }
-
-            if ($result->redirectUrl) {
-                return redirect()->away($result->redirectUrl);
-            }
-
-            return redirect()->route('shop.checkout.success', ['order' => $order->id]);
-        } catch (Throwable $e) {
-            report($e);
-
-            return back()->withErrors(['order' => __('An error occurred while placing your order. Please try again.')]);
-        }
-    }
-
-    /**
-     * Create Komerce VA/QRIS charge after order creation, store instructions in session.
-     *
-     * @param  array<string, mixed>  $selectedMethod
-     */
-    private function placeKomerceOrder(array $selectedMethod): RedirectResponse
-    {
         $order = null;
 
         try {
             $order = resolve(CreateOrder::class)->handle();
             resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
-            $instructions = resolve(CreateKomercePayment::class)->handle($order, $selectedMethod);
 
+            // The order owns the reserved stock from here on: the customer
+            // pays (or retries) on the order, never by re-ordering.
             session()->forget(CheckoutSession::KEY);
-            session()->put('komerce_payment', $instructions);
-
             resolve(CartSessionManager::class)->forget();
 
-            return redirect()->route('shop.checkout.success', ['order' => $order->id]);
+            ['result' => $result, 'action' => $action] = resolve(InitiateOrderPayment::class)->handle($order, $selectedMethod);
         } catch (Throwable $e) {
             report($e);
 
             if ($order !== null) {
-                // Order owns reserved stock — clear cart/checkout so the customer
-                // retries payment on the account order instead of re-ordering.
-                session()->forget(CheckoutSession::KEY);
-                resolve(CartSessionManager::class)->forget();
-
                 return redirect()
                     ->route('account.orders.show', ['order' => $order->id])
                     ->with('error', __('Your order was placed but payment setup failed. You can retry payment from this order page.'));
@@ -611,23 +588,43 @@ final class CheckoutController extends Controller
 
             return back()->withErrors(['order' => __('An error occurred while placing your order. Please try again.')]);
         }
+
+        if (! $result->success) {
+            return redirect()
+                ->route('shop.checkout.success', ['order' => $order->id])
+                ->with('error', $result->message ?? __('Payment initiation failed.'));
+        }
+
+        if (($action['kind'] ?? null) === 'redirect' && is_string($action['data']['url'] ?? null)) {
+            return redirect()->away($action['data']['url']);
+        }
+
+        session()->put(self::PAYMENT_ACTION_SESSION, $action);
+
+        return redirect()->route('shop.checkout.success', ['order' => $order->id]);
     }
 
     /**
-     * Stripe redirects here after confirmPayment. Verify intent succeeded, then create order.
+     * The provider sends the customer back here after confirming a payment
+     * prepared before the order existed (ConfirmsBeforeOrder): verify it, then
+     * create the order.
      */
-    public function stripeReturn(Request $request): RedirectResponse
+    public function confirmReturn(Request $request, string $driver): RedirectResponse
     {
-        $intentId = (string) $request->query('payment_intent', '');
-        $redirectStatus = (string) $request->query('redirect_status', '');
-        $sessionIntentId = session()->get('stripe_intent_id');
+        $prepared = session()->get(self::CONFIRM_PAYMENT_SESSION);
+        $confirmer = self::confirmFirstDriver($driver);
+        $reference = $confirmer?->returnReference($request);
 
-        if ($intentId === '' || $intentId !== $sessionIntentId) {
+        if ($confirmer === null
+            || $reference === null
+            || ! is_array($prepared)
+            || ($prepared['driver'] ?? null) !== $driver
+            || ($prepared['reference'] ?? null) !== $reference) {
             return redirect()->route('shop.checkout.index')
                 ->withErrors(['payment' => __('Invalid payment session.')]);
         }
 
-        $lock = Cache::lock('stripe.return.'.$intentId, 15);
+        $lock = Cache::lock('checkout.confirm-return.'.$driver.'.'.$reference, 15);
 
         try {
             $lock->block(10);
@@ -637,51 +634,113 @@ final class CheckoutController extends Controller
         }
 
         try {
-            return $this->finalizeStripeReturn($intentId, $redirectStatus);
+            return $this->finalizeConfirmedPayment($confirmer, $driver, $reference, (string) $request->query('redirect_status', ''));
         } finally {
             $lock->release();
         }
     }
 
-    private function finalizeStripeReturn(string $intentId, string $redirectStatus): RedirectResponse
+    /**
+     * Return URL of releases before ConfirmsBeforeOrder (PaymentIntents
+     * confirmed while the deploy happened still come back here).
+     */
+    public function stripeReturn(Request $request): RedirectResponse
+    {
+        return $this->confirmReturn($request, 'stripe');
+    }
+
+    /**
+     * Old /checkout/payment/{number} links (the removed Stripe payment page,
+     * in emails and browser history): the order page shows the order's
+     * current payment action, like that page did once its session expired.
+     */
+    public function legacyPaymentPage(string $number): RedirectResponse
+    {
+        $order = Order::query()
+            ->where('number', $number)
+            ->where('customer_id', Auth::id())
+            ->firstOrFail();
+
+        return redirect()->route('shop.checkout.success', ['order' => $order->id]);
+    }
+
+    private function finalizeConfirmedPayment(ConfirmsBeforeOrder $confirmer, string $driver, string $reference, string $redirectStatus): RedirectResponse
     {
         $existingTransaction = PaymentTransaction::query()
-            ->where('reference', $intentId)
+            ->where('reference', $reference)
+            ->where('driver', $driver)
             ->first();
 
         if ($existingTransaction) {
-            session()->forget(['stripe_payment', 'stripe_intent_id', CheckoutSession::KEY, 'checkout_cart_id']);
+            session()->forget([...self::CONFIRM_PAYMENT_KEYS, CheckoutSession::KEY, 'checkout_cart_id']);
 
             return redirect()->route('shop.checkout.success', ['order' => $existingTransaction->order_id]);
         }
 
-        $intentStatus = $this->fetchStripeIntent($intentId);
+        $status = $confirmer->confirmedStatus($reference);
 
-        if (! in_array($intentStatus, ['succeeded', 'requires_capture', 'processing'], true)) {
-            session()->forget(['stripe_payment', 'stripe_intent_id']);
+        if (! in_array($status, [PaymentStatus::Paid, PaymentStatus::Authorized, PaymentStatus::Pending], true)) {
+            session()->forget(self::CONFIRM_PAYMENT_KEYS);
 
             return redirect()->route('shop.checkout.index', ['step' => 3])
                 ->withErrors(['payment' => __('Payment was not completed. Please try again.').' ('.($redirectStatus ?: 'unknown').')']);
         }
 
         try {
-            $order = DB::transaction(function () use ($intentId, $intentStatus): Order {
+            // A paid confirmation fires Shopper's OrderPaid (listeners run
+            // after commit: customer notification, provider shipments).
+            $order = DB::transaction(function () use ($confirmer, $reference, $status): Order {
                 $order = resolve(CreateOrder::class)->handle();
-                $this->attachStripeIntentToOrder($order, $intentId, $intentStatus);
+                $confirmer->attachOrder($order, $reference, $status);
+                $order->update(['payment_status' => $status]);
+
+                if ($status === PaymentStatus::Paid) {
+                    event(new OrderPaid($order->refresh()));
+                }
 
                 return $order;
             });
-            resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::Paid);
         } catch (Throwable $e) {
             report($e);
 
             return redirect()->route('shop.cart')->withErrors(['order' => __('Order creation failed after payment.')]);
         }
 
-        session()->forget(['stripe_payment', 'stripe_intent_id', CheckoutSession::KEY, 'checkout_cart_id']);
+        session()->forget([...self::CONFIRM_PAYMENT_KEYS, CheckoutSession::KEY, 'checkout_cart_id']);
         resolve(CartSessionManager::class)->forget();
 
         return redirect()->route('shop.checkout.success', ['order' => $order->id]);
+    }
+
+    /**
+     * The confirm-first payment driver for a code, when it is ready.
+     */
+    public static function confirmFirstDriver(?string $code): ?ConfirmsBeforeOrder
+    {
+        return PaymentActions::confirmFirstDriver($code);
+    }
+
+    /**
+     * @return array{driver: string, kind: string, data: array<string, mixed>}|null
+     */
+    private function preparedPaymentAction(mixed $prepared): ?array
+    {
+        if (! is_array($prepared) || ! is_string($prepared['driver'] ?? null) || ! is_array($prepared['data'] ?? null)) {
+            return null;
+        }
+
+        if (self::confirmFirstDriver($prepared['driver']) === null) {
+            return null;
+        }
+
+        return [
+            'driver' => $prepared['driver'],
+            'kind' => 'client_secret',
+            'data' => [
+                ...$prepared['data'],
+                'return_url' => route('shop.checkout.confirm-return', ['driver' => $prepared['driver']]),
+            ],
+        ];
     }
 
     /**
@@ -761,88 +820,5 @@ final class CheckoutController extends Controller
         }
 
         return [$selected, null];
-    }
-
-    private function attachStripeIntentToOrder(Order $order, string $intentId, ?string $status): void
-    {
-        $secret = (string) config('shopper.payment.drivers.stripe.credentials.secret_key');
-
-        if ($secret !== '') {
-            try {
-                (new StripeClient($secret))->paymentIntents->update($intentId, [
-                    'metadata' => ['order_id' => $order->id, 'order_number' => $order->number],
-                ]);
-            } catch (Throwable) {
-                // Non-blocking
-            }
-        }
-
-        $paymentStatus = match ($status) {
-            'succeeded' => PaymentStatus::Paid,
-            'requires_capture' => PaymentStatus::Authorized,
-            default => PaymentStatus::Pending,
-        };
-
-        $order->update(['payment_status' => $paymentStatus]);
-
-        $transactionStatus = match ($status) {
-            'succeeded' => TransactionStatus::Success,
-            default => TransactionStatus::Pending,
-        };
-
-        $transactionType = match ($status) {
-            'succeeded' => TransactionType::Capture,
-            'requires_capture' => TransactionType::Authorize,
-            default => TransactionType::Initiate,
-        };
-
-        PaymentTransaction::query()->updateOrCreate(
-            [
-                'order_id' => $order->id,
-                'reference' => $intentId,
-            ],
-            [
-                'payment_method_id' => $order->payment_method_id,
-                'driver' => 'stripe',
-                'type' => $transactionType,
-                'amount' => $order->price_amount,
-                'currency_code' => $order->currency_code,
-                'status' => $transactionStatus,
-                'metadata' => ['stripe_status' => $status],
-            ],
-        );
-    }
-
-    private function fetchStripeIntent(string $intentId): ?string
-    {
-        $secret = (string) config('shopper.payment.drivers.stripe.credentials.secret_key');
-
-        if ($secret === '') {
-            return null;
-        }
-
-        try {
-            return (new StripeClient($secret))
-                ->paymentIntents
-                ->retrieve($intentId)
-                ->status;
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    private function normalizeDestinationId(mixed $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (is_int($value) || is_float($value) || is_string($value)) {
-            $normalized = trim((string) $value);
-
-            return $normalized === '' ? null : $normalized;
-        }
-
-        return null;
     }
 }

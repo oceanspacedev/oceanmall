@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
-use App\Actions\Checkout\MarkOrderPaidFromKomerce;
-use App\Actions\Shipping\DispatchRajaOngkirDelivery;
-use App\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Actions\Shipping\DispatchShipmentFulfillment;
+use App\Integrations\Komerce\Actions\Payment\MarkOrderPaidFromKomerce;
+use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Services\ShippingDeliveryClient;
+use App\Integrations\Komerce\Shipping\RajaOngkirCourier;
+use App\Jobs\FulfillOrderShipment;
 use App\Models\OrderShipment;
 use App\Models\Product;
-use App\Services\Komerce\ShippingDeliveryClient;
-use App\Shipping\RajaOngkirCourier;
+use App\Support\OrderShipmentOpsPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -445,20 +448,30 @@ final class ShippingDeliveryTest extends TestCase
         $status = resolve(MarkOrderPaidFromKomerce::class)->handle('KOMPAY-1001');
 
         $this->assertSame('handled', $status);
-        Bus::assertDispatched(CreateRajaOngkirDeliveryForShipment::class, 2);
+        Bus::assertDispatched(FulfillOrderShipment::class, 2);
         Bus::assertDispatched(
-            CreateRajaOngkirDeliveryForShipment::class,
-            fn (CreateRajaOngkirDeliveryForShipment $job): bool => $job->orderShipmentId === $firstShipment->id,
+            FulfillOrderShipment::class,
+            fn (FulfillOrderShipment $job): bool => $job->orderShipmentId === $firstShipment->id,
         );
         Bus::assertDispatched(
-            CreateRajaOngkirDeliveryForShipment::class,
-            fn (CreateRajaOngkirDeliveryForShipment $job): bool => $job->orderShipmentId === $secondShipment->id,
+            FulfillOrderShipment::class,
+            fn (FulfillOrderShipment $job): bool => $job->orderShipmentId === $secondShipment->id,
         );
     }
 
-    public function test_already_processed_still_dispatches_delivery_jobs_for_unlabeled_shipments(): void
+    public function test_already_processed_leaves_unlabeled_shipments_to_the_generic_fulfilment_sweep(): void
     {
         $this->fakeDeliveryConfig();
+        $this->fakeDeliveryHttp([
+            'https://delivery.example.test/order/api/v1/orders/store' => Http::response([
+                'meta' => ['code' => 201, 'status' => 'success'],
+                'data' => ['order_id' => 9999, 'order_no' => 'RO-ORDER-001'],
+            ]),
+            'https://delivery.example.test/order/api/v1/pickup/request' => Http::response([
+                'meta' => ['code' => 201, 'status' => 'success'],
+                'data' => [['status' => 'success', 'order_no' => 'RO-ORDER-001', 'awb' => 'JNE123456789']],
+            ]),
+        ]);
 
         [$order, $unlabeledShipment] = $this->createShipmentReadyForDelivery();
 
@@ -493,19 +506,16 @@ final class ShippingDeliveryTest extends TestCase
 
         $this->assertSame('already_processed', $status);
 
-        // Only the unlabeled shipment should be dispatched
-        Bus::assertDispatched(
-            CreateRajaOngkirDeliveryForShipment::class,
-            1,
-        );
-        Bus::assertDispatched(
-            CreateRajaOngkirDeliveryForShipment::class,
-            fn (CreateRajaOngkirDeliveryForShipment $job): bool => $job->orderShipmentId === $unlabeledShipment->id,
-        );
-        Bus::assertNotDispatched(
-            CreateRajaOngkirDeliveryForShipment::class,
-            fn (CreateRajaOngkirDeliveryForShipment $job): bool => $job->orderShipmentId === $labeledShipment->id,
-        );
+        // The payment module never calls shipping itself (OrderPaid listeners
+        // and the shipping:fulfill-paid schedule own fulfilment).
+        Bus::assertNotDispatched(FulfillOrderShipment::class);
+
+        // The generic sweep picks up only the unlabeled shipment.
+        Artisan::call('shipping:fulfill-paid');
+        $this->assertStringContainsString('Fulfilled 1 paid shipment(s); 0 failed', Artisan::output());
+
+        $this->assertSame('JNE123456789', $unlabeledShipment->fresh()->awb);
+        $this->assertSame('EXISTING-AWB', $labeledShipment->fresh()->awb);
     }
 
     /**
@@ -850,7 +860,7 @@ final class ShippingDeliveryTest extends TestCase
 
         $this->assertSame('handled', $status);
         $this->assertSame(1, OrderShipment::query()->where('order_id', $order->id)->count());
-        Bus::assertDispatched(CreateRajaOngkirDeliveryForShipment::class, 1);
+        Bus::assertDispatched(FulfillOrderShipment::class, 1);
     }
 
     public function test_paid_payment_webhook_creates_awb_label_and_shopper_shipping_record(): void
@@ -990,7 +1000,7 @@ final class ShippingDeliveryTest extends TestCase
 
         DB::transaction(function () use ($order, $shipment): void {
             $order->update(['payment_status' => PaymentStatus::Paid]);
-            resolve(DispatchRajaOngkirDelivery::class)->handle($order->refresh());
+            resolve(DispatchShipmentFulfillment::class)->handle($order->refresh());
             $this->assertNull($shipment->fresh()->awb);
         });
 
@@ -1045,7 +1055,7 @@ final class ShippingDeliveryTest extends TestCase
         $this->assertNotNull(data_get($shipment->metadata, 'komerce.pickup_response'));
         $this->assertNull(data_get($shipment->metadata, 'komerce.fulfillment_error'));
 
-        $presenter = resolve(\App\Support\OrderShipmentOpsPresenter::class);
+        $presenter = resolve(OrderShipmentOpsPresenter::class);
         $this->assertFalse($presenter->needsPickup($shipment));
         $this->assertFalse($presenter->canPrintLabel($shipment));
     }

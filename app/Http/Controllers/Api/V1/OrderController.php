@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Account\ConfirmOrderReceived;
-use App\Actions\Checkout\ResolveKomercePaymentInstructions;
-use App\Actions\Checkout\RetryKomercePayment;
-use App\Actions\Checkout\SyncKomercePaymentStatus;
+use App\Actions\Orders\RetryOrderPayment;
+use App\Actions\Orders\SyncOrderPayment;
 use App\Actions\Shipping\RefreshShipmentTracking;
 use App\Http\Controllers\Controller;
 use App\Models\OrderShipment;
 use App\Models\User;
+use App\Payment\Exceptions\PaymentRetryRefused;
+use App\Payment\PaymentActions;
+use App\Shipping\AddressDestination;
+use App\Shipping\ShipmentTimeline;
+use App\Support\CarrierLogos;
 use App\Support\CustomerCatalogPresenter;
-use App\Support\KomerceCourierAssets;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -86,12 +89,20 @@ final class OrderController extends Controller
         $order = $this->ownedOrder($request, $number);
         $order->load(['items.product', 'shippingAddress', 'paymentMethod']);
 
-        $shipments = OrderShipment::query()
+        $orderShipments = OrderShipment::query()
             ->where('order_id', $order->id)
             ->orderBy('id')
-            ->get()
-            ->map(static function (OrderShipment $shipment): array {
-                $history = data_get($shipment->metadata, 'komerce.tracking_history', []);
+            ->get();
+        $timelines = ShipmentTimeline::forShipments((int) $order->id, $orderShipments);
+
+        $shipments = $orderShipments
+            ->map(static function (OrderShipment $shipment) use ($timelines): array {
+                // Neutral history (shipping driver + Shopper's shipment event
+                // log); `date` repeats `datetime` for app builds that read it.
+                $history = array_map(
+                    static fn (array $event): array => [...$event, 'date' => $event['datetime']],
+                    $timelines[(int) $shipment->id] ?? [],
+                );
 
                 return [
                     'id' => $shipment->id,
@@ -100,15 +111,16 @@ final class OrderController extends Controller
                     'tracking_number' => $shipment->tracking_number,
                     'carrier' => $shipment->carrier_name ?? $shipment->carrier_code,
                     'service' => $shipment->service_name ?? $shipment->service_code,
-                    'carrier_logo' => KomerceCourierAssets::logoUrl($shipment->carrier_code),
+                    'carrier_logo' => resolve(CarrierLogos::class)->forCode($shipment->carrier_code),
                     'cost' => $shipment->cost,
-                    'tracking_history' => is_array($history) ? array_values($history) : [],
+                    'tracking_history' => $history,
                 ];
             })
             ->values()
             ->all();
 
-        $resolve = resolve(ResolveKomercePaymentInstructions::class);
+        $payments = resolve(PaymentActions::class);
+        $paymentAction = $payments->forOrder($order);
         $presenter = resolve(CustomerCatalogPresenter::class);
         $subtotal = (int) $order->items->sum(static fn ($item): int => (int) $item->unit_price_amount * (int) $item->quantity);
         $shippingTotal = (int) collect($shipments)->sum(static fn (array $shipment): int => (int) ($shipment['cost'] ?? 0));
@@ -133,8 +145,10 @@ final class OrderController extends Controller
                     'total' => (int) $order->price_amount,
                 ],
                 'shipments' => $shipments,
-                'payment' => $resolve->handle($order),
-                'can_retry_payment' => $resolve->canRetry($order),
+                'payment_action' => $paymentAction,
+                // Legacy key for app builds that predate payment_action.
+                'payment' => PaymentActions::legacyInstructions($paymentAction),
+                'can_retry_payment' => $payments->canRetry($order),
             ],
         ]);
     }
@@ -144,22 +158,25 @@ final class OrderController extends Controller
         $order = $this->ownedOrder($request, $number);
 
         try {
-            $instructions = resolve(RetryKomercePayment::class)->handle($order);
+            $action = resolve(RetryOrderPayment::class)->handle($order);
         } catch (Throwable $e) {
             report($e);
 
-            // RetryKomercePayment messages are English and may carry gateway
-            // details; show the customer something actionable instead.
-            $message = match (true) {
-                str_contains($e->getMessage(), 'already paid') => 'Pesanan ini sudah dibayar. Tarik untuk memperbarui status.',
-                str_contains($e->getMessage(), 'not eligible'), str_contains($e->getMessage(), 'no Komerce payment') => 'Pembayaran pesanan ini tidak bisa diulang.',
+            // Driver messages are English and may carry gateway details; show
+            // the customer something actionable instead.
+            $message = match ($e instanceof PaymentRetryRefused ? $e->reason : null) {
+                PaymentRetryRefused::ALREADY_PAID => 'Pesanan ini sudah dibayar. Tarik untuk memperbarui status.',
+                PaymentRetryRefused::NOT_ELIGIBLE => 'Pembayaran pesanan ini tidak bisa diulang.',
                 default => 'Belum bisa membuat ulang pembayaran. Coba lagi sebentar.',
             };
 
             return response()->json(['message' => $message], 422);
         }
 
-        return response()->json(['data' => ['payment' => $instructions]]);
+        return response()->json(['data' => [
+            'payment_action' => $action,
+            'payment' => PaymentActions::legacyInstructions($action),
+        ]]);
     }
 
     public function syncPayment(Request $request, string $number): JsonResponse
@@ -167,7 +184,7 @@ final class OrderController extends Controller
         $order = $this->ownedOrder($request, $number);
 
         try {
-            $result = resolve(SyncKomercePaymentStatus::class)->handle($order);
+            $result = resolve(SyncOrderPayment::class)->handle($order);
         } catch (Throwable $e) {
             report($e);
 
@@ -175,12 +192,14 @@ final class OrderController extends Controller
         }
 
         $order->refresh();
+        $action = resolve(PaymentActions::class)->forOrder($order);
 
         return response()->json([
             'data' => [
                 'sync' => $result,
                 'payment_status' => $order->payment_status->value,
-                'payment' => resolve(ResolveKomercePaymentInstructions::class)->handle($order),
+                'payment_action' => $action,
+                'payment' => PaymentActions::legacyInstructions($action),
             ],
         ]);
     }
@@ -277,7 +296,7 @@ final class OrderController extends Controller
             'name' => trim(($stored['first_name'] ?? '').' '.($stored['last_name'] ?? '')),
             'phone' => $stored['phone_number'] ?? null,
             'street_address' => $stored['street_address'] ?? '',
-            'area' => $stored['rajaongkir_destination_label']
+            'area' => AddressDestination::label($stored)
                 ?? implode(', ', array_filter([$stored['city'] ?? null, $stored['state'] ?? null, $stored['postal_code'] ?? null])),
         ];
     }

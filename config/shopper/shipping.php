@@ -72,31 +72,25 @@ return [
         ],
 
         /*
-         | RajaOngkir Shipping Cost API V2 — real-time domestic rates.
-         | Credentials stay in config/komerce.php so Cost and Delivery keys
-         | cannot be mixed. Enablement is also set at runtime in AppServiceProvider.
+         | RajaOngkir Shipping Cost (real-time domestic rates) and Komerce
+         | Shipping Delivery (store order, pickup, AWB, label, tracking), both
+         | registered by the Komerce module (app/Integrations/Komerce).
+         | Credentials and base URLs live only in the module's config (config
+         | key `komerce`, app/Integrations/Komerce/config/komerce.php).
+         | 'enabled' is the operator switch (set false to take a configured
+         | driver out of checkout, fulfilment and tracking); readiness itself
+         | is each driver's isConfigured() (key + plan), asked per request by
+         | App\Shipping\ShippingCapabilities. Every provider driver follows
+         | Shopper's own rule (see App\Support\OperatorSwitch): a driver
+         | without an 'enabled' entry is OFF, and the value is parsed as a
+         | boolean, so SHIPPING_X_ENABLED=0 / off / false all switch it off.
          */
         'rajaongkir' => [
-            'enabled' => env('KOMERCE_SHIPPING_COST_API_KEY') !== null
-                && env('KOMERCE_SHIPPING_COST_API_KEY') !== '',
-            'sandbox' => false,
-            'credentials' => [
-                'api_key' => env('KOMERCE_SHIPPING_COST_API_KEY'),
-                'base_url' => env('RAJAONGKIR_COST_BASE_URL', 'https://rajaongkir.komerce.id'),
-            ],
+            'enabled' => filter_var(env('SHIPPING_RAJAONGKIR_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         ],
 
-        /*
-         | Komerce Shipping Delivery — AWB, pickup, label, tracking.
-         */
         'komerce' => [
-            'enabled' => env('KOMERCE_SHIPPING_DELIVERY_API_KEY') !== null
-                && env('KOMERCE_SHIPPING_DELIVERY_API_KEY') !== '',
-            'sandbox' => true,
-            'credentials' => [
-                'api_key' => env('KOMERCE_SHIPPING_DELIVERY_API_KEY'),
-                'base_url' => env('RAJAONGKIR_DELIVERY_BASE_URL', 'https://api-sandbox.collaborator.komerce.id'),
-            ],
+            'enabled' => filter_var(env('SHIPPING_KOMERCE_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         ],
 
     ],
@@ -112,5 +106,40 @@ return [
     */
 
     'units' => env('SHIPPING_UNITS', 'metric'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Zone options when a provider returns nothing (store setting)
+    |--------------------------------------------------------------------------
+    |
+    | With a real-time shipping provider configured, checkout shows only its
+    | quotes. When it returns nothing (out of daily quota, failing, no
+    | warehouse origin, destination outside its coverage) checkout shows no
+    | courier plus an explanation, as before provider drivers existed:
+    | Shopper's flat zone options (e.g. the seeded "Reguler") may be priced
+    | for a different route and would sell shipping at the wrong price.
+    |
+    | Set true to offer Shopper's zone options in that case instead. Without
+    | any configured provider, zone options are always used.
+    |
+    */
+
+    'fallback_to_zone_options' => filter_var(env('SHIPPING_FALLBACK_TO_ZONE_OPTIONS', false), FILTER_VALIDATE_BOOLEAN),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Zone options next to provider quotes (store setting)
+    |--------------------------------------------------------------------------
+    |
+    | Default false: with a provider configured, checkout shows only its
+    | courier quotes. Set true to also offer Shopper's zone options of the
+    | carriers no configured provider owns (e.g. a manual "Ambil di toko" or
+    | "Kurir Toko" option) next to them, also when the provider answers
+    | nothing. Carriers a provider owns are always
+    | quoted by that provider, never priced from zone options.
+    |
+    */
+
+    'combine_zone_options' => filter_var(env('SHIPPING_COMBINE_ZONE_OPTIONS', false), FILTER_VALIDATE_BOOLEAN),
 
 ];

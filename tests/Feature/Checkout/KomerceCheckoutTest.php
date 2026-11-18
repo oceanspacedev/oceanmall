@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature\Checkout;
 
 use App\Actions\Checkout\BuildShippingPackages;
-use App\Actions\Checkout\CreateKomercePayment;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
-use App\Actions\Checkout\MarkOrderPaidFromKomerce;
 use App\Actions\CreateOrder;
-use App\Exceptions\KomercePaidAfterCancellation;
-use App\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
+use App\Integrations\Komerce\Actions\Payment\MarkOrderPaidFromKomerce;
+use App\Integrations\Komerce\Exceptions\KomercePaidAfterCancellation;
+use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Jobs\FulfillOrderShipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
@@ -127,20 +128,27 @@ final class KomerceCheckoutTest extends TestCase
         ]);
     }
 
-    public function test_checkout_keeps_komerce_place_order_available_before_payment_instructions(): void
+    public function test_checkout_keeps_place_order_available_for_every_non_stripe_driver(): void
     {
         $checkoutPage = file_get_contents(resource_path('js/pages/shop/checkout.vue'));
 
         $this->assertIsString($checkoutPage);
         $this->assertStringContainsString('const canPlaceOrder = computed<boolean>', $checkoutPage);
+        // Instructions are shown after the order exists (success / order page),
+        // so placing the order never waits for a provider-specific prop.
         $this->assertMatchesRegularExpression(
-            '/!isKomerceSelected\.value\s*\|\|\s*!props\.komercePayment/s',
+            '/Boolean\(currentPaymentMethod\.value\)\s*&&\s*!isInPageSelected\.value/s',
             $checkoutPage,
         );
+        // Confirm-in-page gateways are a neutral flag + paymentAction kind, not per-vendor props.
+        $this->assertStringNotContainsString('stripeData', $checkoutPage);
+        $this->assertStringNotContainsString("driver === 'stripe'", $checkoutPage);
         $this->assertStringContainsString('v-if="canPlaceOrder"', $checkoutPage);
-        $this->assertStringContainsString('v-if="isKomerceSelected && komercePayment"', $checkoutPage);
+        $this->assertStringNotContainsString('komercePayment', $checkoutPage);
+        $this->assertStringNotContainsString('isKomerceSelected', $checkoutPage);
+        // Only methods the server flags confirm_in_page hide the place-order button.
         $this->assertMatchesRegularExpression(
-            '/currentPaymentMethod\.value\?\.driver === \'stripe\'\s*,/s',
+            '/Boolean\(currentPaymentMethod\.value\?\.confirm_in_page\)/s',
             $checkoutPage,
         );
     }
@@ -213,8 +221,8 @@ final class KomerceCheckoutTest extends TestCase
             ->assertHeader('X-Inertia', 'true')
             ->assertJsonPath('component', 'shop/checkout')
             ->assertJsonPath('props.selectedPaymentMethod', $paymentMethod->id)
-            ->assertJsonPath('props.komercePayment', null)
-            ->assertJsonPath('props.stripeData', null);
+            ->assertJsonMissingPath('props.komercePayment')
+            ->assertJsonPath('props.paymentAction', null);
     }
 
     public function test_place_order_creates_komerce_va_and_pending_transaction(): void
@@ -509,6 +517,7 @@ final class KomerceCheckoutTest extends TestCase
         config()->set('komerce.payment_api_key', 'test-komerce-key');
         config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
         config()->set('shopper.payment.drivers.stripe.enabled', true);
+        config()->set('shopper.stripe.secret_key', 'sk_test_oceanmall');
         $this->fakeKomercePaymentHttp();
 
         $country = Country::factory()->create();
@@ -557,6 +566,7 @@ final class KomerceCheckoutTest extends TestCase
     {
         // Stripe IS enabled in the zone, but placeOrder should reject the stripe path.
         config()->set('shopper.payment.drivers.stripe.enabled', true);
+        config()->set('shopper.stripe.secret_key', 'sk_test_oceanmall');
         config()->set('komerce.payment_api_key', 'test-komerce-key');
         config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
         $this->fakeKomercePaymentHttp();
@@ -882,6 +892,7 @@ final class KomerceCheckoutTest extends TestCase
         $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
         $this->assertSame(PaymentStatus::Voided, $order->payment_status);
         Bus::assertNotDispatched(CreateRajaOngkirDeliveryForShipment::class);
+        Bus::assertNotDispatched(FulfillOrderShipment::class);
     }
 
     public function test_money_captured_after_cancellation_raises_an_alert_without_reviving_the_order(): void
@@ -921,6 +932,7 @@ final class KomerceCheckoutTest extends TestCase
         $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
         $this->assertSame(PaymentStatus::Voided, $order->payment_status);
         Bus::assertNotDispatched(CreateRajaOngkirDeliveryForShipment::class);
+        Bus::assertNotDispatched(FulfillOrderShipment::class);
         Exceptions::assertReported(
             fn (KomercePaidAfterCancellation $e): bool => $e->orderNumber === 'ORD-PAID-AFTER-CANCEL'
                 && $e->paymentId === 'KOMPAY-PAID-AFTER-CANCEL',

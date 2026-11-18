@@ -10,129 +10,72 @@ use Shopper\Core\Models\Zone;
 
 class PaymentMethodSeeder extends Seeder
 {
+    /**
+     * Seeders contributed by payment provider modules (see extend()).
+     *
+     * @var list<class-string<Seeder>>
+     */
+    private static array $providerSeeders = [];
+
+    /**
+     * Let a payment provider module seed its own methods. Called from the
+     * provider's service provider, so removing the module removes its rows
+     * from fresh seeds.
+     *
+     * @param  class-string<Seeder>  $seeder
+     */
+    public static function extend(string $seeder): void
+    {
+        if (! in_array($seeder, self::$providerSeeders, true)) {
+            self::$providerSeeders[] = $seeder;
+        }
+    }
+
+    /**
+     * Forget the registered provider seeders (a fresh app instance without
+     * a module, e.g. tests or long-running workers).
+     */
+    public static function flushState(): void
+    {
+        self::$providerSeeders = [];
+    }
+
     public function run(): void
     {
         $this->command->warn(PHP_EOL.'Creating payment methods...');
 
-        // COD kept for ops flexibility but off by default — prepaid Komerce is the production path.
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'cod'],
-            [
-                'title' => 'Cash on delivery',
-                'description' => 'Bayar di tempat saat barang diterima.',
-                'is_enabled' => false,
-                'driver' => 'manual',
-            ],
-        );
+        // Shopper's own manual driver is the keyless path: a fresh store always
+        // has a method customers can use.
+        $cod = self::seedMethod('cod', [
+            'title' => 'Bayar di tempat (COD)',
+            'description' => 'Bayar di tempat saat barang diterima.',
+            'driver' => 'manual',
+        ], enabled: true);
 
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'komerce-va-bca'],
-            [
-                'title' => 'BCA Virtual Account',
-                'description' => 'Bayar via BCA Virtual Account (Komerce).',
-                'is_enabled' => true,
-                'driver' => 'komerce',
-                'metadata' => json_encode([
-                    'payment_type' => 'bank_transfer',
-                    'channel_code' => 'BCA',
-                ], JSON_THROW_ON_ERROR),
-            ],
-        );
+        foreach (self::$providerSeeders as $seeder) {
+            if (class_exists($seeder)) {
+                $this->call($seeder);
+            }
+        }
 
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'komerce-va-bri'],
-            [
-                'title' => 'BRI Virtual Account',
-                'description' => 'Bayar via BRI Virtual Account (Komerce).',
-                'is_enabled' => true,
-                'driver' => 'komerce',
-                'metadata' => json_encode([
-                    'payment_type' => 'bank_transfer',
-                    'channel_code' => 'BRI',
-                ], JSON_THROW_ON_ERROR),
-            ],
-        );
+        // Once a configured provider enabled prepaid methods, prepaid is the
+        // production path and COD stays available for ops but off. Only for a
+        // COD row created by this run: a re-seed keeps staff's choice.
+        if ($cod->wasRecentlyCreated) {
+            $prepaid = PaymentMethod::query()
+                ->where('is_enabled', true)
+                ->where('driver', '!=', 'manual')
+                ->exists();
 
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'komerce-va-mandiri'],
-            [
-                'title' => 'Mandiri Virtual Account',
-                'description' => 'Bayar via Mandiri Virtual Account (Komerce).',
-                'is_enabled' => true,
-                'driver' => 'komerce',
-                'metadata' => json_encode([
-                    'payment_type' => 'bank_transfer',
-                    'channel_code' => 'MANDIRI',
-                ], JSON_THROW_ON_ERROR),
-            ],
-        );
+            $cod->forceFill(['is_enabled' => ! $prepaid])->save();
+        }
 
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'komerce-va-bni'],
-            [
-                'title' => 'BNI Virtual Account',
-                'description' => 'Bayar via BNI Virtual Account (Komerce).',
-                'is_enabled' => true,
-                'driver' => 'komerce',
-                'metadata' => json_encode([
-                    'payment_type' => 'bank_transfer',
-                    'channel_code' => 'BNI',
-                ], JSON_THROW_ON_ERROR),
-            ],
-        );
-
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'komerce-va-permata'],
-            [
-                'title' => 'Permata Virtual Account',
-                'description' => 'Bayar via Permata Virtual Account (Komerce).',
-                'is_enabled' => true,
-                'driver' => 'komerce',
-                'metadata' => json_encode([
-                    'payment_type' => 'bank_transfer',
-                    'channel_code' => 'PERMATA',
-                ], JSON_THROW_ON_ERROR),
-            ],
-        );
-
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'komerce-qris'],
-            [
-                'title' => 'QRIS',
-                'description' => 'Bayar via QRIS (GoPay, OVO, Dana, ShopeePay, m-banking).',
-                'is_enabled' => true,
-                'driver' => 'komerce',
-                'metadata' => json_encode([
-                    'payment_type' => 'qris',
-                ], JSON_THROW_ON_ERROR),
-            ],
-        );
-
-        // Legacy combined slug: keep row but disabled so ZoneSeeder upgrades cleanly.
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'komerce-va-qris'],
-            [
-                'title' => 'Virtual Account / QRIS (Komerce)',
-                'description' => 'Legacy combined method — use komerce-va-* or komerce-qris.',
-                'is_enabled' => false,
-                'driver' => 'komerce',
-                'metadata' => json_encode([
-                    'payment_type' => 'bank_transfer',
-                    'channel_code' => 'BCA',
-                ], JSON_THROW_ON_ERROR),
-            ],
-        );
-
-        // Keep Stripe available but off by default (OceanMall uses Komerce).
-        PaymentMethod::query()->updateOrCreate(
-            ['slug' => 'stripe'],
-            [
-                'title' => 'Stripe',
-                'description' => 'Kartu kredit/debit via Stripe (opsional).',
-                'is_enabled' => false,
-                'driver' => 'stripe',
-            ],
-        );
+        // Keep Stripe available but off by default.
+        self::seedMethod('stripe', [
+            'title' => 'Stripe',
+            'description' => 'Kartu kredit/debit via Stripe (opsional).',
+            'driver' => 'stripe',
+        ], enabled: false);
 
         // Attach all enabled payment methods to existing zones
         $enabledIds = PaymentMethod::query()->where('is_enabled', true)->pluck('id');
@@ -141,5 +84,27 @@ class PaymentMethodSeeder extends Seeder
         }
 
         $this->command->info('Payment methods created successfully.');
+    }
+
+    /**
+     * Create or refresh a seeded payment method. `is_enabled` is set only when
+     * the row is created: on an existing row it is staff's choice (cpanel),
+     * so re-seeding never switches a method on or off. Provider seeders use
+     * this too.
+     *
+     * @param  array<string, mixed>  $attributes  Everything but is_enabled
+     */
+    public static function seedMethod(string $slug, array $attributes, bool $enabled): PaymentMethod
+    {
+        $method = PaymentMethod::query()->firstOrNew(['slug' => $slug]);
+        $method->fill($attributes);
+
+        if (! $method->exists) {
+            $method->is_enabled = $enabled;
+        }
+
+        $method->save();
+
+        return $method;
     }
 }

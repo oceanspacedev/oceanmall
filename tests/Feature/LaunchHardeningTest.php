@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Actions\Checkout\MarkOrderPaidFromKomerce;
+use App\Integrations\Komerce\Actions\Payment\MarkOrderPaidFromKomerce;
 use App\Models\User;
 use Database\Seeders\DiscountSeeder;
 use Database\Seeders\StoreConfigSeeder;

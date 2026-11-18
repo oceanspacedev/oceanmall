@@ -131,6 +131,35 @@ export type DeliveryOption = {
     currency: string;
     amount: number;
     estimated_days: number | null;
+    /** Shopper shipping driver that quoted the rate ('manual' for zone options). */
+    driver?: string | null;
+};
+
+/** What the configured shipping drivers need from the address form. */
+export type ShippingCapabilities = {
+    destinationSearch: boolean;
+    requiresDestination: boolean;
+    requiresCoordinates: boolean;
+};
+
+/**
+ * What the customer does to pay an order, as returned by the order's payment
+ * driver (App\Payment\PaymentActions). `data` depends on `kind`:
+ * instructions / qr: VA or QR payload; redirect: { url }; client_secret:
+ * { client_secret }; none: { title, description, instructions } of the method.
+ */
+export type PaymentAction = {
+    driver: string;
+    kind: 'instructions' | 'redirect' | 'client_secret' | 'qr' | 'none';
+    data: Record<string, unknown>;
+};
+
+/** Provider-neutral destination fields on an address. */
+export type AddressDestinationFields = {
+    destination_id?: string | null;
+    destination_label?: string | null;
+    destination_driver?: string | null;
+    pin_point?: string | null;
 };
 
 export type ZoneSession = {

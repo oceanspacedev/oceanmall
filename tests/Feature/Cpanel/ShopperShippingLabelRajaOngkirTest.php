@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Cpanel;
 
 use App\Livewire\Shopper\OrderFulfillment;
+use App\Livewire\Shopper\SlideOvers\CreateShippingLabel;
 use App\Models\OrderShipment;
 use App\Models\Product;
 use App\Models\User;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\OrderAddress;
@@ -77,7 +79,7 @@ final class ShopperShippingLabelRajaOngkirTest extends TestCase
 
         Livewire::actingAs($admin)
             ->test(OrderFulfillment::class, ['order' => $order])
-            ->assertSee('Terbitkan Resi RajaOngkir', false)
+            ->assertSee('Terbitkan Resi Komerce', false)
             ->assertDontSee('e.g. 1Z999AA10123456784', false)
             ->call('openShippingLabel')
             ->assertRedirect(route('shopper.orders.fulfillment.print-label', $order));
@@ -105,7 +107,7 @@ final class ShopperShippingLabelRajaOngkirTest extends TestCase
             ->test(OrderFulfillment::class, ['order' => $order])
             ->assertSee(__('shopper::pages/orders.expedition_to'), false)
             ->assertSee('Budi Santoso', false)
-            ->assertSee('Terbitkan Resi RajaOngkir', false)
+            ->assertSee('Terbitkan Resi Komerce', false)
             ->assertDontSee(__('shopper::pages/orders.create_shipping_label'), false);
     }
 
@@ -121,10 +123,35 @@ final class ShopperShippingLabelRajaOngkirTest extends TestCase
             ->test(OrderFulfillment::class, ['order' => $order])
             ->assertSee(__('shopper::pages/orders.expedition_to'), false)
             ->assertSee(__('shopper::pages/orders.create_shipping_label'), false)
-            ->assertDontSee('Resi RajaOngkir', false)
+            ->assertDontSee('Resi Komerce', false)
             ->call('openShippingLabel')
             ->assertDispatched('openPanel', component: 'shopper-slide-overs.create-shipping-label');
 
+        Http::assertNothingSent();
+    }
+
+    public function test_keyless_manual_label_saves_the_typed_awb_through_shopper(): void
+    {
+        config()->set('komerce.shipping_delivery_api_key', null);
+        $admin = $this->admin();
+        [$order] = $this->paidOrderWithShipment();
+        $carrier = Carrier::query()->create(['name' => 'Kurir Toko', 'slug' => 'kurir-toko', 'is_enabled' => true]);
+
+        Http::fake();
+
+        Livewire::actingAs($admin)
+            ->test(CreateShippingLabel::class, ['order' => $order])
+            // Orders quoted outside Shopper's zone options have no shippingOption:
+            // the form must still prefill a carrier instead of failing validation in mount().
+            ->assertSet('data.carrier_id', $carrier->id)
+            ->set('data.tracking_number', 'MANUAL-AWB-1')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas((new OrderShipping)->getTable(), [
+            'order_id' => $order->id,
+            'tracking_number' => 'MANUAL-AWB-1',
+        ]);
         Http::assertNothingSent();
     }
 

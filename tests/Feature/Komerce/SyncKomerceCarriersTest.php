@@ -64,6 +64,33 @@ final class SyncKomerceCarriersTest extends TestCase
         $this->assertSame('SiCepat Ekspres', Carrier::query()->where('slug', 'sicepat')->value('name'));
     }
 
+    public function test_sync_only_touches_carriers_the_rajaongkir_driver_owns(): void
+    {
+        $this->fakeProviders();
+        // Another provider's courier with the same code, and a Shopper UPS carrier.
+        $foreignJne = Carrier::query()->create(['slug' => 'jne', 'name' => 'JNE via Acme', 'driver' => 'acme', 'is_enabled' => true]);
+        $ups = Carrier::query()->create(['slug' => 'ups', 'name' => 'UPS', 'driver' => 'ups', 'is_enabled' => true]);
+
+        $this->artisan('shipping:sync-carriers')->assertSuccessful();
+
+        $foreignJne->refresh();
+        $this->assertSame('acme', $foreignJne->driver, 'A foreign carrier keeps its driver.');
+        $this->assertTrue((bool) $foreignJne->is_enabled);
+        $this->assertNull(data_get($foreignJne->metadata, 'sync_reason'));
+        $this->assertTrue((bool) $ups->refresh()->is_enabled);
+
+        // RajaOngkir gets its own row for jne, keyed by the courier code in metadata.
+        $owned = Carrier::query()->where('slug', 'rajaongkir-jne')->first();
+        $this->assertNotNull($owned);
+        $this->assertSame('rajaongkir', $owned->driver);
+        $this->assertSame('jne', data_get($owned->metadata, 'courier_code'));
+        $this->assertTrue((bool) $owned->is_enabled);
+
+        // A second run finds that row again by courier code (no duplicate).
+        $this->artisan('shipping:sync-carriers')->assertSuccessful();
+        $this->assertSame(1, Carrier::query()->where('driver', 'rajaongkir')->where('metadata->courier_code', 'jne')->count());
+    }
+
     public function test_dry_run_does_not_touch_the_carriers_table(): void
     {
         $this->fakeProviders();

@@ -6,8 +6,8 @@ use App\Http\Controllers\Account\AddressController;
 use App\Http\Controllers\Account\ConfirmOrderReceivedController;
 use App\Http\Controllers\Account\NotificationController;
 use App\Http\Controllers\Account\OrderController as AccountOrderController;
-use App\Http\Controllers\Account\RetryKomercePaymentController;
-use App\Http\Controllers\Account\SyncKomercePaymentStatusController;
+use App\Http\Controllers\Account\RetryOrderPaymentController;
+use App\Http\Controllers\Account\SyncOrderPaymentController;
 use App\Http\Controllers\Account\TrackShipmentController;
 use App\Http\Controllers\Cpanel\OverrideAllocationController;
 use App\Http\Controllers\Cpanel\PrintShipmentLabelController;
@@ -24,12 +24,8 @@ use App\Http\Controllers\Shop\HomeController;
 use App\Http\Controllers\Shop\ProductController;
 use App\Http\Controllers\Shop\ProductReviewController;
 use App\Http\Controllers\Shop\SearchController;
-use App\Http\Controllers\Shop\StripePaymentController;
 use App\Http\Controllers\Shop\ZoneController;
 use App\Http\Controllers\StripeWebhookController;
-use App\Http\Controllers\Webhooks\KomerceDeliveryWebhookController;
-use App\Http\Controllers\Webhooks\KomercePaymentWebhookController;
-use App\Http\Controllers\Webhooks\KomerceQrislyWebhookController;
 use App\Support\LegalContent;
 use Illuminate\Support\Facades\Route;
 
@@ -94,8 +90,14 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('checkout/shipping-option', [CheckoutController::class, 'saveShippingOption'])->middleware('throttle:checkout-quote')->name('shop.checkout.shipping-option');
     Route::post('checkout/prepare-payment', [CheckoutController::class, 'preparePayment'])->middleware('throttle:checkout-payment')->name('shop.checkout.prepare-payment');
     Route::post('checkout/place-order', [CheckoutController::class, 'placeOrder'])->middleware('throttle:checkout-payment')->name('shop.checkout.place-order');
+    // Return URL of confirm-first payment drivers (ConfirmsBeforeOrder).
+    Route::get('checkout/confirm/{driver}/return', [CheckoutController::class, 'confirmReturn'])
+        ->where('driver', '[a-z0-9_-]+')
+        ->name('shop.checkout.confirm-return');
+    // Return URL of releases before ConfirmsBeforeOrder (in-flight Stripe payments).
     Route::get('checkout/stripe-return', [CheckoutController::class, 'stripeReturn'])->name('shop.checkout.stripe-return');
-    Route::get('checkout/payment/{number}', StripePaymentController::class)->name('shop.checkout.stripe');
+    // Links to the removed Stripe payment page; redirects to the order's payment status.
+    Route::get('checkout/payment/{number}', [CheckoutController::class, 'legacyPaymentPage'])->name('shop.checkout.stripe');
     Route::get('checkout/success/{order}', CheckoutSuccessController::class)->name('shop.checkout.success');
 });
 
@@ -104,26 +106,17 @@ Route::post('webhooks/stripe', StripeWebhookController::class)
     ->middleware('throttle:60,1')
     ->name('webhooks.stripe');
 
-Route::post('webhooks/komerce/payment', KomercePaymentWebhookController::class)
-    ->middleware('throttle:60,1')
-    ->name('webhooks.komerce.payment');
-
-Route::match(['POST', 'PUT'], 'webhooks/komerce/delivery', KomerceDeliveryWebhookController::class)
-    ->middleware('throttle:60,1')
-    ->name('webhooks.komerce.delivery');
-
-Route::post('webhooks/komerce/qrisly', KomerceQrislyWebhookController::class)
-    ->middleware('throttle:60,1')
-    ->name('webhooks.komerce.qrisly');
+// Provider webhooks (e.g. webhooks/komerce/*) are registered by each
+// provider's own service provider, see app/Integrations/*.
 
 // Account
 Route::middleware(['auth', 'verified'])->prefix('account')->name('account.')->group(function (): void {
     Route::get('orders', [AccountOrderController::class, 'index'])->name('orders');
     Route::get('orders/{order}', [AccountOrderController::class, 'show'])->name('orders.show');
-    Route::post('orders/{order}/retry-payment', RetryKomercePaymentController::class)
+    Route::post('orders/{order}/retry-payment', RetryOrderPaymentController::class)
         ->middleware('throttle:checkout-payment')
         ->name('orders.retry-payment');
-    Route::post('orders/{order}/sync-payment', SyncKomercePaymentStatusController::class)
+    Route::post('orders/{order}/sync-payment', SyncOrderPaymentController::class)
         ->middleware('throttle:12,1')
         ->name('orders.sync-payment');
     Route::post('orders/{order}/shipments/{shipment}/track', TrackShipmentController::class)

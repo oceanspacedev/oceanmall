@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shipping;
 
-use App\Services\Shipping\DestinationCoordinateResolver;
+use App\Shipping\DestinationCoordinateResolver;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -66,5 +66,42 @@ final class DestinationCoordinateResolverTest extends TestCase
         ], fallbackPin: '-6.7366,108.5414');
 
         $this->assertSame('-6.7366,108.5414', $pin);
+    }
+
+    public function test_a_failed_geocode_is_cached_so_quotes_do_not_re_ask_nominatim(): void
+    {
+        Http::fake([
+            'https://nominatim.openstreetmap.org/*' => Http::response([], 500),
+        ]);
+
+        $resolver = new DestinationCoordinateResolver;
+        $address = [
+            'destination_id' => '999998',
+            'destination_driver' => 'areaship',
+            'destination_label' => 'NOWHERE, NOWHERE, NOWHERE',
+            'city' => 'Nowhere',
+        ];
+
+        $this->assertNull($resolver->resolve($address));
+        $sent = count(Http::recorded());
+        $this->assertGreaterThan(0, $sent);
+
+        $this->assertNull($resolver->resolve($address));
+        $this->assertSame('-6.7366,108.5414', $resolver->resolve($address, fallbackPin: '-6.7366,108.5414'));
+        $this->assertCount($sent, Http::recorded(), 'A cached miss must not call Nominatim again.');
+    }
+
+    public function test_a_successful_geocode_is_cached_per_driver_and_destination(): void
+    {
+        Http::fake([
+            'https://nominatim.openstreetmap.org/*' => Http::response([['lat' => '-6.7', 'lon' => '108.5']], 200),
+        ]);
+
+        $resolver = new DestinationCoordinateResolver;
+        $address = ['destination_id' => '17245', 'destination_driver' => 'areaship', 'city' => 'Cirebon'];
+
+        $this->assertSame('-6.7,108.5', $resolver->resolve($address));
+        $this->assertSame('-6.7,108.5', $resolver->resolve($address));
+        Http::assertSentCount(1);
     }
 }

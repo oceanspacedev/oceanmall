@@ -4,25 +4,23 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Addons\KomerceRajaOngkir\KomerceRajaOngkirAddon;
+use App\Addons\Store\OceanMallStoreAddon;
 use App\Http\Responses\CpanelStaffLoginResponse;
-use App\Listeners\CancelKomerceDeliveryOnOrderCancelled;
+use App\Listeners\CancelShipmentsOnOrderCancelled;
+use App\Listeners\FulfillShipmentsOnOrderPaid;
+use App\Listeners\SendOrderPaidNotification;
 use App\Livewire\Shopper\Pages\OrderDetail;
 use App\Livewire\Shopper\Pages\OrderShipments;
 use App\Models\OrderShipment;
 use App\Models\User;
 use App\Observers\InventoryObserver;
 use App\Observers\OrderShipmentObserver;
-use App\Payment\KomerceDriver;
-use App\Shipping\Drivers\KomerceShippingDriver;
-use App\Shipping\Drivers\RajaOngkirDriver;
+use App\Payment\Drivers\ConfirmFirstStripeDriver;
+use App\Shipping\ShippingQuoteContext;
 use App\Stock\AllocationPlanStockAllocator;
+use App\Support\CarrierLogos;
 use App\Support\CheckoutAllocationContext;
-use App\Support\KomerceCourierAssets;
-use App\Support\KomerceFulfillmentContext;
-use App\Support\KomercePaymentLookupContext;
-use App\Support\KomerceTrackingContext;
-use App\Support\RajaOngkirQuoteContext;
+use App\Support\PaymentLogos;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -34,18 +32,18 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Shopper\Contracts\LoginResponse as ShopperLoginResponse;
 use Shopper\Core\Contracts\StockAllocator;
 use Shopper\Core\Events\Orders\OrderCancelled;
+use Shopper\Core\Events\Orders\OrderPaid;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\PaymentMethod;
 use Shopper\Payment\Facades\Payment;
-use Shopper\Shipping\Facades\Shipping;
 use Shopper\ShopperPanel;
+use Shopper\Stripe\StripeDriver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -55,17 +53,16 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(CheckoutAllocationContext::class);
-        $this->app->scoped(RajaOngkirQuoteContext::class);
-        $this->app->scoped(KomerceTrackingContext::class);
-        $this->app->scoped(KomerceFulfillmentContext::class);
-        $this->app->scoped(KomercePaymentLookupContext::class);
+        $this->app->scoped(ShippingQuoteContext::class);
         $this->app->bind(StockAllocator::class, AllocationPlanStockAllocator::class);
 
-        $this->registerShopperAddon();
+        $this->registerShopperAddons();
 
         // Order *pages* are routed straight from config('shopper.components.order.pages.*')
         // and Shopper loads its routes before addons boot, so these overrides cannot live
-        // in KomerceRajaOngkirAddon. Set single keys instead of publishing
+        // in an addon. They name no provider: each action decides per order from the
+        // order's own payment / shipping drivers and otherwise returns Shopper's own
+        // action, so they are safe in every mode. Set single keys instead of publishing
         // config/shopper/components/order.php: Shopper merges that file shallowly, so a
         // published copy would hide components added by future Shopper releases.
         $this->app->booting(function (): void {
@@ -91,26 +88,65 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureRateLimits();
         $this->configureAuthorization();
-        $this->configureShopperPayment();
-        $this->configureShopperShipping();
         $this->configureShopperLogos();
         $this->configureShopperStaffLogin();
-        Event::listen(OrderCancelled::class, CancelKomerceDeliveryOnOrderCancelled::class);
+        $this->configureOrderEvents();
+        $this->configurePaymentDrivers();
     }
 
     /**
-     * Register the panel addon on every scoped Shopper instance (Octane-safe).
-     * Shopper boots addons immediately after resolving the panel, so this must
-     * run via afterResolving rather than AppServiceProvider::boot().
+     * Shopper's Stripe driver with the store's confirm-first checkout
+     * contract (AppPaymentContractsConfirmsBeforeOrder). App providers boot
+     * after package providers, so this replaces the shopper/stripe creator.
      */
-    protected function registerShopperAddon(): void
+    protected function configurePaymentDrivers(): void
     {
-        $this->app->afterResolving('shopper', function (ShopperPanel $panel): void {
-            if ($panel->hasAddon('komerce-rajaongkir')) {
-                return;
-            }
+        if (! class_exists(StripeDriver::class)) {
+            return;
+        }
 
-            $panel->addon(new KomerceRajaOngkirAddon);
+        Payment::extend('stripe', static function (): ConfirmFirstStripeDriver {
+            $secret = (string) (config('shopper.stripe.secret_key') ?: config('shopper.payment.drivers.stripe.credentials.secret_key'));
+            $publishable = (string) (config('shopper.stripe.publishable_key') ?: config('shopper.payment.drivers.stripe.credentials.publishable_key'));
+
+            return new ConfirmFirstStripeDriver(
+                new StripeDriver(
+                    secretKey: $secret,
+                    publishableKey: $publishable,
+                    webhookSecret: (string) (config('shopper.stripe.webhook_secret') ?: config('shopper.payment.drivers.stripe.credentials.webhook_secret')),
+                    captureMethod: (string) config('shopper.stripe.capture_method', 'manual'),
+                ),
+                $secret,
+                $publishable,
+            );
+        });
+    }
+
+    /**
+     * Shopper order events drive the post-payment flow for every payment and
+     * shipping driver (and Shopper's own cpanel "mark paid").
+     */
+    protected function configureOrderEvents(): void
+    {
+        Event::listen(OrderPaid::class, SendOrderPaidNotification::class);
+        Event::listen(OrderPaid::class, FulfillShipmentsOnOrderPaid::class);
+        Event::listen(OrderCancelled::class, CancelShipmentsOnOrderCancelled::class);
+    }
+
+    /**
+     * Register the generic store addon on every scoped Shopper instance
+     * (Octane-safe). Shopper boots addons immediately after resolving the
+     * panel, so this must run via afterResolving rather than boot().
+     * Provider modules register their own addon the same way.
+     */
+    protected function registerShopperAddons(): void
+    {
+        $this->app->afterResolving('shopper', static function (ShopperPanel $panel): void {
+            $addon = new OceanMallStoreAddon;
+
+            if (! $panel->hasAddon($addon->getId())) {
+                $panel->addon($addon);
+            }
         });
     }
 
@@ -170,8 +206,8 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Shared by web and API so an account has one budget across both.
-        // Quotes and destination lookups spend the account-wide RajaOngkir
-        // Shipping Cost quota (100/day on Starter): the daily cap keeps one
+        // Quotes and destination lookups may spend an account-wide provider
+        // quota (e.g. a daily rate-API budget): the daily cap keeps one
         // customer (or script) from breaking checkout for everyone else.
         $perMinuteAndDay = static fn (int $perMinute, int $perDay): Closure => static fn (Request $request): array => [
             Limit::perMinute($perMinute)->by('minute:'.$byUserOrIp($request)),
@@ -180,7 +216,7 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('checkout-quote', $perMinuteAndDay(10, 40));
         RateLimiter::for('checkout-destinations', $perMinuteAndDay(30, 300));
-        // Coupon codes are guessable; each payment attempt creates a Komerce payment.
+        // Coupon codes are guessable; each payment attempt may create a provider payment.
         RateLimiter::for('coupon', $perMinuteAndDay(5, 30));
         RateLimiter::for('checkout-payment', static fn (Request $request): Limit => Limit::perMinute(10)->by($byUserOrIp($request)));
     }
@@ -203,106 +239,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ShopperLoginResponse::class, CpanelStaffLoginResponse::class);
     }
 
-    protected function configureShopperPayment(): void
-    {
-        Payment::extend('komerce', static fn (): KomerceDriver => resolve(KomerceDriver::class));
-
-        config()->set('shopper.payment.drivers.komerce.enabled', komerce_payment_enabled() || qrisly_enabled());
-    }
-
-    protected function configureShopperShipping(): void
-    {
-        Shipping::extend('rajaongkir', static fn (): RajaOngkirDriver => resolve(RajaOngkirDriver::class));
-        Shipping::extend('komerce', static fn (): KomerceShippingDriver => resolve(KomerceShippingDriver::class));
-
-        config()->set('shopper.shipping.drivers.rajaongkir.enabled', komerce_shipping_cost_enabled());
-        config()->set('shopper.shipping.drivers.komerce.enabled', komerce_shipping_delivery_enabled());
-    }
-
+    /**
+     * Logo lookups are extendable: provider modules add their own sources
+     * with CarrierLogos::extend() / PaymentLogos::extend() from their service
+     * provider, so the core resolvers only know metadata and local files.
+     */
     protected function configureShopperLogos(): void
     {
-        // Komerce assets/illustration PNG — exact filenames verified against GCS bucket
-        $komerceIllustrationBase = 'https://storage.googleapis.com/komerce/assets/illustration/';
+        $this->app->singleton(CarrierLogos::class);
+        $this->app->singleton(PaymentLogos::class);
 
-        /** @var array<string,string> slug → GCS filename (case-sensitive) */
-        $carrierLogoMap = [
-            'jnt' => 'JNT.png',
-            'jne' => 'jne.png',
-            'sicepat' => 'sicepat.png',
-            'ide' => null, // no illustration found; fallback to rajaongkir SVG
-            'anteraja' => null,
-            'pos' => null,
-            'tiki' => null,
-            'lion' => 'lion-parcel.png',
-            'ninja' => 'NINJA.png',
-            'wahana' => null,
-            'rpx' => null,
-            'ncs' => null,
-        ];
-
-        $this->app->bind('shopper.carrier.logo', static function () use ($komerceIllustrationBase, $carrierLogoMap): Closure {
-            return static function (Carrier $carrier) use ($komerceIllustrationBase, $carrierLogoMap): ?string {
-                $dbLogo = data_get($carrier->metadata, 'logo_url') ?? data_get($carrier->metadata, 'logo');
-                if (is_string($dbLogo) && $dbLogo !== '') {
-                    return Str::startsWith($dbLogo, ['http://', 'https://']) ? $dbLogo : asset($dbLogo);
-                }
-
-                $slug = strtolower((string) $carrier->slug);
-                $cdnLogo = KomerceCourierAssets::logoUrl($slug);
-                if ($cdnLogo !== null) {
-                    return $cdnLogo;
-                }
-
-                // Prefer Komerce assets/illustration PNG (exact, verified URLs)
-                if (array_key_exists($slug, $carrierLogoMap) && $carrierLogoMap[$slug] !== null) {
-                    return $komerceIllustrationBase.$carrierLogoMap[$slug];
-                }
-
-                // Fallback: Komerce rajaongkir SVG bucket
-                if (in_array($slug, ['jne', 'sicepat', 'ide', 'anteraja', 'pos', 'tiki', 'lion', 'ninja', 'wahana', 'rpx', 'ncs'], true)) {
-                    return "https://storage.googleapis.com/komerce/rajaongkir/{$slug}.svg";
-                }
-
-                // Fallback: local public/images/couriers/
-                if (file_exists(public_path("images/couriers/{$slug}.svg"))) {
-                    $mtime = filemtime(public_path("images/couriers/{$slug}.svg"));
-
-                    return asset("images/couriers/{$slug}.svg")."?v={$mtime}";
-                }
-                if (file_exists(public_path("images/couriers/{$slug}.png"))) {
-                    $mtime = filemtime(public_path("images/couriers/{$slug}.png"));
-
-                    return asset("images/couriers/{$slug}.png")."?v={$mtime}";
-                }
-
-                return null;
-            };
-        });
-
-        $this->app->bind('shopper.payment.logo', static function (): Closure {
-            return static function (PaymentMethod $method): ?string {
-                $logo = data_get($method->metadata, 'logo');
-                if (is_string($logo) && $logo !== '') {
-                    return asset($logo);
-                }
-
-                $channel = data_get($method->metadata, 'channel_code');
-                $slug = strtolower((string) ($channel ?: $method->slug));
-                $slug = str_replace(['komerce-va-', 'komerce-'], '', $slug);
-
-                if (file_exists(public_path("images/payments/{$slug}.svg"))) {
-                    $mtime = filemtime(public_path("images/payments/{$slug}.svg"));
-
-                    return asset("images/payments/{$slug}.svg")."?v={$mtime}";
-                }
-                if (file_exists(public_path("images/payments/{$slug}.png"))) {
-                    $mtime = filemtime(public_path("images/payments/{$slug}.png"));
-
-                    return asset("images/payments/{$slug}.png")."?v={$mtime}";
-                }
-
-                return null;
-            };
-        });
+        $this->app->bind('shopper.carrier.logo', static fn (): Closure => static fn (Carrier $carrier): ?string => resolve(CarrierLogos::class)->forCarrier($carrier));
+        $this->app->bind('shopper.payment.logo', static fn (): Closure => static fn (PaymentMethod $method): ?string => resolve(PaymentLogos::class)->forMethod($method));
     }
 }

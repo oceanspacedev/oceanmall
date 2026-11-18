@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Shop;
 
-use App\Actions\Checkout\CancelUnpaidKomerceOrder;
 use App\Enums\OrderNotificationType;
+use App\Integrations\Komerce\Actions\Payment\CancelUnpaidKomerceOrder;
 use App\Models\User;
 use App\Notifications\OrderStatusNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;

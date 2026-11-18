@@ -96,6 +96,32 @@ final class OverrideAllocationTest extends TestCase
         ]]);
     }
 
+    public function test_rejects_shipments_registered_by_any_provider_with_neutral_copy(): void
+    {
+        // A second provider's FulfillsShipments driver: registered (provider
+        // order number), no AWB yet, still pending. No Komerce bucket at all.
+        $fixture = $this->shipmentFixture([
+            'driver' => 'biteship',
+            'external_reference' => 'BS-ORDER-1',
+        ]);
+
+        try {
+            resolve(OverrideAllocation::class)->handle($fixture['order'], [[
+                'shipment_line_id' => $fixture['sourceLine']->id,
+                'qty' => 1,
+                'from_inventory_id' => $fixture['fromInventory']->id,
+                'to_inventory_id' => $fixture['toInventory']->id,
+            ]]);
+            $this->fail('A provider-registered shipment must be locked.');
+        } catch (ValidationException $e) {
+            $message = (string) collect($e->errors())->flatten()->first();
+            $this->assertStringContainsString('layanan pengiriman', $message);
+            $this->assertStringNotContainsString('Komerce', $message);
+        }
+
+        $this->assertSame($fixture['fromInventory']->id, (int) $fixture['sourceLine']->fresh()->shipment->inventory_id);
+    }
+
     public function test_rejects_shipments_that_already_have_awb(): void
     {
         $fixture = $this->shipmentFixture(['awb' => 'AWB-123']);
@@ -191,7 +217,7 @@ final class OverrideAllocationTest extends TestCase
 
         $this->assertNotEmpty($rates->addresses);
         foreach ($rates->addresses as $address) {
-            $this->assertSame('114', $address['rajaongkir_destination_id'] ?? null);
+            $this->assertSame('114', $address['destination_id'] ?? null);
             $this->assertSame(99, $address['country_id'] ?? null);
         }
     }

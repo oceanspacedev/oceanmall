@@ -4,50 +4,61 @@ declare(strict_types=1);
 
 namespace App\Livewire\Shopper\Pages;
 
-use App\Actions\Checkout\CancelShopperOrderViaKomerce;
-use App\Actions\Checkout\SyncKomercePaymentStatus;
+use App\Actions\Orders\CancelOrderWithProviders;
+use App\Actions\Orders\SyncOrderPayment;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderShipment;
+use App\Payment\Contracts\ExpiresPayments;
+use App\Payment\PaymentActions;
+use App\Shipping\ShippingCapabilities;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderCompleted;
 use Shopper\Livewire\Pages\Order\Detail as ShopperOrderDetail;
 
 /**
- * Shopper order detail stays the store shell. Paid / shipped / cancelled
- * must go through Komerce; this page is the bridge, not a second source of truth.
+ * Shopper's order detail, deciding per order: an order whose payment driver
+ * reconciles with its provider (App\Payment\Contracts\ReconcilesPayments) is
+ * marked paid by asking that provider, and an order whose shipments are
+ * fulfilled by a provider (FulfillsShipments) completes when the provider
+ * reports delivery. Manual / COD orders keep Shopper's own actions even
+ * while a provider is configured for other orders.
  */
 final class OrderDetail extends ShopperOrderDetail
 {
     public function markPaidAction(): Action
     {
         $action = parent::markPaidAction();
+        $reconciler = resolve(PaymentActions::class)->reconciler($this->order);
 
-        if (! komerce_payment_enabled() && ! qrisly_enabled()) {
+        if ($reconciler === null) {
             return $action;
         }
 
+        $provider = $this->paymentProviderName();
+
         return $action
-            ->label('Sinkronkan pembayaran Komerce')
-            ->action(function (): void {
-                $result = resolve(SyncKomercePaymentStatus::class)->handle($this->order);
+            ->label("Sinkronkan pembayaran {$provider}")
+            ->action(function () use ($provider): void {
+                $result = resolve(SyncOrderPayment::class)->handle($this->order);
                 $this->order->refresh();
                 $this->dispatch('order.updated');
 
                 match ($result) {
-                    'handled', 'already_paid' => Notification::make()
-                        ->title('Pembayaran diselaraskan dari Komerce.')
+                    SyncOrderPayment::HANDLED, SyncOrderPayment::ALREADY_PAID => Notification::make()
+                        ->title("Pembayaran diselaraskan dari {$provider}.")
                         ->success()
                         ->send(),
-                    'no_payment' => Notification::make()
-                        ->title('Tidak ada referensi pembayaran Komerce.')
-                        ->body('Jangan tandai lunas manual. Tunggu VA/QRIS atau webhook Komerce.')
+                    SyncOrderPayment::NO_PAYMENT => Notification::make()
+                        ->title("Tidak ada referensi pembayaran {$provider}.")
+                        ->body("Jangan tandai lunas manual. Tunggu pembayaran atau webhook {$provider}.")
                         ->danger()
                         ->send(),
                     default => Notification::make()
-                        ->title('Komerce belum menandai pembayaran lunas.')
-                        ->body('Status toko tidak diubah. Cek ulang di Komerce.')
+                        ->title("{$provider} belum menandai pembayaran lunas.")
+                        ->body("Status toko tidak diubah. Cek ulang di {$provider}.")
                         ->warning()
                         ->send(),
                 };
@@ -58,7 +69,7 @@ final class OrderDetail extends ShopperOrderDetail
     {
         $action = parent::markCompleteAction();
 
-        if (! komerce_shipping_delivery_enabled()) {
+        if (! $this->hasProviderShipments()) {
             return $action;
         }
 
@@ -69,7 +80,7 @@ final class OrderDetail extends ShopperOrderDetail
             ->action(function (): void {
                 if (! $this->allShipmentsDelivered()) {
                     Notification::make()
-                        ->title('Pesanan belum selesai di Komerce.')
+                        ->title('Pesanan belum selesai di penyedia pengiriman.')
                         ->body('Selesai hanya setelah resi berstatus delivered / customer konfirmasi diterima.')
                         ->danger()
                         ->send();
@@ -83,7 +94,7 @@ final class OrderDetail extends ShopperOrderDetail
                 event(new OrderCompleted($this->order));
 
                 Notification::make()
-                    ->title('Pesanan diselesaikan setelah Komerce menandai terkirim.')
+                    ->title('Pesanan diselesaikan setelah kurir menandai terkirim.')
                     ->success()
                     ->send();
             });
@@ -93,17 +104,17 @@ final class OrderDetail extends ShopperOrderDetail
     {
         $action = parent::cancelOrderAction();
 
-        if (! komerce_payment_enabled() && ! qrisly_enabled() && ! komerce_shipping_delivery_enabled()) {
+        if (! $this->cancelsWithProviders()) {
             return $action;
         }
 
         return $action->action(function (): void {
-            resolve(CancelShopperOrderViaKomerce::class)->handle($this->order);
+            resolve(CancelOrderWithProviders::class)->handle($this->order);
             $this->order->refresh();
             $this->dispatch('order.updated');
 
             Notification::make()
-                ->title('Pesanan dibatalkan di toko dan di Komerce.')
+                ->title('Pesanan dibatalkan di toko dan di penyedia pembayaran/pengiriman.')
                 ->success()
                 ->send();
         });
@@ -113,7 +124,8 @@ final class OrderDetail extends ShopperOrderDetail
     {
         $action = parent::capturePaymentAction();
 
-        if (komerce_payment_enabled() || qrisly_enabled()) {
+        // The provider captures; Shopper must not record a second capture.
+        if (resolve(PaymentActions::class)->reconciler($this->order) !== null) {
             return $action->visible(false);
         }
 
@@ -124,19 +136,46 @@ final class OrderDetail extends ShopperOrderDetail
     {
         $action = parent::archiveAction();
 
-        if (komerce_payment_enabled() || qrisly_enabled() || komerce_shipping_delivery_enabled()) {
-            return $action
-                ->visible(false)
-                ->action(function (): void {
-                    Notification::make()
-                        ->title('Jangan arsip lewat Shopper.')
-                        ->body('Batalkan pesanan agar pembayaran/delivery Komerce ikut ditutup.')
-                        ->danger()
-                        ->send();
-                });
+        if (! $this->cancelsWithProviders()) {
+            return $action;
         }
 
-        return $action;
+        return $action
+            ->visible(false)
+            ->action(function (): void {
+                Notification::make()
+                    ->title('Jangan arsip lewat Shopper.')
+                    ->body('Batalkan pesanan agar pembayaran/pengiriman di penyedia ikut ditutup.')
+                    ->danger()
+                    ->send();
+            });
+    }
+
+    private function paymentProviderName(): string
+    {
+        return resolve(PaymentActions::class)->driver($this->order)?->name() ?? 'penyedia pembayaran';
+    }
+
+    private function hasProviderShipments(): bool
+    {
+        return resolve(ShippingCapabilities::class)->fulfillerForOrder($this->order) !== null;
+    }
+
+    /**
+     * Cancelling must also close something at a provider: the unpaid
+     * order's pending payment, or the paid order's provider shipments.
+     */
+    private function cancelsWithProviders(): bool
+    {
+        if ($this->order->payment_status !== PaymentStatus::Paid) {
+            $driver = resolve(PaymentActions::class)->driver($this->order);
+
+            if ($driver instanceof ExpiresPayments && resolve(PaymentActions::class)->reconciler($this->order) !== null) {
+                return true;
+            }
+        }
+
+        return $this->hasProviderShipments();
     }
 
     private function allShipmentsDelivered(): bool

@@ -40,19 +40,16 @@ return [
         ],
 
         /*
-         | Komerce Payment API (VA / QRIS) + optional QRISLY.
-         | Credentials stay in config/komerce.php. Enablement is also set at
-         | runtime in AppServiceProvider from the dedicated product keys.
+         | Komerce Payment API (VA / QRIS) + optional QRISLY, registered by the
+         | Komerce module (app/Integrations/Komerce). Only the operator switch
+         | lives here: credentials, base URLs and the sandbox/production host
+         | choice are in the module's config (config key `komerce`, see
+         | app/Integrations/Komerce/config/komerce.php). Whether the methods
+         | can take payments is KomerceDriver::isConfigured() (product key and
+         | plan), see PaymentMethodCatalog (app/Payment).
          */
         'komerce' => [
-            'enabled' => env('KOMERCE_PAYMENT_API_KEY') !== null
-                && env('KOMERCE_PAYMENT_API_KEY') !== '',
-            'sandbox' => true,
-            'credentials' => [
-                'api_key' => env('KOMERCE_PAYMENT_API_KEY'),
-                'webhook_secret' => env('KOMERCE_WEBHOOK_SECRET'),
-                'base_url' => env('KOMERCE_PAYMENT_BASE_URL', 'https://api-sandbox.collaborator.komerce.id/user'),
-            ],
+            'enabled' => filter_var(env('PAYMENT_KOMERCE_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         ],
 
     ],

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Checkout;
 
-use App\Actions\Checkout\CreateKomercePayment;
 use App\Actions\CreateOrder;
 use App\CheckoutSession;
+use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
 use App\Models\OrderShipment;
 use App\Models\Product;
 use App\Models\User;

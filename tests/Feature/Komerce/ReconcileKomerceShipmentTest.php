@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
-use App\Actions\Shipping\CancelKomerceDelivery;
 use App\Actions\Shipping\NormalizeShipmentStatus;
-use App\Actions\Shipping\ReconcileKomerceShipment;
-use App\Jobs\CreateRajaOngkirDeliveryForShipment;
-use App\Listeners\CancelKomerceDeliveryOnOrderCancelled;
+use App\Integrations\Komerce\Actions\Shipping\CancelKomerceDelivery;
+use App\Integrations\Komerce\Actions\Shipping\ReconcileKomerceShipment;
+use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Listeners\CancelShipmentsOnOrderCancelled;
 use App\Models\OrderShipment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -186,7 +186,7 @@ final class ReconcileKomerceShipmentTest extends TestCase
             ]),
         ]);
 
-        resolve(CancelKomerceDeliveryOnOrderCancelled::class)
+        resolve(CancelShipmentsOnOrderCancelled::class)
             ->handle(new OrderCancelled($order));
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'

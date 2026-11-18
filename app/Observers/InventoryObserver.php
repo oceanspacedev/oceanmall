@@ -4,165 +4,131 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
-use App\Services\Komerce\ShippingCostClient;
+use App\Shipping\Contracts\ResolvesDestinations;
+use App\Shipping\InventoryOrigins;
+use App\Shipping\ShippingCapabilities;
 use Shopper\Core\Models\Inventory;
 use Throwable;
+use WeakMap;
 
+/**
+ * Keeps warehouse origins (inventory_shipping_origins) in step with inventories.
+ *
+ * - Explicit origins travel with the model as a transient `shipping_origins`
+ *   attribute (driver => external id); the cpanel location form saves them
+ *   this way. A `rajaongkir_origin_id` value set on the model (the legacy
+ *   column, kept but no longer read or written) is still accepted and means
+ *   `shipping_origins.rajaongkir`.
+ * - After a save, each configured driver that resolves destinations and has
+ *   no origin for this warehouse yet resolves one from the address.
+ */
 final class InventoryObserver
 {
+    public const ATTRIBUTE = 'shipping_origins';
+
+    /** @var array<string, string> legacy attribute => driver */
+    public const LEGACY_ATTRIBUTES = [
+        'rajaongkir_origin_id' => 'rajaongkir',
+    ];
+
+    /** @var WeakMap<Inventory, array{origins: array<string, mixed>, creating: bool}>|null */
+    private static ?WeakMap $pending = null;
+
     public function saving(Inventory $inventory): void
     {
-        if (! komerce_shipping_cost_enabled()) {
-            return;
+        $attributes = $inventory->getAttributes();
+        $origins = [];
+
+        if (array_key_exists(self::ATTRIBUTE, $attributes)) {
+            $value = $attributes[self::ATTRIBUTE];
+            $value = is_string($value) ? json_decode($value, true) : $value;
+
+            if (is_array($value)) {
+                $origins = array_filter($value, static fn (mixed $key): bool => is_string($key) && $key !== '', ARRAY_FILTER_USE_KEY);
+            }
+
+            $inventory->offsetUnset(self::ATTRIBUTE);
         }
 
-        $currentOrigin = $inventory->getAttribute('rajaongkir_origin_id');
-        if (is_scalar($currentOrigin) && trim((string) $currentOrigin) !== '') {
-            return;
+        foreach (self::LEGACY_ATTRIBUTES as $attribute => $driver) {
+            // Only a value the caller set counts: the legacy column is kept
+            // until a later release (expand-only migration 2026_11_18_000100),
+            // so a loaded model carries its stale value, which must neither
+            // override the table nor be written back.
+            if (! array_key_exists($attribute, $attributes) || ! $inventory->isDirty($attribute)) {
+                continue;
+            }
+
+            if (! array_key_exists($driver, $origins)) {
+                $origins[$driver] = $attributes[$attribute];
+            }
+
+            $inventory->offsetUnset($attribute);
         }
 
-        $postalCode = trim((string) $inventory->getAttribute('postal_code'));
-        $city = trim((string) $inventory->getAttribute('city'));
-        $street = trim((string) $inventory->getAttribute('street_address'));
-        $state = trim((string) $inventory->getAttribute('state'));
+        if ($origins !== []) {
+            self::pending()[$inventory] = ['origins' => $origins, 'creating' => ! $inventory->exists];
+        }
+    }
 
-        if ($postalCode === '' && $city === '' && $street === '') {
-            return;
+    public function saved(Inventory $inventory): void
+    {
+        $store = resolve(InventoryOrigins::class);
+        $pending = self::pending();
+        $explicit = $pending[$inventory]['origins'] ?? [];
+        $creating = (bool) ($pending[$inventory]['creating'] ?? false);
+        unset($pending[$inventory]);
+
+        $handled = [];
+
+        foreach ($explicit as $driver => $externalId) {
+            $filled = is_scalar($externalId) && trim((string) $externalId) !== '';
+
+            // On create, a blank origin only means "not given": leave the
+            // slot to auto-resolution. On update it clears the origin.
+            if (! $filled && $creating) {
+                continue;
+            }
+
+            $store->put($inventory, (string) $driver, $externalId);
+            $handled[] = (string) $driver;
         }
 
-        try {
-            $client = resolve(ShippingCostClient::class);
+        $this->resolveMissingOrigins($inventory, $store, $handled);
+    }
 
-            $results = [];
-            if ($postalCode !== '') {
-                $results = $client->searchDomestic($postalCode, 50);
+    /**
+     * @param  list<string>  $skip  Drivers whose origin the caller set or cleared on purpose
+     */
+    private function resolveMissingOrigins(Inventory $inventory, InventoryOrigins $store, array $skip): void
+    {
+        foreach (resolve(ShippingCapabilities::class)->supporting(ResolvesDestinations::class) as $code => $driver) {
+            if (in_array($code, $skip, true) || $store->has($inventory, $code)) {
+                continue;
             }
 
-            if (empty($results) && ($city !== '' || $street !== '')) {
-                $query = trim("{$street} {$city}");
-                $results = $client->searchDomestic($query, 50);
+            try {
+                $origin = $driver->resolveOrigin($inventory);
+            } catch (Throwable $e) {
+                report($e);
+
+                continue;
             }
 
-            if (empty($results) && $city !== '') {
-                $results = $client->searchDomestic($city, 50);
-            }
+            $id = is_array($origin) && is_scalar($origin['id'] ?? null) ? trim((string) $origin['id']) : '';
 
-            if (empty($results)) {
-                return;
+            if ($id !== '') {
+                $label = $origin['label'] ?? null;
+                $store->put($inventory, $code, $id, is_scalar($label) ? (string) $label : null);
             }
-
-            $bestId = $this->findBestOriginId($results, $street, $city, $state, $postalCode);
-
-            if ($bestId !== null) {
-                $inventory->setAttribute('rajaongkir_origin_id', $bestId);
-            }
-        } catch (Throwable $e) {
-            report($e);
         }
     }
 
     /**
-     * @param  list<array<string, mixed>>  $results
+     * @return WeakMap<Inventory, array{origins: array<string, mixed>, creating: bool}>
      */
-    private function findBestOriginId(array $results, string $street, string $city, string $state, string $postalCode): ?string
+    private static function pending(): WeakMap
     {
-        $candidates = array_values(array_filter(
-            $results,
-            static fn (mixed $row): bool => is_array($row)
-                && isset($row['id'])
-                && trim((string) $row['id']) !== '',
-        ));
-
-        if ($candidates === []) {
-            return null;
-        }
-
-        $hasVerifiedMatch = false;
-
-        if ($postalCode !== '') {
-            $candidates = array_values(array_filter(
-                $candidates,
-                static fn (array $row): bool => trim((string) ($row['zip_code'] ?? '')) === $postalCode,
-            ));
-
-            if ($candidates === []) {
-                return null;
-            }
-
-            $hasVerifiedMatch = true;
-        }
-
-        $normalizedStreet = $this->normalize($street);
-        if ($normalizedStreet !== '') {
-            $streetMatches = array_values(array_filter(
-                $candidates,
-                function (array $row) use ($normalizedStreet): bool {
-                    foreach (['subdistrict_name', 'district_name'] as $field) {
-                        $place = $this->normalize((string) ($row[$field] ?? ''));
-
-                        if ($place !== '' && str_contains($normalizedStreet, $place)) {
-                            return true;
-                        }
-                    }
-
-                    return false;
-                },
-            ));
-
-            if ($streetMatches !== []) {
-                $candidates = $streetMatches;
-                $hasVerifiedMatch = true;
-            }
-        }
-
-        foreach ([
-            'city_name' => $city,
-            'province_name' => $state,
-        ] as $field => $expected) {
-            $expected = $this->normalize($expected);
-
-            if ($expected === '') {
-                continue;
-            }
-
-            $fieldMatches = array_values(array_filter(
-                $candidates,
-                function (array $row) use ($field, $expected): bool {
-                    $actual = $this->normalize((string) ($row[$field] ?? ''));
-
-                    return $actual !== ''
-                        && (str_contains($actual, $expected) || str_contains($expected, $actual));
-                },
-            ));
-
-            $knownFieldRows = array_filter(
-                $candidates,
-                fn (array $row): bool => $this->normalize((string) ($row[$field] ?? '')) !== '',
-            );
-
-            if ($knownFieldRows !== [] && $fieldMatches === []) {
-                return null;
-            }
-
-            if ($fieldMatches === []) {
-                continue;
-            }
-
-            $candidates = $fieldMatches;
-            $hasVerifiedMatch = true;
-        }
-
-        // The search endpoint returns candidates, not a guaranteed canonical
-        // match. Persist only one result supported by supplied address data.
-        if (! $hasVerifiedMatch || count($candidates) !== 1) {
-            return null;
-        }
-
-        return (string) $candidates[0]['id'];
-    }
-
-    private function normalize(string $value): string
-    {
-        return strtolower(trim((string) preg_replace('/\s+/', ' ', $value)));
+        return self::$pending ??= new WeakMap;
     }
 }

@@ -5,28 +5,26 @@ declare(strict_types=1);
 namespace App\Actions\Shipping;
 
 use App\Models\OrderShipment;
-use App\Services\Komerce\ShippingDeliveryClient;
-use App\Shipping\Drivers\KomerceShippingDriver;
-use App\Support\OrderShipmentOpsPresenter;
+use App\Shipping\Contracts\PrintsLabels;
+use App\Shipping\ShippingCapabilities;
 use RuntimeException;
 use Shopper\Core\Models\Order;
 use Shopper\Shipping\Exceptions\ShippingException;
-use Shopper\Shipping\Facades\Shipping;
 
 final readonly class PrintShipmentLabels
 {
+    public function __construct(private ShippingCapabilities $capabilities) {}
+
     /**
-     * Generate RajaOngkir shipping labels for an order's shipments.
+     * Provider labels for an order's shipments (or one shipment), printed by
+     * the configured driver that can (PrintsLabels).
      *
-     * Only shipments that already have a Komerce delivery order number
-     * (i.e. the delivery order has been stored) are eligible. When
-     * $shipmentId is provided, only that shipment is printed.
+     * @return array{label_url: string|null, pdf: string|null}
      *
-     * @return array<string, mixed> The raw Komerce print-label response.
-     *
-     * @throws RuntimeException When no eligible shipment/label is available.
+     * @throws RuntimeException When no provider can print, or the driver
+     *                          refuses (the message says why).
      */
-    public function handle(Order $order, string $page = ShippingDeliveryClient::DEFAULT_LABEL_PAGE, ?int $shipmentId = null): array
+    public function handle(Order $order, ?string $format = null, ?int $shipmentId = null): array
     {
         $shipments = OrderShipment::query()
             ->where('order_id', $order->id)
@@ -34,47 +32,36 @@ final readonly class PrintShipmentLabels
             ->orderBy('id')
             ->get();
 
-        $presenter = resolve(OrderShipmentOpsPresenter::class);
-        $orderNos = $shipments
-            ->filter(static fn (OrderShipment $shipment): bool => $presenter->canPrintLabel($shipment))
-            ->map(static fn (OrderShipment $shipment): ?string => $presenter->deliveryOrderNo($shipment))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $byDriver = [];
+        $printers = [];
 
-        if ($orderNos === []) {
-            $registered = $shipments->contains(
-                static fn (OrderShipment $shipment): bool => $presenter->deliveryOrderNo($shipment) !== null,
-            );
+        foreach ($shipments as $shipment) {
+            $printer = $this->capabilities->forShipmentSupporting($shipment, PrintsLabels::class);
 
-            throw new RuntimeException(
-                $registered
-                    ? 'Menunggu nomor resi (AWB) dari Komerce. Stiker baru bisa dicetak setelah kurir menerbitkan AWB; tekan Refresh Tracking untuk mengecek.'
-                    : 'Daftarkan paket ke Komerce dan request pickup dulu sebelum mencetak stiker resi.',
-            );
-        }
-
-        if (! komerce_shipping_delivery_enabled()) {
-            throw new RuntimeException(
-                'Shipping labels need Komerce delivery configured. Add your Shipping Delivery API key, then try again.',
-            );
-        }
-
-        $driver = Shipping::driver('komerce');
-
-        if (! $driver instanceof KomerceShippingDriver) {
-            throw new RuntimeException('Komerce shipping driver is not registered.');
-        }
-
-        try {
-            return $driver->printLabels($orderNos, $page);
-        } catch (ShippingException $e) {
-            if (str_contains(strtolower($e->getMessage()), 'awb not found') || str_contains($e->getMessage(), '500')) {
-                return [];
+            if ($printer === null) {
+                continue;
             }
 
+            $printers[$printer->code()] = $printer;
+            $byDriver[$printer->code()][] = $shipment;
+        }
+
+        if ($printers === []) {
+            throw new RuntimeException(__('Label pengiriman otomatis belum tersedia untuk pesanan ini. Cetak label dari kurir, lalu isi nomor resi secara manual.'));
+        }
+
+        // One provider prints the labels of one order.
+        $code = array_key_first($printers);
+
+        try {
+            $result = $printers[$code]->printShipmentLabels($byDriver[$code], $format);
+        } catch (ShippingException $e) {
             throw new RuntimeException($e->getMessage(), 0, $e);
         }
+
+        return [
+            'label_url' => is_string($result['label_url'] ?? null) ? $result['label_url'] : null,
+            'pdf' => is_string($result['pdf'] ?? null) ? $result['pdf'] : null,
+        ];
     }
 }

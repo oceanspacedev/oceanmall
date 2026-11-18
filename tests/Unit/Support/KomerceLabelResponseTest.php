@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support;
 
-use App\Support\KomerceLabelResponse;
+use App\Integrations\Komerce\Support\KomerceLabelResponse;
 use Tests\TestCase;
 
 final class KomerceLabelResponseTest extends TestCase

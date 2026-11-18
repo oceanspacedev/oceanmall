@@ -14,7 +14,9 @@ final class ReleaseOrderShipmentStock
 {
     public function handle(Order $order): void
     {
-        $released = data_get($order->metadata, 'komerce.stock_released_at');
+        // Legacy rows recorded the release under metadata.komerce.
+        $released = data_get($order->metadata, 'stock_released_at')
+            ?? data_get($order->metadata, 'komerce.stock_released_at');
 
         if (is_string($released) && $released !== '') {
             return;
@@ -32,9 +34,7 @@ final class ReleaseOrderShipmentStock
         }
 
         $metadata = is_array($order->metadata) ? $order->metadata : [];
-        $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
-        $komerce['stock_released_at'] = now()->toIso8601String();
-        $metadata['komerce'] = $komerce;
+        $metadata['stock_released_at'] = now()->toIso8601String();
         $order->forceFill(['metadata' => $metadata])->save();
     }
 
@@ -57,8 +57,8 @@ final class ReleaseOrderShipmentStock
             $inventoryId,
             $qty,
             0,
-            'komerce_payment_expired',
-            'Release stock after unpaid Komerce order expired',
+            'payment_expired',
+            'Release stock after unpaid order expired or was cancelled',
             null,
             $order,
         );

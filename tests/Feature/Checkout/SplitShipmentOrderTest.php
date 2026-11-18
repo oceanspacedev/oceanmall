@@ -71,6 +71,7 @@ final class SplitShipmentOrderTest extends TestCase
             'shipping_options_by_shipment' => [
                 $defaultInventory->id => [
                     'id' => 'jne:REG',
+                    'driver' => 'rajaongkir',
                     'carrier_code' => 'jne',
                     'carrier_name' => 'Jalur Nugraha Ekakurir (JNE)',
                     'service_code' => 'REG',
@@ -105,11 +106,16 @@ final class SplitShipmentOrderTest extends TestCase
             ->get();
 
         $this->assertSame(430000, $order->refresh()->price_amount);
-        $this->assertSame('152', data_get($metadata, 'shipping_address.rajaongkir_destination_id'));
+        $this->assertSame('152', data_get($metadata, 'shipping_address.destination_id'));
+        $this->assertSame('rajaongkir', data_get($metadata, 'shipping_address.destination_driver'));
+        $this->assertArrayNotHasKey('rajaongkir_destination_id', (array) data_get($metadata, 'shipping_address'));
         $this->assertSame($defaultInventory->country_id, data_get($metadata, 'shipping_address.country_id'));
         $this->assertCount(2, $shipments);
 
         $this->assertSame($defaultInventory->id, $shipments[0]->inventory_id);
+        // The quoting driver is recorded on the shipment; a rate without one stays null.
+        $this->assertSame('rajaongkir', $shipments[0]->driver);
+        $this->assertNull($shipments[1]->driver);
         $this->assertSame('jne', $shipments[0]->carrier_code);
         $this->assertSame('JNE', $shipments[0]->carrier_name);
         $this->assertSame('REG', $shipments[0]->service_code);

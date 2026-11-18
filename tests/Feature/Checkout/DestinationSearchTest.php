@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Checkout;
 
+use App\CheckoutSession;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Shopper\Core\Models\Country;
+use Shopper\Core\Models\Zone;
 use Tests\TestCase;
 
 final class DestinationSearchTest extends TestCase
@@ -75,7 +78,7 @@ final class DestinationSearchTest extends TestCase
                 'postal_code' => '10110',
                 'city' => 'Jakarta',
             ])
-            ->assertSessionHasErrors('rajaongkir_destination_id');
+            ->assertSessionHasErrors('destination_id');
     }
 
     public function test_shipping_address_accepts_numeric_rajaongkir_destination_id(): void
@@ -84,8 +87,8 @@ final class DestinationSearchTest extends TestCase
         config()->set('komerce.enabled', true);
 
         $user = User::factory()->create();
-        $country = \Shopper\Core\Models\Country::factory()->create(['cca2' => 'ID']);
-        $zone = \Shopper\Core\Models\Zone::factory()->create(['is_enabled' => true]);
+        $country = Country::factory()->create(['cca2' => 'ID']);
+        $zone = Zone::factory()->create(['is_enabled' => true]);
         $zone->countries()->attach($country->id);
 
         $this->actingAs($user)
@@ -99,6 +102,7 @@ final class DestinationSearchTest extends TestCase
                 'rajaongkir_destination_id' => 17547,
             ])
             ->assertRedirect(route('shop.checkout.index'))
-            ->assertSessionHas(\App\CheckoutSession::SHIPPING_ADDRESS.'.rajaongkir_destination_id', '17547');
+            ->assertSessionHas(CheckoutSession::SHIPPING_ADDRESS.'.destination_id', '17547')
+            ->assertSessionHas(CheckoutSession::SHIPPING_ADDRESS.'.destination_driver', 'rajaongkir');
     }
 }

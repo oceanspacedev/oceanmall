@@ -5,24 +5,37 @@ declare(strict_types=1);
 namespace App\Actions\Shipping;
 
 use App\Models\OrderShipment;
-use App\Support\KomerceTrackingContext;
+use App\Shipping\Contracts\TracksShipments;
+use App\Shipping\ShipmentMetadata;
+use App\Shipping\ShippingCapabilities;
 use RuntimeException;
-use Shopper\Shipping\Exceptions\ShippingException;
-use Shopper\Shipping\Facades\Shipping;
+use Shopper\Shipping\DataTransferObjects\TrackingEvent;
+use Shopper\Shipping\DataTransferObjects\TrackingInfo;
+use Throwable;
 
+/**
+ * Pull the latest tracking of a shipment from the shipping driver that can
+ * track it (ShippingCapabilities::trackerFor) and store the normalized status.
+ *
+ * - A driver that TracksShipments receives the whole shipment and records its
+ *   provider details itself: raw answers in its own metadata bucket, and the
+ *   customer-facing timeline under the neutral metadata.tracking_history
+ *   (App\Shipping\ShipmentMetadata), which web and mobile read.
+ * - Any other Shopper driver is asked with track($awb); its events are stored
+ *   here as metadata.tracking_history.
+ *
+ * A failed lookup keeps the history already recorded instead of erroring.
+ */
 final readonly class RefreshShipmentTracking
 {
     public function __construct(
-        private KomerceTrackingContext $trackingContext,
+        private ShippingCapabilities $capabilities,
         private NormalizeShipmentStatus $normalizeStatus,
         private SyncOrderShippingFromShipments $syncOrderShipping,
     ) {}
 
     /**
-     * Fetch the latest RajaOngkir tracking history for a shipment and
-     * persist a normalized history + status onto the shipment metadata.
-     *
-     * @throws RuntimeException When the shipment has no AWB to track yet.
+     * @throws RuntimeException When the shipment has no AWB or no driver can track it.
      */
     public function handle(OrderShipment $shipment): OrderShipment
     {
@@ -32,84 +45,44 @@ final readonly class RefreshShipmentTracking
             throw new RuntimeException('This shipment has no airway bill (AWB) to track yet.');
         }
 
-        $shipping = $this->shippingCourier($shipment);
+        $driver = $this->capabilities->trackerFor($shipment);
 
-        if ($shipping === null) {
-            throw new RuntimeException('This shipment has no courier (shipping) to track yet.');
+        if ($driver === null) {
+            throw new RuntimeException('No configured shipping provider can track this airway bill.');
         }
-
-        $costCourier = $this->costCourierCode($shipment);
-        $this->trackingContext->setLastPhoneNumber($this->receiverPhone($shipment));
 
         try {
-            $hasDeliveryOrder = is_scalar(data_get($shipment->metadata, 'komerce.order_no'))
-                && trim((string) data_get($shipment->metadata, 'komerce.order_no')) !== '';
+            $info = $driver instanceof TracksShipments
+                ? $driver->trackShipment($shipment)
+                : $driver->track($awb);
+        } catch (Throwable $e) {
+            $shipment->refresh();
 
-            if ($hasDeliveryOrder && komerce_shipping_delivery_enabled()) {
-                $this->trackingContext->setCourier($shipping);
-                $info = Shipping::driver('komerce')->track($awb);
-            } elseif (komerce_shipping_cost_enabled() && $costCourier !== null) {
-                $this->trackingContext->setCourier($costCourier);
-                $info = Shipping::driver('rajaongkir')->track($awb);
-            } elseif (komerce_shipping_delivery_enabled()) {
-                $this->trackingContext->setCourier($shipping);
-                $info = Shipping::driver('komerce')->track($awb);
-            } else {
-                throw new RuntimeException('Shipment tracking needs RajaOngkir Cost or Komerce Delivery configured.');
-            }
-        } catch (ShippingException $e) {
-            $existingHistory = data_get($shipment->metadata, 'komerce.tracking_history')
-                ?: data_get($shipment->metadata, 'tracking_history');
-
-            if (! empty($existingHistory)) {
+            if ($this->hasHistory($shipment)) {
                 return $shipment;
             }
 
-            throw new RuntimeException($e->getMessage(), 0, $e);
-        } catch (\Throwable $e) {
-            $existingHistory = data_get($shipment->metadata, 'komerce.tracking_history')
-                ?: data_get($shipment->metadata, 'tracking_history');
-
-            if (! empty($existingHistory)) {
-                return $shipment;
-            }
-
-            throw $e;
-        } finally {
-            $response = $this->trackingContext->lastRaw();
-            $this->trackingContext->clear();
+            throw $e instanceof RuntimeException ? $e : new RuntimeException($e->getMessage(), 0, $e);
         }
 
-        $providerAwb = data_get($response, 'data.airway_bill')
-            ?? data_get($response, 'data.summary.waybill_number')
-            ?? data_get($response, 'data.details.waybill_number');
-
-        if (is_scalar($providerAwb) && trim((string) $providerAwb) !== ''
-            && strcasecmp(trim((string) $providerAwb), $awb) !== 0) {
-            $existingHistory = data_get($shipment->metadata, 'komerce.tracking_history')
-                ?: data_get($shipment->metadata, 'tracking_history');
-
-            if (! empty($existingHistory)) {
-                return $shipment;
-            }
-
-            throw new RuntimeException('RajaOngkir tracking response returned a different airway bill.');
-        }
-
-        $history = $this->normalizeHistory($response);
-        $rawStatus = $info->statusDescription
-            ?? $this->resolveRawStatus($response, $history);
-        $normalized = $info->status !== ''
-            ? $info->status
-            : $this->normalizeStatus->handle($rawStatus, is_string($shipment->status) ? $shipment->status : null);
-
+        $shipment->refresh();
         $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
-        $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
-        $komerce['tracking'] = $response;
-        $komerce['tracking_history'] = $history;
-        $komerce['tracking_status'] = $rawStatus;
-        $komerce['tracked_at'] = now()->toIso8601String();
-        $metadata['komerce'] = $komerce;
+
+        if (! $driver instanceof TracksShipments) {
+            $metadata[ShipmentMetadata::TRACKING_HISTORY] = $this->history($info);
+            $metadata['tracking_status'] = $info->statusDescription;
+            $metadata['tracked_at'] = now()->toIso8601String();
+            $metadata['tracked_by'] = $driver->code();
+        }
+
+        // Always the stable vocabulary (NormalizeShipmentStatus::STABLE): a driver
+        // may answer with Shopper's ShipmentStatus values (out_for_delivery,
+        // delivery_failed...) or its own words (dropping_off, on_hold). An
+        // unknown answer keeps the current status.
+        $raw = trim($info->status) !== '' ? $info->status : $info->statusDescription;
+        $normalized = in_array($raw, NormalizeShipmentStatus::STABLE, true)
+            ? $raw
+            : $this->normalizeStatus->handle($raw, is_string($shipment->status) ? $shipment->status : null);
 
         $attributes = ['metadata' => $metadata];
 
@@ -130,7 +103,16 @@ final readonly class RefreshShipmentTracking
 
     private function airwayBill(OrderShipment $shipment): ?string
     {
-        foreach ([$shipment->awb, data_get($shipment->metadata, 'komerce.awb')] as $candidate) {
+        $candidates = [$shipment->awb, $shipment->tracking_number];
+
+        // Provider buckets (metadata.<provider>.awb) written before the AWB column was filled.
+        foreach ((array) $shipment->metadata as $bucket) {
+            if (is_array($bucket)) {
+                $candidates[] = $bucket['awb'] ?? null;
+            }
+        }
+
+        foreach ($candidates as $candidate) {
             if (is_scalar($candidate) && trim((string) $candidate) !== '') {
                 return trim((string) $candidate);
             }
@@ -139,117 +121,20 @@ final readonly class RefreshShipmentTracking
         return null;
     }
 
-    private function shippingCourier(OrderShipment $shipment): ?string
+    private function hasHistory(OrderShipment $shipment): bool
     {
-        foreach ([
-            $shipment->carrier_name,
-            $shipment->carrier_code,
-            data_get($shipment->metadata, 'komerce.shipping'),
-            data_get($shipment->metadata, 'komerce.carrier_name'),
-        ] as $candidate) {
-            if (is_scalar($candidate) && trim((string) $candidate) !== '') {
-                return trim((string) $candidate);
-            }
-        }
-
-        return null;
-    }
-
-    private function costCourierCode(OrderShipment $shipment): ?string
-    {
-        $code = strtolower(trim((string) $shipment->carrier_code));
-
-        if ($code !== '' && preg_match('/^[a-z0-9_-]+$/', $code) === 1) {
-            return $code;
-        }
-
-        $name = strtolower(trim((string) $this->shippingCourier($shipment)));
-
-        return $name !== '' && preg_match('/^[a-z0-9_-]+$/', $name) === 1 ? $name : null;
-    }
-
-    private function receiverPhone(OrderShipment $shipment): ?string
-    {
-        $order = $shipment->order()->first();
-        $address = $order?->shippingAddress;
-        $phone = $address?->phone_number ?? $address?->phone;
-
-        return is_scalar($phone) ? (string) $phone : null;
+        return ShipmentMetadata::trackingHistory($shipment) !== [];
     }
 
     /**
-     * Normalize whichever history/manifest list the delivery API returns
-     * into a predictable shape for the storefront timeline.
-     *
-     * @param  array<string, mixed>  $response
      * @return list<array{description: string, datetime: string|null, location: string|null}>
      */
-    private function normalizeHistory(array $response): array
+    private function history(TrackingInfo $info): array
     {
-        $entries = [];
-
-        foreach (['data.manifest', 'data.history', 'data.histories', 'data.detail', 'data.tracking_history'] as $path) {
-            $value = data_get($response, $path);
-
-            if (is_array($value) && $value !== []) {
-                $entries = $value;
-                break;
-            }
-        }
-
-        return collect($entries)
-            ->filter(static fn (mixed $entry): bool => is_array($entry))
-            ->map(static function (array $entry): array {
-                $date = data_get($entry, 'manifest_date') ?? data_get($entry, 'date');
-                $time = data_get($entry, 'manifest_time') ?? data_get($entry, 'time');
-                $datetime = trim(implode(' ', array_filter([
-                    is_scalar($date) ? (string) $date : null,
-                    is_scalar($time) ? (string) $time : null,
-                ])));
-
-                $description = data_get($entry, 'manifest_description')
-                    ?? data_get($entry, 'description')
-                    ?? data_get($entry, 'desc')
-                    ?? data_get($entry, 'status');
-
-                $location = data_get($entry, 'city_name')
-                    ?? data_get($entry, 'city')
-                    ?? data_get($entry, 'location');
-
-                return [
-                    'description' => is_scalar($description) ? (string) $description : '',
-                    'datetime' => $datetime !== '' ? $datetime : null,
-                    'location' => is_scalar($location) ? (string) $location : null,
-                ];
-            })
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<string, mixed>  $response
-     * @param  list<array{description: string, datetime: string|null, location: string|null}>  $history
-     */
-    private function resolveRawStatus(array $response, array $history): ?string
-    {
-        foreach ([
-            'data.delivery_status.status',
-            'data.details.status',
-            'data.last_status',
-            'data.status',
-            'data.delivery_status',
-            'data.summary.status',
-            'status',
-        ] as $path) {
-            $value = data_get($response, $path);
-
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                return trim((string) $value);
-            }
-        }
-
-        $last = $history !== [] ? ($history[array_key_last($history)]['description'] ?? null) : null;
-
-        return is_string($last) && $last !== '' ? $last : null;
+        return array_values(array_map(static fn (TrackingEvent $event): array => [
+            'description' => $event->description !== '' ? $event->description : $event->status,
+            'datetime' => $event->occurredAt->format('Y-m-d H:i'),
+            'location' => $event->location,
+        ], $info->events));
     }
 }

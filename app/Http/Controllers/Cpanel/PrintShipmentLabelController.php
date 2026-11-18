@@ -6,8 +6,6 @@ namespace App\Http\Controllers\Cpanel;
 
 use App\Actions\Shipping\PrintShipmentLabels;
 use App\Http\Controllers\Controller;
-use App\Services\Komerce\ShippingDeliveryClient;
-use App\Support\KomerceLabelResponse;
 use App\Support\OrderShipmentOpsPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -31,18 +29,14 @@ final class PrintShipmentLabelController extends Controller
     ): View|RedirectResponse|JsonResponse|StreamedResponse|Response {
         Gate::authorize('print-shipment-label', $order);
 
-        if (! komerce_shipping_delivery_enabled()) {
-            return back()->withErrors([
-                'label' => __('Shipping labels need Komerce delivery configured. Add your Shipping Delivery API key, then try again.'),
-            ]);
-        }
-
+        // The label format (page size) is the printing driver's own vocabulary;
+        // it validates the value itself.
         $validated = $request->validate([
-            'page' => ['nullable', 'string', 'in:'.implode(',', ShippingDeliveryClient::LABEL_PAGES)],
+            'page' => ['nullable', 'string', 'max:50', 'regex:/^[a-z0-9_-]+$/i'],
             'shipment' => ['nullable', 'integer'],
         ]);
 
-        $page = $validated['page'] ?? ShippingDeliveryClient::DEFAULT_LABEL_PAGE;
+        $page = $validated['page'] ?? null;
         $shipmentId = isset($validated['shipment']) ? (int) $validated['shipment'] : null;
 
         try {
@@ -57,7 +51,7 @@ final class PrintShipmentLabelController extends Controller
             ]);
         }
 
-        $labelUrl = KomerceLabelResponse::absoluteUrl($response);
+        $labelUrl = $response['label_url'];
 
         if ($labelUrl !== null) {
             try {
@@ -70,7 +64,7 @@ final class PrintShipmentLabelController extends Controller
             }
         }
 
-        $pdf = KomerceLabelResponse::pdfBinary($response);
+        $pdf = $response['pdf'];
 
         if ($pdf !== null) {
             $filename = sprintf('label-order-%s.pdf', $order->number);

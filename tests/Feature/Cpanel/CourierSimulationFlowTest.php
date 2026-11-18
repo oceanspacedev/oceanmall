@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Cpanel;
 
 use App\Actions\Shipping\NormalizeShipmentStatus;
-use App\Livewire\Shopper\KomerceOrderShipping;
+use App\Integrations\Komerce\Livewire\KomerceOrderShipping;
 use App\Models\OrderShipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,7 +13,9 @@ use Livewire\Livewire;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Enum\ShippingStatus;
+use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 final class CourierSimulationFlowTest extends TestCase
@@ -23,13 +25,13 @@ final class CourierSimulationFlowTest extends TestCase
     public function test_courier_scan_simulation_transitions_order_to_completed(): void
     {
         $admin = User::factory()->create();
-        \Spatie\Permission\Models\Role::query()->firstOrCreate([
+        Role::query()->firstOrCreate([
             'name' => config('shopper.admin.roles.admin', 'administrator'),
             'guard_name' => 'web',
         ]);
         $admin->assignRole(config('shopper.admin.roles.admin', 'administrator'));
 
-        $inventory = \Shopper\Core\Models\Inventory::factory()->create([
+        $inventory = Inventory::factory()->create([
             'is_default' => true,
             'name' => 'Gudang Utama',
         ]);

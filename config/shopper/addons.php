@@ -13,11 +13,14 @@ return [
     | it. When disabled, the addon's routes, sidebar items, and components
     | will not be registered.
     |
-    | Example:
-    | 'analytics' => false,
+    | - oceanmall-store: generic store customisations of the admin.
+    | - komerce: Komerce / RajaOngkir admin UI; also stays off by itself
+    |   while no Komerce key is configured.
     |
     */
 
-    'komerce-rajaongkir' => true,
+    'oceanmall-store' => true,
+
+    'komerce' => true,
 
 ];

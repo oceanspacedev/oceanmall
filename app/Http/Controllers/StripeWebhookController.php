@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Orders\MarkOrderPaid;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Shopper\Core\Enum\OrderStatus;
@@ -57,9 +58,22 @@ final class StripeWebhookController extends Controller
             return response()->json(['status' => 'amount_mismatch']);
         }
 
+        // A capture is a payment confirmation like every other gateway's: it
+        // goes through MarkOrderPaid, which fires Shopper's OrderPaid once on
+        // the unpaid -> paid transition (fulfilment, notification listeners).
+        if ($result->action === 'captured') {
+            $outcome = resolve(MarkOrderPaid::class)->handle(
+                $order,
+                is_string($transaction->driver) && $transaction->driver !== '' ? $transaction->driver : 'stripe',
+                $result->reference,
+                $result->amount,
+            );
+
+            return response()->json(['status' => $outcome]);
+        }
+
         $targetState = match ($result->action) {
             'authorized' => ['payment_status' => PaymentStatus::Authorized],
-            'captured' => ['payment_status' => PaymentStatus::Paid],
             'failed', 'canceled' => ['status' => OrderStatus::Cancelled, 'payment_status' => PaymentStatus::Voided],
             'refunded' => ['status' => OrderStatus::Cancelled, 'payment_status' => PaymentStatus::Refunded],
             default => null,

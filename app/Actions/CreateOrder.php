@@ -9,18 +9,23 @@ use App\CheckoutSession;
 use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
 use App\Models\OrderShipment;
-use App\Shipping\RajaOngkirCourier;
+use App\Shipping\AddressDestination;
+use App\Shipping\Contracts\NormalizesSelectedRates;
+use App\Shipping\ShippingCapabilities;
 use App\Support\CheckoutAllocationContext;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Shopper\Cart\Actions\CreateOrderFromCartAction;
 use Shopper\Cart\Models\Cart;
+use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
 use Shopper\Core\Models\Order;
 use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Enum\TransactionType;
 use Shopper\Payment\Models\PaymentTransaction;
+use Shopper\Shipping\Facades\Shipping;
+use Throwable;
 
 final class CreateOrder
 {
@@ -79,7 +84,7 @@ final class CreateOrder
 
                 $this->storeShippingAddressMetadata($order, $checkout);
                 $this->storePaymentMetadata($order, $checkout);
-                $this->storeKomercePaymentReference($order, $checkout);
+                $this->storePaymentReference($order, $checkout);
 
                 return $order;
             });
@@ -116,11 +121,9 @@ final class CreateOrder
             $metadataAddress['country_id'] = (int) $countryId;
         }
 
-        $destinationId = data_get($shippingAddress, 'rajaongkir_destination_id')
-            ?? data_get($shippingAddress, 'destination_id');
-
-        if (is_scalar($destinationId) && trim((string) $destinationId) !== '') {
-            $metadataAddress['rajaongkir_destination_id'] = trim((string) $destinationId);
+        // Neutral destination keys (legacy rajaongkir_* session data is read too).
+        foreach (AddressDestination::fromInput($shippingAddress) as $field => $value) {
+            $metadataAddress[$field] = $value;
         }
 
         // Persist full address fields so delivery jobs can populate receiver_name /
@@ -134,9 +137,6 @@ final class CreateOrder
             'city',
             'state',
             'phone_number',
-            'rajaongkir_destination_label',
-            'rajaongkir_pin_point',
-            'pin_point',
             'latitude',
             'longitude',
         ] as $field) {
@@ -157,12 +157,18 @@ final class CreateOrder
             $metadataAddress,
         );
 
-        if (blank($metadata['shipping_address']['rajaongkir_pin_point'] ?? null)) {
-            $resolvedPin = resolve(\App\Services\Shipping\DestinationCoordinateResolver::class)
-                ->resolve($metadata['shipping_address']);
-            if ($resolvedPin !== null) {
-                $metadata['shipping_address']['rajaongkir_pin_point'] = $resolvedPin;
-            }
+        // Rows written before the neutral keys existed may carry legacy names.
+        $metadata['shipping_address'] = AddressDestination::normalize($metadata['shipping_address']);
+
+        // Only what checkout already holds: coordinates the customer sent become
+        // the pin point. Geocoding is never done here (no external call inside
+        // the order transaction); a driver that RequiresCoordinates resolves
+        // them lazily in its fulfilment path (CreateRajaOngkirDeliveryForShipment).
+        if (blank($metadata['shipping_address'][AddressDestination::PIN_POINT] ?? null)
+            && is_numeric($metadata['shipping_address']['latitude'] ?? null)
+            && is_numeric($metadata['shipping_address']['longitude'] ?? null)) {
+            $metadata['shipping_address'][AddressDestination::PIN_POINT] = $metadata['shipping_address']['latitude']
+                .','.$metadata['shipping_address']['longitude'];
         }
 
         $order->forceFill([
@@ -170,6 +176,10 @@ final class CreateOrder
         ])->save();
     }
 
+    /**
+     * The customer's payment selection, under the neutral metadata.payment
+     * bucket whatever the driver (drivers read their own channel from it).
+     */
     private function storePaymentMetadata(Order $order, mixed $checkout): void
     {
         $selectedPayment = (array) data_get($checkout, 'payment.0', []);
@@ -181,16 +191,17 @@ final class CreateOrder
         }
 
         $metadata = $this->decodeMetadata($order->getAttribute('metadata'));
-        $komerceMeta = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
+        $paymentMeta = is_array($metadata['payment'] ?? null) ? $metadata['payment'] : [];
+        $paymentMeta['driver'] = $this->paymentDriver($order, $checkout);
 
         if ($channelCode) {
-            $komerceMeta['channel_code'] = (string) $channelCode;
+            $paymentMeta['channel_code'] = (string) $channelCode;
         }
         if ($paymentType) {
-            $komerceMeta['payment_type'] = (string) $paymentType;
+            $paymentMeta['payment_type'] = (string) $paymentType;
         }
 
-        $metadata['komerce'] = $komerceMeta;
+        $metadata['payment'] = $paymentMeta;
 
         $order->forceFill([
             'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
@@ -280,7 +291,7 @@ final class CreateOrder
             $rate = $this->rateForShipment($shipmentDraft, $checkout, $shipmentCount);
             $cost = $this->rateCost($rate);
             $total += $cost;
-            $rate = $this->officialDeliveryRate($rate, $cost);
+            $rate = $this->normalizeRate($rate, $cost);
 
             $carrierCode = $this->rateString($rate, 'carrier_code');
             $serviceCode = $this->rateString($rate, 'service_code')
@@ -289,13 +300,17 @@ final class CreateOrder
             $shipment = OrderShipment::query()->create([
                 'order_id' => $order->id,
                 'inventory_id' => $shipmentDraft->inventory_id,
+                // Shopper shipping driver that quoted the selected rate.
+                'driver' => $this->rateString($rate, 'driver'),
+                'carrier_id' => $this->carrierId($rate),
                 'carrier_code' => $carrierCode,
                 'carrier_name' => $this->rateString($rate, 'shipping_name')
                     ?? $this->rateString($rate, 'carrier_name')
-                    ?? RajaOngkirCourier::deliveryName($carrierCode),
+                    ?? $this->rateString($rate, 'name')
+                    ?? ($carrierCode !== null ? strtoupper($carrierCode) : null),
                 'service_code' => $serviceCode,
                 'service_name' => $this->rateString($rate, 'service_name')
-                    ?? RajaOngkirCourier::deliveryService($serviceCode),
+                    ?? $serviceCode,
                 'cost' => $cost,
                 'currency_code' => $this->rateString($rate, 'currency_code')
                     ?? $this->rateString($rate, 'currency')
@@ -360,33 +375,46 @@ final class CreateOrder
     }
 
     /**
-     * Stamp Cost checkout quotes with Delivery store-order field names so
-     * RajaOngkir issues the AWB; Shopper only records the result.
+     * Let the driver that quoted the rate rewrite it into the shape its own
+     * fulfilment needs (NormalizesSelectedRates). A rate without a driver
+     * (checkout sessions older than driver tracking) goes to the single
+     * configured fulfilling driver, as before.
      *
      * @param  array<string, mixed>  $rate
      * @return array<string, mixed>
      */
-    private function officialDeliveryRate(array $rate, int $cost): array
+    private function normalizeRate(array $rate, int $cost): array
     {
-        if ($rate === [] || $cost < 1) {
+        if ($rate === []) {
             return $rate;
         }
 
-        $carrierCode = $this->rateString($rate, 'carrier_code');
-        $service = $this->rateString($rate, 'service_name')
-            ?? $this->rateString($rate, 'service_code')
-            ?? $this->rateString($rate, 'id');
+        $code = $this->rateString($rate, 'driver');
+        $capabilities = resolve(ShippingCapabilities::class);
 
-        $rate['shipping_name'] = RajaOngkirCourier::deliveryName(
-            $carrierCode,
-            $this->rateString($rate, 'carrier_name'),
-        );
-        $rate['service_name'] = RajaOngkirCourier::deliveryService($service);
-        $rate['shipping_cost'] = $cost;
-        $rate['shipping_cashback'] = (int) ($rate['shipping_cashback'] ?? 0);
-        $rate['service_fee'] = (int) ($rate['service_fee'] ?? 0);
+        try {
+            $driver = $code !== null
+                ? Shipping::driver($code)
+                : $capabilities->fulfillerFor(new OrderShipment);
+        } catch (Throwable) {
+            $driver = null;
+        }
 
-        return $rate;
+        return $driver instanceof NormalizesSelectedRates
+            ? $driver->normalizeSelectedRate($rate, $cost)
+            : $rate;
+    }
+
+    /**
+     * The Shopper carrier the selected rate belongs to, when it still exists.
+     *
+     * @param  array<string, mixed>  $rate
+     */
+    private function carrierId(array $rate): ?int
+    {
+        $id = data_get($rate, 'carrier_id');
+
+        return is_numeric($id) && Carrier::query()->whereKey((int) $id)->exists() ? (int) $id : null;
     }
 
     /**
@@ -399,10 +427,15 @@ final class CreateOrder
         return is_scalar($value) && $value !== '' ? (string) $value : null;
     }
 
-    private function storeKomercePaymentReference(Order $order, mixed $checkout): void
+    /**
+     * A payment reference created before the order (checkout sessions that
+     * carry one) is recorded as the Initiate transaction of the order's own
+     * payment driver.
+     */
+    private function storePaymentReference(Order $order, mixed $checkout): void
     {
-        $reference = data_get($checkout, 'komerce_payment_ref')
-            ?? data_get($checkout, 'payment.0.komerce_payment_ref')
+        $reference = data_get($checkout, 'payment_reference')
+            ?? data_get($checkout, 'payment.0.payment_reference')
             ?? data_get($checkout, 'payment.0.payment_id');
 
         if (! is_string($reference) || trim($reference) === '') {
@@ -416,13 +449,21 @@ final class CreateOrder
             ],
             [
                 'payment_method_id' => $order->payment_method_id,
-                'driver' => 'komerce',
+                'driver' => $this->paymentDriver($order, $checkout),
                 'type' => TransactionType::Initiate,
                 'amount' => (int) $order->price_amount,
                 'currency_code' => $order->currency_code,
                 'status' => TransactionStatus::Pending,
-                'metadata' => ['komerce_payment_ref' => trim($reference)],
+                'metadata' => ['payment_reference' => trim($reference)],
             ],
         );
+    }
+
+    private function paymentDriver(Order $order, mixed $checkout): string
+    {
+        $order->loadMissing('paymentMethod');
+        $driver = $order->paymentMethod?->driver ?? data_get($checkout, 'payment.0.driver');
+
+        return is_string($driver) && trim($driver) !== '' ? trim($driver) : 'manual';
     }
 }

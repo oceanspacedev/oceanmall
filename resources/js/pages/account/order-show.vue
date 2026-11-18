@@ -2,8 +2,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import OrderStatusBadge from '@/components/account/order-status-badge.vue';
-import KomercePaymentPanel from '@/components/shop/komerce-payment-panel.vue';
-import type { KomercePaymentInstructions } from '@/components/shop/komerce-payment-panel.vue';
+import PaymentActionPanel from '@/components/shop/payment-action-panel.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Breadcrumb,
@@ -26,6 +25,7 @@ import { formatMoney } from '@/lib/format';
 import { dashboard } from '@/routes';
 import { orders as accountOrders } from '@/routes/account';
 import * as shop from '@/routes/shop';
+import type { PaymentAction } from '@/types/shop';
 
 type OrderShipping = {
     price?: number | null;
@@ -95,7 +95,7 @@ type Shipment = {
 const props = defineProps<{
     order: Order;
     shipments: Shipment[];
-    komercePayment?: KomercePaymentInstructions | null;
+    paymentAction?: PaymentAction | null;
     canRetryPayment?: boolean;
 }>();
 
@@ -104,6 +104,18 @@ const paymentError = computed(
     () => (page.props.errors as Record<string, string> | undefined)?.payment,
 );
 const retryingPayment = ref(false);
+// An online payment step is pending (manual / COD orders have nothing to do).
+const pendingPayment = computed<PaymentAction | null>(() =>
+    props.paymentAction && props.paymentAction.kind !== 'none'
+        ? props.paymentAction
+        : null,
+);
+// Instructions / QR are confirmed by the provider: offer a status check.
+const canCheckStatus = computed(
+    () =>
+        props.paymentAction?.kind === 'instructions' ||
+        props.paymentAction?.kind === 'qr',
+);
 const checkingPayment = ref(false);
 const shippingPrice =
     props.shipments.length > 0
@@ -279,7 +291,7 @@ function syncPayment(): void {
     </div>
 
     <Alert
-        v-if="flashSuccess && !(komercePayment || canRetryPayment)"
+        v-if="flashSuccess && !(pendingPayment || canRetryPayment)"
         variant="success"
         class="mt-5"
     >
@@ -287,7 +299,7 @@ function syncPayment(): void {
     </Alert>
 
     <Card
-        v-if="komercePayment || canRetryPayment"
+        v-if="pendingPayment || canRetryPayment"
         class="mt-5 gap-0 overflow-hidden py-0 shadow-none"
     >
         <div
@@ -322,9 +334,9 @@ function syncPayment(): void {
             >
                 <AlertDescription>{{ flashSuccess }}</AlertDescription>
             </Alert>
-            <KomercePaymentPanel
-                v-if="komercePayment"
-                :payment="komercePayment"
+            <PaymentActionPanel
+                v-if="pendingPayment"
+                :action="pendingPayment"
             />
             <p
                 v-else-if="canRetryPayment"
@@ -335,7 +347,7 @@ function syncPayment(): void {
             </p>
             <div class="flex flex-col gap-2 sm:flex-row">
                 <Button
-                    v-if="komercePayment"
+                    v-if="canCheckStatus"
                     type="button"
                     size="xl"
                     class="flex-1"
@@ -360,7 +372,7 @@ function syncPayment(): void {
                     {{
                         retryingPayment
                             ? 'Memproses…'
-                            : komercePayment
+                            : pendingPayment
                               ? 'Buat ulang pembayaran'
                               : 'Bayar sekarang'
                     }}

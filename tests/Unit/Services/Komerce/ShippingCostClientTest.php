@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Komerce;
 
-use App\Exceptions\KomerceNotConfiguredException;
-use App\Services\Komerce\ShippingCostClient;
+use App\Integrations\Komerce\Exceptions\KomerceNotConfiguredException;
+use App\Integrations\Komerce\Services\ShippingCostClient;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:17
+ * @see app/Http/Controllers/StripeWebhookController.php:18
  * @route '/webhooks/stripe'
  */
 const StripeWebhookController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ StripeWebhookController.definition = {
 
 /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:17
+ * @see app/Http/Controllers/StripeWebhookController.php:18
  * @route '/webhooks/stripe'
  */
 StripeWebhookController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ StripeWebhookController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:17
+ * @see app/Http/Controllers/StripeWebhookController.php:18
  * @route '/webhooks/stripe'
  */
 StripeWebhookController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ StripeWebhookController.post = (options?: RouteQueryOptions): RouteDefinition<'p
 
     /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:17
+ * @see app/Http/Controllers/StripeWebhookController.php:18
  * @route '/webhooks/stripe'
  */
     const StripeWebhookControllerForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ StripeWebhookController.post = (options?: RouteQueryOptions): RouteDefinition<'p
 
             /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:17
+ * @see app/Http/Controllers/StripeWebhookController.php:18
  * @route '/webhooks/stripe'
  */
         StripeWebhookControllerForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

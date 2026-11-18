@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
-use App\Exceptions\KomerceNotConfiguredException;
-use App\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Exceptions\KomerceNotConfiguredException;
+use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Services\ShippingCostClient;
+use App\Integrations\Komerce\Services\ShippingDeliveryClient;
 use App\Models\OrderShipment;
 use App\Models\User;
-use App\Services\Komerce\ShippingCostClient;
-use App\Services\Komerce\ShippingDeliveryClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Shopper\Core\Models\Inventory;
@@ -46,7 +47,7 @@ final class KomerceDisabledTest extends TestCase
     {
         $this->disableKomerce();
 
-        $this->assertFalse(komerce_enabled());
+        $this->assertFalse(Komerce::enabled());
     }
 
     public function test_legacy_general_key_does_not_enable_any_service(): void
@@ -54,10 +55,10 @@ final class KomerceDisabledTest extends TestCase
         config()->set('komerce.enabled', null);
         config()->set('komerce.api_key', 'live-key');
 
-        $this->assertFalse(komerce_enabled());
-        $this->assertFalse(komerce_payment_enabled());
-        $this->assertFalse(komerce_shipping_cost_enabled());
-        $this->assertFalse(komerce_shipping_delivery_enabled());
+        $this->assertFalse(Komerce::enabled());
+        $this->assertFalse(Komerce::paymentEnabled());
+        $this->assertFalse(Komerce::shippingCostEnabled());
+        $this->assertFalse(Komerce::shippingDeliveryEnabled());
     }
 
     public function test_komerce_is_enabled_when_only_shipping_cost_key_present(): void
@@ -65,7 +66,7 @@ final class KomerceDisabledTest extends TestCase
         $this->disableKomerce();
         config()->set('komerce.shipping_cost_api_key', 'shipping-cost-key');
 
-        $this->assertTrue(komerce_enabled());
+        $this->assertTrue(Komerce::enabled());
     }
 
     public function test_explicit_disable_flag_overrides_a_present_api_key(): void
@@ -73,8 +74,8 @@ final class KomerceDisabledTest extends TestCase
         config()->set('komerce.payment_api_key', 'payment-key');
         config()->set('komerce.enabled', false);
 
-        $this->assertFalse(komerce_enabled());
-        $this->assertFalse(komerce_payment_enabled());
+        $this->assertFalse(Komerce::enabled());
+        $this->assertFalse(Komerce::paymentEnabled());
     }
 
     public function test_delivery_client_throws_when_disabled(): void
@@ -133,8 +134,8 @@ final class KomerceDisabledTest extends TestCase
         $body = json_encode($payload, JSON_THROW_ON_ERROR);
         $signature = hash_hmac('sha256', $body, 'webhook-secret');
 
-        // Official payment callback ACK is HTTP 200 `{status: handled}`.
-        // With the integration off, no remote payment-status call is attempted.
+        // Every disabled provider webhook gets the same HTTP 200 `{status: disabled}`
+        // acknowledgement (no retries) and no remote payment-status call is attempted.
         $this->call(
             'POST',
             route('webhooks.komerce.payment'),
@@ -147,7 +148,7 @@ final class KomerceDisabledTest extends TestCase
                 'HTTP_X_CALLBACK_API_KEY' => $signature,
             ],
             $body,
-        )->assertOk()->assertJson(['status' => 'handled']);
+        )->assertOk()->assertJson(['status' => 'disabled']);
 
         Http::assertNothingSent();
     }

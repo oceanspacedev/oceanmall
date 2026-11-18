@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Integrations\Komerce\KomerceAddon;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -32,6 +33,21 @@ abstract class TestCase extends BaseTestCase
             'komerce.qrisly_qris_id' => '',
             'komerce.webhook_secret' => '',
         ]);
+    }
+
+    /**
+     * Shopper registers addons when the panel resolves (once per booted app,
+     * i.e. per request in production). Tests configure Komerce keys after
+     * boot, so the 'komerce' addon, which only enables itself while a key is
+     * configured, is registered here once the test has set its keys.
+     */
+    protected function registerKomerceAddon(): void
+    {
+        $panel = app('shopper');
+
+        if (! $panel->hasAddon(KomerceAddon::ID)) {
+            $panel->addon(new KomerceAddon);
+        }
     }
 
     /**

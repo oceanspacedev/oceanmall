@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Exceptions\KomercePaidAfterCancellation;
 use App\Http\Middleware\EnsureCpanelIsStaffOnly;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -11,7 +10,6 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
-use Psr\Log\LogLevel;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Listeners are registered explicitly (AppServiceProvider and provider
+    // modules), so a provider's listeners only exist where it is wired in.
+    // Discovery would also register them a second time.
+    ->withEvents(discover: false)
     ->withMiddleware(function (Middleware $middleware): void {
         // Trusted proxies come from config/trustedproxy.php (TRUSTED_PROXIES).
         // Reject spoofed Host headers (password-reset links, absolute URLs).
@@ -46,7 +48,5 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Customer money is stuck on a cancelled order: route to critical so a
-        // Slack/Sentry log channel at that level pages someone.
-        $exceptions->level(KomercePaidAfterCancellation::class, LogLevel::CRITICAL);
+        // Provider modules set their own report levels (see app/Integrations/*).
     })->create();

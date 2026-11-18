@@ -160,7 +160,7 @@ final class CartController extends Controller
     {
         session()->forget([
             CheckoutSession::KEY,
-            'stripe_payment',
+            ...CheckoutController::CONFIRM_PAYMENT_KEYS,
             'stripe_order_number',
         ]);
     }

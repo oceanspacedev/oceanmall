@@ -11,6 +11,8 @@ use App\DTO\ShipmentDraft;
 use App\Models\OrderShipment;
 use App\Models\OrderShipmentLine;
 use App\Models\User;
+use App\Shipping\AddressDestination;
+use App\Shipping\ShipmentMetadata;
 use App\Support\ShipmentItemValue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -181,10 +183,11 @@ final class OverrideAllocation
                 ]);
             }
 
-            $deliveryOrderNo = data_get($shipment->metadata, 'komerce.order_no');
-            if (is_scalar($deliveryOrderNo) && trim((string) $deliveryOrderNo) !== '') {
+            // Registered with a provider by any FulfillsShipments driver: the
+            // provider order already points at this warehouse.
+            if (ShipmentMetadata::externalReference($shipment) !== null) {
                 throw ValidationException::withMessages([
-                    'shipment' => __('Gudang tidak bisa dipindah setelah paket didaftarkan ke Komerce. Request pickup atau cetak resi dari gudang yang sudah terdaftar.'),
+                    'shipment' => __('Gudang tidak bisa dipindah setelah paket didaftarkan ke layanan pengiriman. Request pickup atau cetak resi dari gudang yang sudah terdaftar.'),
                 ]);
             }
         }
@@ -393,6 +396,8 @@ final class OverrideAllocation
             }
 
             $shipment->update([
+                'driver' => $this->rateString($rate, 'driver') ?? $shipment->driver,
+                'carrier_id' => is_numeric($rate['carrier_id'] ?? null) ? (int) $rate['carrier_id'] : $shipment->carrier_id,
                 'carrier_code' => $this->rateString($rate, 'carrier_code'),
                 'carrier_name' => $this->rateString($rate, 'carrier_name') ?? $this->rateString($rate, 'name'),
                 'service_code' => $this->rateString($rate, 'service_code') ?? $this->rateString($rate, 'id'),
@@ -429,14 +434,17 @@ final class OverrideAllocation
             'country_name' => $address?->country_name,
         ];
 
-        foreach (['country_id', 'rajaongkir_destination_id', 'destination_id'] as $key) {
-            $value = $metadataAddress[$key]
-                ?? $metadata[$key]
-                ?? $address?->getAttribute($key);
+        $countryId = $metadataAddress['country_id']
+            ?? $metadata['country_id']
+            ?? $address?->getAttribute('country_id');
 
-            if ($value !== null && (! is_scalar($value) || trim((string) $value) !== '')) {
-                $shippingAddress[$key] = $value;
-            }
+        if ($countryId !== null && (! is_scalar($countryId) || trim((string) $countryId) !== '')) {
+            $shippingAddress['country_id'] = $countryId;
+        }
+
+        // Neutral destination fields (falls back to legacy rajaongkir_* keys).
+        foreach (AddressDestination::fromInput([...$metadata, ...$metadataAddress]) as $key => $value) {
+            $shippingAddress[$key] = $value;
         }
 
         return $shippingAddress;

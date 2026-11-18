@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Komerce;
 
-use App\Services\Komerce\PaymentClient;
+use App\Integrations\Komerce\Services\PaymentClient;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;

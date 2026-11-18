@@ -224,7 +224,7 @@ final class RajaOngkirRatesTest extends TestCase
                 'rajaongkir_destination_id' => '114',
             ])
             ->assertRedirect(route('shop.checkout.index'))
-            ->assertSessionHas(CheckoutSession::SHIPPING_ADDRESS.'.rajaongkir_destination_id', '114');
+            ->assertSessionHas(CheckoutSession::SHIPPING_ADDRESS.'.destination_id', '114');
 
         $this->get(route('shop.checkout.index', ['step' => 2]), ['X-Inertia' => 'true'])
             ->assertOk()

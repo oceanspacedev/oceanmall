@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Payment;
 
+use App\Integrations\Komerce\Payment\KomerceDriver;
+use App\Integrations\Komerce\Support\KomerceCallbackSignature;
 use App\Models\User;
-use App\Payment\KomerceDriver;
-use App\Support\KomerceCallbackSignature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;

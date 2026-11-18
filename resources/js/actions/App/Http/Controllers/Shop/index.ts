@@ -9,7 +9,6 @@ import CartCouponController from './CartCouponController'
 import ZoneController from './ZoneController'
 import CheckoutController from './CheckoutController'
 import DestinationSearchController from './DestinationSearchController'
-import StripePaymentController from './StripePaymentController'
 import CheckoutSuccessController from './CheckoutSuccessController'
 const Shop = {
     HomeController: Object.assign(HomeController, HomeController),
@@ -23,7 +22,6 @@ CartCouponController: Object.assign(CartCouponController, CartCouponController),
 ZoneController: Object.assign(ZoneController, ZoneController),
 CheckoutController: Object.assign(CheckoutController, CheckoutController),
 DestinationSearchController: Object.assign(DestinationSearchController, DestinationSearchController),
-StripePaymentController: Object.assign(StripePaymentController, StripePaymentController),
 CheckoutSuccessController: Object.assign(CheckoutSuccessController, CheckoutSuccessController),
 }
 

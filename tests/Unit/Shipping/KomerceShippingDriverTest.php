@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shipping;
 
-use App\Shipping\Drivers\KomerceShippingDriver;
-use App\Support\KomerceTrackingContext;
+use App\Integrations\Komerce\Shipping\KomerceShippingDriver;
+use App\Integrations\Komerce\Support\KomerceTrackingContext;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
 use Shopper\Shipping\DataTransferObjects\Address;
@@ -31,7 +31,8 @@ final class KomerceShippingDriverTest extends TestCase
         $driver = Shipping::driver('komerce');
 
         $this->assertInstanceOf(KomerceShippingDriver::class, $driver);
-        $this->assertFalse($driver->supportsRealTimeRates());
+        // Checkout quotes the Delivery tariff through calculateRates().
+        $this->assertTrue($driver->supportsRealTimeRates());
         $this->assertTrue($driver->supportsLabels());
         $this->assertTrue($driver->supportsTracking());
     }
@@ -68,7 +69,7 @@ final class KomerceShippingDriverTest extends TestCase
         });
     }
 
-    public function test_create_shipment_requires_fulfillment_context(): void
+    public function test_create_shipment_is_not_supported_use_fulfill_shipment(): void
     {
         $this->expectException(ShippingException::class);
 

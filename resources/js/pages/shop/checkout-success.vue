@@ -4,8 +4,7 @@ import { Check, Clock3 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AppPageHeader from '@/components/shop/app-page-header.vue';
 import Container from '@/components/shop/container.vue';
-import KomercePaymentPanel from '@/components/shop/komerce-payment-panel.vue';
-import type { KomercePaymentInstructions } from '@/components/shop/komerce-payment-panel.vue';
+import PaymentActionPanel from '@/components/shop/payment-action-panel.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ import {
 import { formatMoney } from '@/lib/format';
 import { show as ordersShow } from '@/routes/account/orders';
 import * as shop from '@/routes/shop';
+import type { PaymentAction } from '@/types/shop';
 
 type OrderStatusLike = string | { value?: string; label?: string } | null;
 
@@ -33,7 +33,7 @@ type Order = {
 
 const props = defineProps<{
     order: Order;
-    komercePayment?: KomercePaymentInstructions | null;
+    paymentAction?: PaymentAction | null;
 }>();
 
 const page = usePage();
@@ -59,7 +59,16 @@ const paymentError = computed(
     () => (page.props.errors as Record<string, string> | undefined)?.payment,
 );
 
-const needsPayment = computed(() => Boolean(props.komercePayment));
+// Something to do online before the order is processed.
+const needsPayment = computed(
+    () => Boolean(props.paymentAction) && props.paymentAction?.kind !== 'none',
+);
+// Instructions / QR are confirmed by the provider: poll its status.
+const canCheckStatus = computed(
+    () =>
+        props.paymentAction?.kind === 'instructions' ||
+        props.paymentAction?.kind === 'qr',
+);
 
 const paymentStatus = computed(() => {
     const status = props.order.payment_status;
@@ -73,7 +82,7 @@ return status;
 
 const paymentSetupFailed = computed(
     () =>
-        !needsPayment.value &&
+        !props.paymentAction &&
         paymentStatus.value !== undefined &&
         paymentStatus.value !== null &&
         paymentStatus.value !== 'paid',
@@ -103,7 +112,7 @@ function stopPolling(): void {
 }
 
 function syncPayment(silent = false): void {
-    if (!needsPayment.value || checkingPayment.value) {
+    if (!canCheckStatus.value || checkingPayment.value) {
 return;
 }
 
@@ -121,14 +130,14 @@ return;
 }
 
 onMounted(() => {
-    if (!needsPayment.value) {
-return;
-}
+    if (!canCheckStatus.value) {
+        return;
+    }
 
     pollTimer = setInterval(() => {
         pollCount += 1;
 
-        if (pollCount > 12 || !needsPayment.value) {
+        if (pollCount > 12 || !canCheckStatus.value) {
             stopPolling();
 
             return;
@@ -138,7 +147,7 @@ return;
     }, 15000);
 });
 
-watch(needsPayment, (needs) => {
+watch(canCheckStatus, (needs) => {
     if (!needs) {
 stopPolling();
 }
@@ -207,10 +216,11 @@ onBeforeUnmount(() => {
                 </Alert>
 
                 <div class="mt-5">
-                    <KomercePaymentPanel :payment="komercePayment!" />
+                    <PaymentActionPanel :action="paymentAction!" />
                 </div>
 
                 <Button
+                    v-if="canCheckStatus"
                     type="button"
                     size="xl"
                     class="mt-4 w-full"
@@ -223,7 +233,10 @@ onBeforeUnmount(() => {
                             : 'Sudah bayar? Cek status'
                     }}
                 </Button>
-                <p class="mt-2 text-center text-[11px] text-muted-foreground">
+                <p
+                    v-if="canCheckStatus"
+                    class="mt-2 text-center text-[11px] text-muted-foreground"
+                >
                     Status dicek otomatis tiap 15 detik. Atau ketuk tombol di
                     atas setelah transfer/scan.
                 </p>
@@ -354,6 +367,11 @@ onBeforeUnmount(() => {
                                 </Link>
                             </AlertDescription>
                         </Alert>
+
+                        <PaymentActionPanel
+                            v-if="paymentAction?.kind === 'none'"
+                            :action="paymentAction"
+                        />
 
                         <div
                             class="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-center"

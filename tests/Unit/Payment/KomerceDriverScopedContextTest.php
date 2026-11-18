@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Payment;
 
-use App\Support\KomercePaymentLookupContext;
+use App\Integrations\Komerce\Support\KomercePaymentLookupContext;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
 use Shopper\Payment\Facades\Payment;

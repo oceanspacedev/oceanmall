@@ -63,6 +63,11 @@ class AppServiceProvider extends ServiceProvider
 
         $this->registerShopperAddon();
 
+        // Order *pages* are routed straight from config('shopper.components.order.pages.*')
+        // and Shopper loads its routes before addons boot, so these overrides cannot live
+        // in KomerceRajaOngkirAddon. Set single keys instead of publishing
+        // config/shopper/components/order.php: Shopper merges that file shallowly, so a
+        // published copy would hide components added by future Shopper releases.
         $this->app->booting(function (): void {
             config()->set(
                 'shopper.components.order.pages.order-shipments',

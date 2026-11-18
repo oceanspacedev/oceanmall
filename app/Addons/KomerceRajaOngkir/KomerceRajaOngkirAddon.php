@@ -9,7 +9,6 @@ use App\Livewire\Shopper\KomerceOrderShipping;
 use App\Livewire\Shopper\OrderCustomer;
 use App\Livewire\Shopper\OrderFulfillment;
 use App\Livewire\Shopper\OrderSummary;
-use App\Livewire\Shopper\Pages\OrderShipments;
 use App\Livewire\Shopper\SlideOvers\CreateShippingLabel;
 use App\Livewire\Shopper\SlideOvers\ShipmentAddEvent;
 use Livewire\Livewire;
@@ -42,7 +41,6 @@ final class KomerceRajaOngkirAddon extends BaseAddon
             'order-summary' => OrderSummary::class,
             'order-customer' => OrderCustomer::class,
             'order-fulfillment' => OrderFulfillment::class,
-            'order-shipments' => OrderShipments::class,
             'slide-overs.create-shipping-label' => CreateShippingLabel::class,
             'slide-overs.shipment-add-event' => ShipmentAddEvent::class,
         ]);

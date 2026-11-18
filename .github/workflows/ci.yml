@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web (PHPUnit, ESLint, Vite build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: sqlite3, pdo_sqlite, intl, gd, bcmath, zip, mbstring, exif
+          ini-values: memory_limit=1G
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.lock', 'patches/**') }}
+          restore-keys: composer-${{ runner.os }}-php8.4-
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          touch database/database.sqlite
+
+      # cweagans/composer-patches applies patches/shopper-core-idr-zero-decimal.patch here;
+      # composer-exit-on-patch-failure makes a stale patch fail the job.
+      - name: Install Composer dependencies
+        env:
+          # Optional: only needed if a private Composer repository is ever added.
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate app key and migrate
+        run: |
+          php artisan key:generate --ansi
+          php artisan migrate --force --ansi
+
+      - name: Install npm dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Lint before the build: the Wayfinder Vite plugin regenerates resources/js/{actions,routes,wayfinder}
+      # (incl. case-variant Index.ts files on Linux). That churn is expected and never checked here.
+      - name: ESLint
+        run: npm run lint:check
+
+      # Feature tests render Inertia views and need the Vite manifest.
+      - name: Build assets
+        run: npm run build
+
+      - name: PHPUnit
+        run: php -d memory_limit=1G vendor/bin/phpunit
+
+  mobile:
+    name: Mobile (typecheck, format, colors, expo-doctor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck, Prettier and color tokens
+        run: npm run check
+
+      # Non-blocking: staging currently has known expo-doctor findings (duplicate
+      # react-native-screens via expo-router, Hermes V1 regression on SDK 56, non-CNG app.json fields).
+      - name: expo-doctor
+        continue-on-error: true
+        run: npx --yes expo-doctor

@@ -15,6 +15,7 @@ use App\Models\OrderShipment;
 use App\Models\User;
 use App\Observers\InventoryObserver;
 use App\Observers\OrderShipmentObserver;
+use App\Observers\ShopperOrderShippingObserver;
 use App\Payment\Drivers\ConfirmFirstStripeDriver;
 use App\Shipping\ShippingQuoteContext;
 use App\Stock\AllocationPlanStockAllocator;
@@ -40,6 +41,7 @@ use Shopper\Core\Events\Orders\OrderPaid;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
+use Shopper\Core\Models\OrderShipping;
 use Shopper\Core\Models\PaymentMethod;
 use Shopper\Payment\Facades\Payment;
 use Shopper\ShopperPanel;
@@ -84,6 +86,7 @@ class AppServiceProvider extends ServiceProvider
     {
         OrderShipment::observe(OrderShipmentObserver::class);
         Inventory::observe(InventoryObserver::class);
+        OrderShipping::observe(ShopperOrderShippingObserver::class);
 
         $this->configureDefaults();
         $this->configureRateLimits();

@@ -580,8 +580,12 @@ function syncPayment(): void {
                     </div>
                 </dl>
 
-                <div v-if="shipment.awb" class="mt-4">
+                <div
+                    v-if="shipment.awb || shipment.tracking_history.length"
+                    class="mt-4"
+                >
                     <Button
+                        v-if="shipment.awb"
                         type="button"
                         :disabled="trackingShipmentId === shipment.id"
                         variant="outline"

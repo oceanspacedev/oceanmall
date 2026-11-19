@@ -1,5 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
 import komerce from './komerce'
+import xendit from './xendit'
+import midtrans from './midtrans'
+import biteship from './biteship'
+import kiriminaja from './kiriminaja'
 /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
  * @see app/Http/Controllers/StripeWebhookController.php:18
@@ -57,6 +61,10 @@ stripe.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     stripe.form = stripeForm
 const webhooks = {
     komerce: Object.assign(komerce, komerce),
+xendit: Object.assign(xendit, xendit),
+midtrans: Object.assign(midtrans, midtrans),
+biteship: Object.assign(biteship, biteship),
+kiriminaja: Object.assign(kiriminaja, kiriminaja),
 stripe: Object.assign(stripe, stripe),
 }
 

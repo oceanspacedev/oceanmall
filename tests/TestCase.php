@@ -32,6 +32,15 @@ abstract class TestCase extends BaseTestCase
             'komerce.qrisly_api_key' => '',
             'komerce.qrisly_qris_id' => '',
             'komerce.webhook_secret' => '',
+            'xendit.secret_key' => '',
+            'xendit.callback_token' => '',
+            'midtrans.server_key' => '',
+            'midtrans.client_key' => '',
+            'midtrans.is_production' => null,
+            'biteship.api_key' => '',
+            'biteship.webhook_secret' => '',
+            'kiriminaja.api_key' => '',
+            'kiriminaja.webhook_secret' => '',
         ]);
     }
 

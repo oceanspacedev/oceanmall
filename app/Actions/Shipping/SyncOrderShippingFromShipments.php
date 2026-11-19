@@ -58,6 +58,13 @@ final class SyncOrderShippingFromShipments
 
     public function handle(Order $order): Order
     {
+        // Its own OrderShipping writes are not mirrored back onto the
+        // warehouse shipments it reads (MirrorManualShopperShipping).
+        return MirrorManualShopperShipping::whileSyncing(fn (): Order => $this->sync($order));
+    }
+
+    private function sync(Order $order): Order
+    {
         $shipments = OrderShipment::query()
             ->where('order_id', $order->id)
             ->get();

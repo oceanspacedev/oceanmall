@@ -93,7 +93,40 @@ return [
             'enabled' => filter_var(env('SHIPPING_KOMERCE_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         ],
 
+        /*
+         | Biteship (rates, area search, orders / pickup, tracking) and
+         | KiriminAja (rates, kecamatan search, request pickup, tracking),
+         | registered by their modules (app/Integrations/Biteship,
+         | app/Integrations/KiriminAja). Credentials live in each module's
+         | config (keys `biteship`, `kiriminaja`). A driver without an API key
+         | reports isConfigured() = false and takes no part, so leaving these
+         | switches on is harmless: filling the key plugs the provider in.
+         */
+        'biteship' => [
+            'enabled' => filter_var(env('SHIPPING_BITESHIP_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        ],
+
+        'kiriminaja' => [
+            'enabled' => filter_var(env('SHIPPING_KIRIMINAJA_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        ],
+
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Primary destination driver (store setting)
+    |--------------------------------------------------------------------------
+    |
+    | With several destination-based providers configured at once (e.g.
+    | RajaOngkir + Biteship + KiriminAja), address forms search the FIRST one
+    | (bootstrap/providers.php order). Set a driver code (rajaongkir,
+    | biteship, kiriminaja) to choose whose area / subdistrict vocabulary is
+    | stored on addresses; the others match by exact postal code. Ignored
+    | while that driver is not configured.
+    |
+    */
+
+    'destination_driver' => env('SHIPPING_DESTINATION_DRIVER'),
 
     /*
     |--------------------------------------------------------------------------

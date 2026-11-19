@@ -40,5 +40,14 @@
         <env name="KOMERCE_QRISLY_API_KEY" value=""/>
         <env name="KOMERCE_QRISLY_QRIS_ID" value=""/>
         <env name="KOMERCE_WEBHOOK_SECRET" value=""/>
+        <env name="XENDIT_SECRET_KEY" value=""/>
+        <env name="XENDIT_CALLBACK_TOKEN" value=""/>
+        <env name="MIDTRANS_SERVER_KEY" value=""/>
+        <env name="MIDTRANS_CLIENT_KEY" value=""/>
+        <env name="BITESHIP_API_KEY" value=""/>
+        <env name="BITESHIP_WEBHOOK_SECRET" value=""/>
+        <env name="KIRIMINAJA_API_KEY" value=""/>
+        <env name="KIRIMINAJA_WEBHOOK_SECRET" value=""/>
+        <env name="SHIPPING_DESTINATION_DRIVER" value=""/>
     </php>
 </phpunit>

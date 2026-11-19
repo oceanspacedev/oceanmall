@@ -119,7 +119,18 @@ final class ShippingCapabilities
      */
     public function destinationDriver(): ?ShippingDriver
     {
-        return $this->first(ResolvesDestinations::class);
+        $resolvers = $this->supporting(ResolvesDestinations::class);
+        $preferred = config('shopper.shipping.destination_driver');
+
+        // Store setting (SHIPPING_DESTINATION_DRIVER): with several
+        // destination-based providers configured, pick whose vocabulary the
+        // address forms search. Ignored when that driver is not configured,
+        // so switching providers never leaves the forms without a search.
+        if (is_string($preferred) && ($preferred = trim($preferred)) !== '' && $resolvers->has($preferred)) {
+            return $resolvers->get($preferred);
+        }
+
+        return $resolvers->first();
     }
 
     public function destinationDriverCode(): ?string

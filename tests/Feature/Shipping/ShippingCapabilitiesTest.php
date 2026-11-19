@@ -96,6 +96,30 @@ final class ShippingCapabilitiesTest extends TestCase
         $this->assertNull($capabilities->forShipment(new OrderShipment));
     }
 
+    public function test_the_store_setting_picks_the_primary_destination_driver(): void
+    {
+        config()->set('komerce.shipping_cost_api_key', 'cost-key');
+        Shipping::extend('fake-areas', static fn (): Driver => new FakeAreaDriver);
+        config()->set('shopper.shipping.drivers.fake-areas.enabled', true);
+
+        $capabilities = resolve(ShippingCapabilities::class);
+
+        // Default: the first configured destination driver (providers order).
+        $this->assertSame('rajaongkir', $capabilities->destinationDriverCode());
+
+        config()->set('shopper.shipping.destination_driver', ' fake-areas ');
+        $this->assertSame('fake-areas', $capabilities->destinationDriverCode());
+        $this->assertSame('fake-areas', $capabilities->originDriverCode());
+
+        // A preferred driver that is not configured never removes the search.
+        config()->set('shopper.shipping.destination_driver', 'not-configured');
+        $this->assertSame('rajaongkir', $capabilities->destinationDriverCode());
+
+        config()->set('shopper.shipping.destination_driver', 'fake-areas');
+        config()->set('shopper.shipping.drivers.fake-areas.enabled', false);
+        $this->assertSame('rajaongkir', $capabilities->destinationDriverCode());
+    }
+
     public function test_existing_drivers_implement_their_capability_contracts(): void
     {
         $rajaOngkir = Shipping::driver('rajaongkir');

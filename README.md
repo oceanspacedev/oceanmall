@@ -136,7 +136,15 @@ Salin dari `.env.example`. Prefix admin bisa diubah lewat `SHOPPER_PREFIX` (defa
 
 ### Payment & shipping: Shopper dulu, provider sebagai modul
 
-Checkout, order, dan cpanel memakai mekanisme Shopper (driver `Payment` / `Shipping`, carrier + shipping option per zone, event order Shopper). Provider pihak ketiga dipasang sebagai **modul** yang hanya menyentuh extension point Shopper. Modul yang ada sekarang: **Komerce** (`app/Integrations/Komerce`) untuk Komerce Payment (VA / QRIS), QRISLY, RajaOngkir Shipping Cost, dan Komerce Shipping Delivery.
+Checkout, order, dan cpanel memakai mekanisme Shopper (driver `Payment` / `Shipping`, carrier + shipping option per zone, event order Shopper). Provider pihak ketiga dipasang sebagai **modul** yang hanya menyentuh extension point Shopper. Modul yang ada sekarang:
+
+- **Komerce** (`app/Integrations/Komerce`): Komerce Payment (VA / QRIS), QRISLY, RajaOngkir Shipping Cost, Komerce Shipping Delivery.
+- **Xendit** (`app/Integrations/Xendit`): pembayaran lewat Xendit Invoice (halaman bayar hosted).
+- **Midtrans** (`app/Integrations/Midtrans`): pembayaran lewat Midtrans Snap (halaman bayar hosted).
+- **Biteship** (`app/Integrations/Biteship`): ongkir, pencarian area, order + pickup, tracking.
+- **KiriminAja** (`app/Integrations/KiriminAja`): ongkir, pencarian kecamatan, request pickup, tracking.
+
+Semua modul plug and play: lihat "Ganti-ganti provider (plug and play)".
 
 - **Driver** Shopper (didaftarkan oleh `KomerceServiceProvider`): `Payment::extend('komerce')`, `Shipping::extend('rajaongkir')`, `Shipping::extend('komerce')`. Polanya sama dengan `shopper/stripe`.
 - **Addon** Shopper `komerce`: kartu pengiriman Komerce di detail order cpanel. Addon ini mati sendiri kalau tidak ada key Komerce, dan bisa dimatikan lewat `config/shopper/addons.php` (`'komerce' => false`). Kustomisasi admin yang generik ada di addon `oceanmall-store` (selalu aktif).
@@ -241,6 +249,84 @@ POST {APP_URL}/webhooks/komerce/qrisly
 ```
 
 Hanya callback **Payment API** yang secara resmi mendefinisikan header `X-Callback-Api-Key` berisi HMAC-SHA256 raw body dengan `KOMERCE_WEBHOOK_SECRET`. Dokumentasi Delivery dan QRISLY tidak mendefinisikan signature; handler memperlakukan payload mereka sebagai sinyal lalu memeriksa status melalui API provider yang memakai dedicated key sebelum mengubah order.
+
+### Ganti-ganti provider (plug and play)
+
+Semua modul selalu terdaftar di `bootstrap/providers.php`, tetapi **tidak berbuat apa pun** sampai API key-nya diisi (`isConfigured()` jujur: tanpa key tidak ada metode bayar, kurir, jadwal, panggilan API, dan webhook menjawab `200 {status: disabled}`).
+
+| Mau | Caranya |
+| --- | --- |
+| Pakai provider | Isi key-nya di `.env`, `php artisan config:clear`, lalu seed metode bayar / kurir (`php artisan db:seed --class=PaymentMethodSeeder` / `CarrierSeeder`, lalu `ZoneSeeder`) atau `php artisan shipping:sync-carriers`. Daftarkan webhook-nya (tabel di bawah). |
+| Matikan sementara (key tetap) | `PAYMENT_<X>_ENABLED=false` / `SHIPPING_<X>_ENABLED=false`. Webhook pembayaran tetap diproses selama key ada, supaya invoice/transaksi yang sudah terbit tetap bisa melunasi order. |
+| Lepas total | Hapus baris provider di `bootstrap/providers.php` (dan foldernya). Dijaga oleh `tests/Feature/Modules/StoreWithoutKomerceModuleTest.php` (boot tanpa semua modul). |
+| Ganti kosakata alamat | Kalau beberapa provider tujuan aktif bersamaan (RajaOngkir, Biteship, KiriminAja), form alamat memakai yang pertama terkonfigurasi. Pilih sendiri dengan `SHIPPING_DESTINATION_DRIVER=biteship` (atau `kiriminaja`, `rajaongkir`). Provider lain mencocokkan lewat kode pos 5 digit. |
+
+Saran: aktifkan **satu** gateway pembayaran utama dan **satu** provider pengiriman. Dua provider pengiriman aktif bersamaan sah (kurir dengan nama sama tampil dari tiap provider sebagai carrier terpisah), tetapi biasanya membingungkan pelanggan. Slug carrier yang sudah dimiliki driver lain diberi prefix (`biteship-jne`, `kiriminaja-jne`).
+
+Kode generik tidak boleh mengimpor modul mana pun, dan modul tidak boleh saling mengimpor (`tests/Feature/Modules/ModuleBoundaryTest.php`).
+
+| Modul | Driver | Webhook | Daftarkan di |
+| --- | --- | --- | --- |
+| Xendit | payment `xendit` | `POST {APP_URL}/webhooks/xendit/invoice` | Dashboard → Settings → Webhooks → Invoices. Centang juga notifikasi invoice expired. Token verifikasi → `XENDIT_CALLBACK_TOKEN` (test dan live punya token sendiri). |
+| Midtrans | payment `midtrans` | `POST {APP_URL}/webhooks/midtrans/notification` | Dashboard → Settings → Payment → Notification URL (sandbox dan production terpisah). Tanpa secret tambahan: diverifikasi `signature_key` dengan server key. |
+| Biteship | shipping `biteship` | `POST {APP_URL}/webhooks/biteship` | Dashboard → Integrations → Webhook, event `order.status`, `order.waybill_id`, `order.price`, dengan header `X-Biteship-Secret: <BITESHIP_WEBHOOK_SECRET>`. |
+| KiriminAja | shipping `kiriminaja` | `POST {APP_URL}/webhooks/kiriminaja` | `php artisan kiriminaja:set-callback` (lewat API, satu URL per akun; harus https publik). |
+
+Semua webhook hanya dipakai sebagai **sinyal**: status dan nominal selalu dibaca ulang dari API provider sebelum order/shipment diubah, pelunasan lewat `MarkOrderPaid` dengan cek nominal persis, dan callback duplikat aman.
+
+#### Xendit
+
+Metode bayar (`xendit-qris`, `xendit-va-bca|bni|bri|mandiri|permata`, `xendit-ovo|dana|shopeepay|linkaja`, `xendit-credit-card`) membuka halaman Invoice Xendit langsung pada channel yang dipilih (`metadata.channel_code`). Channel harus sudah aktif di akun Xendit; matikan metode yang channel-nya belum aktif. Kartu kredit tidak pernah aktif otomatis. `xendit:status` menampilkan mode dan kesiapan.
+
+| Variable | Keterangan |
+| --- | --- |
+| `XENDIT_SECRET_KEY` | Secret key. `xnd_development_` = test, `xnd_production_` = live. Key test ditolak di `APP_ENV=production` kecuali `XENDIT_ALLOW_DEVELOPMENT_KEY_IN_PRODUCTION=true`. |
+| `XENDIT_CALLBACK_TOKEN` | Token verifikasi webhook (header `x-callback-token`). |
+| `XENDIT_INVOICE_DURATION` | Umur invoice dalam detik (default 86400). |
+| `XENDIT_SUCCESS_REDIRECT_URL` / `XENDIT_FAILURE_REDIRECT_URL` | Default halaman order pelanggan; `{order}` diganti id order. |
+| `XENDIT_TIMEOUT` | Timeout HTTP (detik, default 15). |
+
+Catatan: jika akun Xendit membebankan biaya ke pembeli, `paid_amount` lebih besar dari total order dan pembayaran dianggap selisih nominal (perlu dicek manual). Matikan pembebanan biaya ke pembeli.
+
+#### Midtrans
+
+Metode bayar (`midtrans-qris`, `-gopay`, `-shopeepay`, `-bca-va`, `-bni-va`, `-bri-va`, `-mandiri-bill`, `-permata-va`, `-other-va`, `-credit-card`) membuka Snap pada channel yang dipilih (`enabled_payments`). Percobaan bayar ulang memakai order id `{nomor}~{n}`.
+
+| Variable | Keterangan |
+| --- | --- |
+| `MIDTRANS_SERVER_KEY` | Server key. |
+| `MIDTRANS_CLIENT_KEY` | Opsional (untuk Snap.js nanti; alur redirect tidak memakainya). |
+| `MIDTRANS_IS_PRODUCTION` | **Wajib `true` di production**; tanpa nilai di production driver dianggap belum terkonfigurasi. Di luar production kosong = sandbox. Key `SB-` dengan `true` ditolak. |
+| `MIDTRANS_EXPIRY_MINUTES` | Umur transaksi dan halaman Snap (default 1440, maks 7 hari). |
+| `MIDTRANS_FINISH_URL` | Default halaman order pelanggan. |
+| `MIDTRANS_TIMEOUT` | Timeout HTTP (detik, default 30). |
+
+#### Biteship
+
+Tarif `POST /v1/rates/couriers` (area id, fallback kode pos; di-cache per rute + berat), booking `POST /v1/orders` setelah order lunas (`shipping:fulfill-paid`), tracking, cancel. Tidak ada API label: pakai label thermal bawaan cpanel. Kurir instan (Gojek/Grab dll.) dan COD belum didukung.
+
+| Variable | Keterangan |
+| --- | --- |
+| `BITESHIP_API_KEY` | `biteship_test.` / `biteship_live.`. Key test ditolak di production (`BITESHIP_ALLOW_TEST_KEY=true` untuk mengizinkan), key live ditolak di `local`/`testing` (`BITESHIP_ALLOW_LIVE_KEY=true`). |
+| `BITESHIP_WEBHOOK_SECRET` | Secret buatan sendiri, dikirim Biteship sebagai header `BITESHIP_WEBHOOK_HEADER` (default `X-Biteship-Secret`). Kosong = event ditolak 401. |
+| `BITESHIP_DELIVERY_TYPE` / `BITESHIP_PICKUP_TIME` | `now` atau `scheduled` + jam WIB `HH:mm`. |
+| `BITESHIP_RATE_CACHE_HOURS` | Default 12; 0 = tanpa cache. |
+| `BITESHIP_ITEM_CATEGORY`, `BITESHIP_TIMEOUT`, `BITESHIP_BASE_URL` | Opsional. |
+
+#### KiriminAja
+
+Id tujuan `{kecamatan}:{kelurahan}`. Tarif `shipping_price` (di-cache), `request_pickup` setelah order lunas, tracking, cancel sebelum pickup. COD tidak didukung (app hanya mengirim order lunas). Akun tanpa KA Credit / Term of Payment menerima `qr_url` dan AWB baru keluar setelah merchant membayar: untuk pengiriman otomatis gunakan KA Credit atau ToP.
+
+| Variable | Keterangan |
+| --- | --- |
+| `KIRIMINAJA_API_KEY` | Bearer key dari dashboard KiriminAja. |
+| `KIRIMINAJA_BASE_URL` | Di luar production default sandbox `https://tdev.kiriminaja.com`. **Production wajib diisi** `https://client.kiriminaja.com`. |
+| `KIRIMINAJA_WEBHOOK_SECRET` | Opsional, ditambahkan sebagai `?token=` di URL callback. |
+| `KIRIMINAJA_PICKUP_SCHEDULE` | `auto` (slot terdekat) atau `HH:MM` WIB. `KIRIMINAJA_DROP_OFF=true` untuk drop di counter. |
+| `KIRIMINAJA_INSURANCE` | Asuransikan semua paket (biaya ditambahkan ke ongkir). |
+| `KIRIMINAJA_REQUEST_PICKUP_PATH` | Default `api/mitra/v6.1/request_pickup` (v6.2 butuh koordinat kedua sisi; uji di sandbox dulu). |
+| `KIRIMINAJA_SYNC_WHITELIST` | Juga kirim kurir aktif ke `set_whitelist_services`. |
+| `KIRIMINAJA_RATE_CACHE_HOURS`, `KIRIMINAJA_PACKAGE_TYPE_ID`, `KIRIMINAJA_ORDER_PREFIX`, `KIRIMINAJA_TIMEOUT` | Opsional. |
 
 ### Production ops (wajib jalan)
 

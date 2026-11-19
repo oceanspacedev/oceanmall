@@ -52,6 +52,21 @@ return [
             'enabled' => filter_var(env('PAYMENT_KOMERCE_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         ],
 
+        /*
+         | Xendit (Invoice) and Midtrans (Snap), registered by their modules
+         | (app/Integrations/Xendit, app/Integrations/Midtrans). Credentials
+         | live in each module's config (keys `xendit`, `midtrans`). Without a
+         | key the driver reports isConfigured() = false and its methods are
+         | not offered, so filling the key plugs the gateway in.
+         */
+        'xendit' => [
+            'enabled' => filter_var(env('PAYMENT_XENDIT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        ],
+
+        'midtrans' => [
+            'enabled' => filter_var(env('PAYMENT_MIDTRANS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        ],
+
     ],
 
 ];

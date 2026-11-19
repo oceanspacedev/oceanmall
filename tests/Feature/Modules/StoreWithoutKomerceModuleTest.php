@@ -53,10 +53,11 @@ final class StoreWithoutKomerceModuleTest extends TestCase
     {
         $app = require Application::inferBasePath().'/bootstrap/app.php';
 
-        // bootstrap/providers.php minus the Komerce module line.
+        // bootstrap/providers.php minus every provider module line
+        // (app/Integrations/*: Komerce, Xendit, Midtrans, Biteship, KiriminAja).
         $providers = array_values(array_filter(
             require $app->getBootstrapProvidersPath(),
-            static fn (string $provider): bool => $provider !== KomerceServiceProvider::class,
+            static fn (string $provider): bool => ! str_starts_with($provider, 'App\\Integrations\\'),
         ));
         $this->providersFile = sys_get_temp_dir().DIRECTORY_SEPARATOR.'oceanmall-providers-'.bin2hex(random_bytes(6)).'.php';
         file_put_contents($this->providersFile, '<?php return '.var_export($providers, true).';');
@@ -90,6 +91,14 @@ final class StoreWithoutKomerceModuleTest extends TestCase
         $this->assertNotContains('komerce', Payment::availableDrivers());
         $this->assertFalse(Payment::isConfigured('komerce'));
         $this->assertTrue(resolve(ShippingCapabilities::class)->drivers()->isEmpty());
+
+        foreach (['biteship', 'kiriminaja'] as $code) {
+            $this->assertNotContains($code, Shipping::availableDrivers());
+        }
+
+        foreach (['xendit', 'midtrans'] as $code) {
+            $this->assertNotContains($code, Payment::availableDrivers());
+        }
 
         $this->post('/webhooks/komerce/payment', [])->assertNotFound();
     }

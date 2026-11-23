@@ -5,6 +5,10 @@ import { COLORS } from '@/lib/theme';
 import { Tabs } from 'expo-router/js-tabs';
 import { House, Search, ShoppingCart, UserRound, type LucideIcon } from 'lucide-react-native';
 import { StyleSheet, type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+/** Bar height above the bottom inset: 4 + 5 + 24 (icon) + label line + 5, with room to spare. */
+const TAB_BAR_HEIGHT = 60;
 
 /** Tab glyph: outlined when idle, filled (and a touch bolder) when its tab is the active one. */
 function TabGlyph({
@@ -42,12 +46,19 @@ export default function TabsLayout() {
   const { itemCount } = useCart();
   // Unread notifications live behind the account tab, so the badge is on Akun.
   const { unread } = useUnreadCount();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
+          // The default bar is 49dp + the bottom inset, which leaves the 24dp
+          // icon and the 11sp label (plus the item paddings) no room: on
+          // Android the label line was cut off ("Keranjang" lost its
+          // descenders). The bar still adds the inset as paddingBottom, so a
+          // custom height must include it.
+          height: TAB_BAR_HEIGHT + insets.bottom,
           backgroundColor: COLORS.white,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: COLORS.border,

@@ -90,8 +90,14 @@
             "dont-discover": []
         },
         "patches": {
+            "shopper/cart": {
+                "Apply a limited coupon on its last allowed use (price the cart before reserving the discount)": "patches/shopper-cart-coupon-last-use.patch"
+            },
             "shopper/core": {
                 "Treat IDR as zero-decimal currency (no /100, no fraction digits)": "patches/shopper-core-idr-zero-decimal.patch"
+            },
+            "shopper/framework": {
+                "Accept zero-decimal prices >= 1,000,000 and render orders whose product was deleted": "patches/shopper-framework-idr-prices-deleted-products.patch"
             }
         },
         "composer-exit-on-patch-failure": true

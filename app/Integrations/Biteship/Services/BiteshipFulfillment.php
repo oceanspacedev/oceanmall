@@ -15,7 +15,9 @@ use App\Models\OrderShipmentLine;
 use App\Shipping\AddressDestination;
 use App\Shipping\DestinationCoordinateResolver;
 use App\Shipping\InventoryOrigins;
+use App\Shipping\ShipmentFulfillment;
 use App\Shipping\ShipmentMetadata;
+use App\Shipping\ShipmentNotFulfillable;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 use Shopper\Core\Enum\Dimension\Length;
@@ -64,6 +66,9 @@ final readonly class BiteshipFulfillment
         try {
             $this->execute($shipment);
             $this->clearError($shipment);
+        } catch (ShipmentNotFulfillable $e) {
+            // Not a provider failure: the order was closed / the parcel left.
+            throw $e;
         } catch (Throwable $e) {
             $this->recordError($shipment, $e->getMessage());
 
@@ -99,6 +104,10 @@ final readonly class BiteshipFulfillment
         }
 
         $payload = $this->payload($shipment);
+
+        // A cancelled / completed order, or a parcel that left meanwhile, is
+        // never booked: re-read right before the paid booking call.
+        ShipmentFulfillment::assertEligible($shipment);
 
         try {
             $response = $this->client->createOrder($payload);

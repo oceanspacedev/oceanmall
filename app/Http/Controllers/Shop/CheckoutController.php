@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Shop;
 
+use App\Actions\Checkout\AttachCartShippingAddress;
 use App\Actions\Checkout\BuildShippingPackages;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
 use App\Actions\Checkout\InitiateOrderPayment;
 use App\Actions\Checkout\PersistUserShippingAddress;
+use App\Actions\Checkout\SelectedShipmentRates;
 use App\Actions\CreateOrder;
 use App\Actions\Notify\NotifyOrderCustomer;
 use App\Actions\Warehouse\SuggestAllocation;
@@ -36,12 +38,13 @@ use Inertia\Response;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\CartSessionManager;
 use Shopper\Cart\Models\Cart;
-use Shopper\Core\Enum\AddressType;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderPaid;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Payment\Models\PaymentTransaction;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 final class CheckoutController extends Controller
@@ -105,6 +108,10 @@ final class CheckoutController extends Controller
                     $applied = $persistAddress->toCheckoutShippingAddress($defaultAddress);
                     if ($applied !== null) {
                         session()->put(CheckoutSession::SHIPPING_ADDRESS, $applied);
+                        // The cart address drives the tax and the order address.
+                        resolve(AttachCartShippingAddress::class)->handle($cart, $applied);
+                        $cart->unsetRelation('addresses');
+                        $context = resolve(CartManager::class)->calculate($cart);
                         $shippingAddress = $applied;
                         $checkout = session()->get(CheckoutSession::KEY, []);
                     }
@@ -130,6 +137,19 @@ final class CheckoutController extends Controller
                 $deliveryOptions = reset($deliveryOptionsByShipment) ?: [];
             } elseif (count($deliveryOptionsByShipment) === 0) {
                 $deliveryOptions = resolve(FetchDeliveryRates::class)->handle($shippingAddress, $packages);
+            }
+
+            // The plan is recomputed on every render: when it no longer
+            // matches the picked rates (the cart now splits or merges, ships
+            // from another warehouse, or a package's lines changed), the
+            // customer picks the courier again.
+            $plan = session()->get(CheckoutSession::ALLOCATION_PLAN);
+
+            if ($shippingOption && $allocation !== null && $plan instanceof AllocationPlan
+                && ! resolve(SelectedShipmentRates::class)->coverPlan($plan, $checkout)) {
+                session()->forget([CheckoutSession::SHIPPING_OPTION, CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT]);
+                $checkout = session()->get(CheckoutSession::KEY, []);
+                $shippingOption = null;
             }
         }
 
@@ -323,16 +343,7 @@ final class CheckoutController extends Controller
         session()->put(CheckoutSession::SHIPPING_ADDRESS, $data);
 
         if ($cart = resolve(CartSessionManager::class)->current()) {
-            resolve(CartManager::class)->addAddress($cart, AddressType::Shipping, [
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'address_1' => $data['street_address'],
-                'address_2' => $data['street_address_plus'] ?? null,
-                'postal_code' => $data['postal_code'],
-                'city' => $data['city'],
-                'phone' => $data['phone_number'] ?? null,
-                'country_id' => $zone?->countryId,
-            ]);
+            resolve(AttachCartShippingAddress::class)->handle($cart, $data);
         }
 
         if ($user = Auth::user()) {
@@ -366,6 +377,13 @@ final class CheckoutController extends Controller
         ]);
 
         $allocationPlan = session()->get(CheckoutSession::ALLOCATION_PLAN);
+
+        // A cart split over several warehouses needs a rate per package
+        // (the `rates` map): one service_code would leave the others unpaid.
+        if ($allocationPlan instanceof AllocationPlan && count($allocationPlan->shipments) > 1) {
+            return back()->withErrors(['service_code' => __('Please select a delivery option for all packages.')]);
+        }
+
         $singleShipment = ($allocationPlan instanceof AllocationPlan && count($allocationPlan->shipments) === 1)
             ? $allocationPlan->shipments[0]
             : null;
@@ -385,9 +403,12 @@ final class CheckoutController extends Controller
             return back()->withErrors(['service_code' => __('Selected option is no longer available.')]);
         }
 
-        session()->forget(CheckoutSession::SHIPPING_OPTION);
-        // Generic fields plus whatever details the quoting driver attached.
-        session()->push(CheckoutSession::SHIPPING_OPTION, SelectedRate::fromQuote($selected));
+        session()->forget([CheckoutSession::SHIPPING_OPTION, CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT]);
+        // Generic fields plus whatever details the quoting driver attached,
+        // and the package it was quoted for (a re-plan of it voids the rate).
+        session()->push(CheckoutSession::SHIPPING_OPTION, $singleShipment !== null
+            ? resolve(SelectedShipmentRates::class)->stamp(SelectedRate::fromQuote($selected), $singleShipment)
+            : SelectedRate::fromQuote($selected));
 
         Inertia::flash('toast', [
             'type' => 'success',
@@ -449,7 +470,9 @@ final class CheckoutController extends Controller
                 return back()->withErrors(['rates' => __('Selected option is no longer available.')]);
             }
 
-            $selectedRates[$inventoryId] = SelectedRate::fromQuote($selected);
+            // Tied to the package it was quoted for (a re-plan of it voids the rate).
+            $selectedRates[$inventoryId] = resolve(SelectedShipmentRates::class)
+                ->stamp(SelectedRate::fromQuote($selected), $shipmentDraft);
 
             $totalPrice += (int) $selected['amount'];
         }
@@ -546,7 +569,7 @@ final class CheckoutController extends Controller
      * instructions / QR on the success page, or a hosted payment page.
      * Confirm-first drivers (ConfirmsBeforeOrder) use confirmReturn.
      */
-    public function placeOrder(Request $request): RedirectResponse
+    public function placeOrder(Request $request): HttpResponse
     {
         $data = $request->validate([
             'payment_method_id' => ['required', 'integer'],
@@ -577,6 +600,21 @@ final class CheckoutController extends Controller
             resolve(CartSessionManager::class)->forget();
 
             ['result' => $result, 'action' => $action] = resolve(InitiateOrderPayment::class)->handle($order, $selectedMethod);
+        } catch (HttpExceptionInterface $e) {
+            // CreateOrder refuses with a customer-facing 422 (last unit sold
+            // meanwhile, a package without a delivery option): show that
+            // message instead of the generic error. Nothing was created.
+            if ($order === null) {
+                return back()->withErrors([
+                    'order' => $e->getMessage() !== '' ? $e->getMessage() : __('An error occurred while placing your order. Please try again.'),
+                ]);
+            }
+
+            report($e);
+
+            return redirect()
+                ->route('account.orders.show', ['order' => $order->id])
+                ->with('error', __('Your order was placed but payment setup failed. You can retry payment from this order page.'));
         } catch (Throwable $e) {
             report($e);
 
@@ -596,7 +634,11 @@ final class CheckoutController extends Controller
         }
 
         if (($action['kind'] ?? null) === 'redirect' && is_string($action['data']['url'] ?? null)) {
-            return redirect()->away($action['data']['url']);
+            // Place order is an Inertia XHR: an external 302 would be followed
+            // by the XHR itself (CORS-blocked). Inertia::location answers 409 +
+            // X-Inertia-Location so the client does a full-page visit; plain
+            // requests still get a 302.
+            return Inertia::location($action['data']['url']);
         }
 
         session()->put(self::PAYMENT_ACTION_SESSION, $action);

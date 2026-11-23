@@ -1,0 +1,21 @@
+Price the cart before reserving the coupon when an order is created from a cart. reserveDiscount() increments total_use first, so on the last allowed use of a usage_limit coupon DiscountValidator saw this cart's own reservation as the limit being reached and dropped the discount: the order was charged full price while it still recorded the discount code, the item discount amounts and the spent use. The atomic conditional increment in reserveDiscount() still enforces the limit (and throws DiscountLimitReachedException when the last use is taken concurrently).
+
+--- a/src/Actions/CreateOrderFromCartAction.php
++++ b/src/Actions/CreateOrderFromCartAction.php
+@@ -41,10 +41,14 @@
+                 throw new CartCompletedException;
+             }
+ 
+-            $discount = $this->reserveDiscount($cart);
+-
++            // Price the cart before reserving the discount: the reservation
++            // increments total_use, and DiscountValidator would otherwise see
++            // this cart's own reservation as the limit being reached and drop
++            // the discount on its last allowed use.
+             $context = $this->cartManager->calculate($cart);
+ 
++            $discount = $this->reserveDiscount($cart);
++
+             $shippingAddress = $this->createOrderAddress($cart->shippingAddress(), $cart->customer_id);
+             $billingAddress = $this->createOrderAddress($cart->billingAddress(), $cart->customer_id);
+ 

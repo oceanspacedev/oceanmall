@@ -24,6 +24,7 @@ use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Models\Carrier;
@@ -199,7 +200,9 @@ final class ProviderDriverPipelineTest extends TestCase
 
     public function test_paid_shipments_are_fulfilled_by_their_own_driver(): void
     {
-        $order = Order::factory()->create(['currency_code' => 'IDR', 'payment_status' => PaymentStatus::Paid]);
+        // An open order: the factory picks a random status, and a cancelled /
+        // completed / archived order is (rightly) never booked.
+        $order = Order::factory()->create(['currency_code' => 'IDR', 'status' => OrderStatus::Processing, 'payment_status' => PaymentStatus::Paid]);
         $acmeShipment = $this->shipment($order, 'acme');
         $manualShipment = $this->shipment($order, 'manual');
 

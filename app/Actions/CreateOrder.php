@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Actions\Checkout\AttachCartShippingAddress;
+use App\Actions\Checkout\SelectedShipmentRates;
 use App\Actions\Warehouse\SuggestAllocation;
 use App\CheckoutSession;
 use App\DTO\AllocationPlan;
@@ -17,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Shopper\Cart\Actions\CreateOrderFromCartAction;
+use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
@@ -38,6 +41,7 @@ final class CreateOrder
 
         abort_unless(
             $checkout
+            && is_array(data_get($checkout, 'shipping_address'))
             && data_get($checkout, 'shipping_option')
             && data_get($checkout, 'payment'),
             422,
@@ -61,15 +65,37 @@ final class CreateOrder
 
         try {
             return DB::transaction(function () use ($cart, $checkout): Order {
-                $allocationPlan = $this->resolveAllocationPlan($cart, $checkout);
-
-                $context = resolve(CheckoutAllocationContext::class);
-                $context->set($allocationPlan);
-
                 try {
-                    $order = resolve(CreateOrderFromCartAction::class)->execute($cart);
-                } finally {
-                    $context->clear();
+                    $allocationPlan = $this->resolveAllocationPlan($cart, $checkout);
+
+                    // Every package of the plan ships at the rate picked for
+                    // it; a package without one would ship for Rp0 (a split
+                    // cart given a single rate, or a plan that split after
+                    // the rate was picked).
+                    abort_unless(
+                        resolve(SelectedShipmentRates::class)->coverPlan($allocationPlan, $checkout),
+                        422,
+                        __('Please select a delivery option for all packages.'),
+                    );
+
+                    // Shopper takes the order address and the tax from the
+                    // cart's address row: make it the address the customer
+                    // confirmed (a saved address lives only in the checkout state).
+                    resolve(AttachCartShippingAddress::class)->handle($cart, (array) data_get($checkout, 'shipping_address'));
+                    $cart->unsetRelation('addresses');
+
+                    $context = resolve(CheckoutAllocationContext::class);
+                    $context->set($allocationPlan);
+
+                    try {
+                        $order = resolve(CreateOrderFromCartAction::class)->execute($cart);
+                    } finally {
+                        $context->clear();
+                    }
+                } catch (InsufficientStockException) {
+                    // The stock the plan counted on is gone (sold meanwhile or
+                    // lowered by staff): nothing stays reserved, the order is refused.
+                    abort(422, __('Some items in your cart are no longer in stock. Please update your cart and try again.'));
                 }
 
                 $shipmentTotal = $this->storeShipments($order, $allocationPlan, $checkout);
@@ -285,10 +311,11 @@ final class CreateOrder
         }
 
         $shipmentCount = count($allocationPlan->shipments);
+        $rates = resolve(SelectedShipmentRates::class);
         $total = 0;
 
         foreach ($allocationPlan->shipments as $shipmentDraft) {
-            $rate = $this->rateForShipment($shipmentDraft, $checkout, $shipmentCount);
+            $rate = $rates->forShipment($shipmentDraft, $checkout, $shipmentCount);
             $cost = $this->rateCost($rate);
             $total += $cost;
             $rate = $this->normalizeRate($rate, $cost);
@@ -329,38 +356,6 @@ final class CreateOrder
         }
 
         return $total;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function rateForShipment(ShipmentDraft $shipmentDraft, mixed $checkout, int $shipmentCount): array
-    {
-        $ratesByShipment = data_get($checkout, 'shipping_options_by_shipment', []);
-
-        if (is_array($ratesByShipment)) {
-            foreach ([
-                $shipmentDraft->inventory_id,
-                (string) $shipmentDraft->inventory_id,
-            ] as $key) {
-                if (array_key_exists($key, $ratesByShipment) && is_array($ratesByShipment[$key])) {
-                    return $ratesByShipment[$key];
-                }
-            }
-
-            foreach ($ratesByShipment as $rate) {
-                if (
-                    is_array($rate)
-                    && (int) data_get($rate, 'inventory_id') === $shipmentDraft->inventory_id
-                ) {
-                    return $rate;
-                }
-            }
-        }
-
-        $globalRate = data_get($checkout, 'shipping_option.0');
-
-        return $shipmentCount === 1 && is_array($globalRate) ? $globalRate : [];
     }
 
     /**

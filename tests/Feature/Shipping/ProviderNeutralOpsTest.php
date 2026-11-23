@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Sanctum\Sanctum;
 use Livewire\Livewire;
+use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
@@ -396,7 +397,9 @@ final class ProviderNeutralOpsTest extends TestCase
 
     private function paidOrder(): Order
     {
-        return Order::factory()->create(['currency_code' => 'IDR', 'payment_status' => PaymentStatus::Paid]);
+        // An open order: the factory picks a random status, and a cancelled /
+        // completed / archived order is (rightly) never booked.
+        return Order::factory()->create(['currency_code' => 'IDR', 'status' => OrderStatus::Processing, 'payment_status' => PaymentStatus::Paid]);
     }
 
     /**

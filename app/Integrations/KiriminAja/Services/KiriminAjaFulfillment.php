@@ -14,7 +14,9 @@ use App\Models\OrderShipmentLine;
 use App\Shipping\AddressDestination;
 use App\Shipping\DestinationCoordinateResolver;
 use App\Shipping\InventoryOrigins;
+use App\Shipping\ShipmentFulfillment;
 use App\Shipping\ShipmentMetadata;
+use App\Shipping\ShipmentNotFulfillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -84,6 +86,9 @@ final readonly class KiriminAjaFulfillment
             try {
                 $this->execute($shipment);
                 $this->clearError($shipment);
+            } catch (ShipmentNotFulfillable $e) {
+                // Not a provider failure: the order was closed / the parcel left.
+                throw $e;
             } catch (Throwable $e) {
                 $this->recordError($shipment, $e->getMessage());
 
@@ -130,6 +135,10 @@ final readonly class KiriminAjaFulfillment
         }
 
         $payload = $this->payload($shipment, $order, $orderId);
+
+        // A cancelled / completed order, or a parcel that left meanwhile, is
+        // never booked: re-read right before the pickup request.
+        ShipmentFulfillment::assertEligible($shipment);
 
         $bucket['order_id'] = $orderId;
         $bucket['attempted_at'] = now()->toIso8601String();

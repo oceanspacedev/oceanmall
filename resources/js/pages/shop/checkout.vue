@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { Check, ChevronRight, Lock, ShoppingBag, Truck } from 'lucide-vue-next';
 import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue';
 import type { Component } from 'vue';
@@ -443,6 +443,18 @@ function submitMultiShipping(): void {
 const paymentForm = useForm<{ payment_method_id: number | null }>({
     payment_method_id: props.selectedPaymentMethod ?? null,
 });
+
+// Server-side refusals that belong to no single field (sold out meanwhile,
+// a package without a delivery option, payment setup) arrive as page errors.
+const page = usePage();
+const pageErrors = computed(
+    () => (page.props.errors ?? {}) as Record<string, string | undefined>,
+);
+const checkoutErrors = computed(() =>
+    [pageErrors.value.order, pageErrors.value.payment].filter(
+        (message): message is string => !!message,
+    ),
+);
 
 const selectedPaymentMethodValue = computed<string>({
     get: () =>
@@ -1164,6 +1176,12 @@ const steps = [
                             >
                                 {{ shippingForm.errors.service_code }}
                             </p>
+                            <p
+                                v-if="pageErrors.rates"
+                                class="text-xs text-red-600"
+                            >
+                                {{ pageErrors.rates }}
+                            </p>
 
                             <RadioGroup
                                 v-model="selectedShippingServiceValue"
@@ -1269,6 +1287,14 @@ const steps = [
                         >
                             {{ paymentForm.errors.payment_method_id }}
                         </p>
+
+                        <Alert
+                            v-for="message in checkoutErrors"
+                            :key="message"
+                            variant="destructive"
+                        >
+                            <AlertDescription>{{ message }}</AlertDescription>
+                        </Alert>
 
                         <p
                             v-if="!paymentOptions.length"

@@ -15,8 +15,13 @@ use App\Models\OrderShipmentLine;
 use App\Shipping\AddressDestination;
 use App\Shipping\DestinationCoordinateResolver;
 use App\Shipping\InventoryOrigins;
+use App\Shipping\ProviderRequestFailure;
+use App\Shipping\ShipmentFulfillment;
+use App\Shipping\ShipmentNotFulfillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Shopper\Core\Enum\Dimension\Length;
@@ -38,11 +43,36 @@ use Throwable;
  */
 final class KomerceDeliveryFulfillment
 {
+    /**
+     * metadata.komerce key set while a Store Order request is in flight; see
+     * rememberStoreOrderAttempt(). Staff clear it after checking Komerce.
+     */
+    public const STORE_ORDER_PENDING = 'store_order_pending_at';
+
     private const RELATIONS = ['order.shippingAddress', 'order.items', 'order.customer', 'inventory', 'lines.purchasable'];
 
     public function __construct(private readonly ShippingDeliveryClient $delivery) {}
 
     public function fulfill(OrderShipment $shipment): void
+    {
+        // Store Order carries no idempotency key: the paid-order job, the
+        // shipping:fulfill-paid sweep and the cpanel button must never send
+        // it twice for one shipment. Whoever holds the lock books it; the
+        // others leave it (order_no is re-read once the lock is held).
+        $lock = Cache::lock('komerce:fulfill:'.$shipment->id, ShipmentFulfillment::LOCK_SECONDS);
+
+        if (! $lock->get()) {
+            return;
+        }
+
+        try {
+            $this->fulfillLocked($shipment);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function fulfillLocked(OrderShipment $shipment): void
     {
         $shipment = OrderShipment::query()->with(self::RELATIONS)->findOrFail($shipment->id);
 
@@ -53,6 +83,9 @@ final class KomerceDeliveryFulfillment
         try {
             $this->execute($shipment);
             $this->clearFulfillmentError($shipment->refresh());
+        } catch (ShipmentNotFulfillable $e) {
+            // Not a provider failure: the order was closed / the parcel left.
+            throw $e;
         } catch (ShippingException $e) {
             $this->persistFulfillmentError($shipment, $e->getMessage());
 
@@ -125,14 +158,44 @@ final class KomerceDeliveryFulfillment
                 throw new RuntimeException('Stored Komerce delivery metadata has an order_id without an order_no.');
             }
 
+            // An earlier Store Order got no definite answer (timeout, 5xx,
+            // crash): Komerce may hold that order already and there is no
+            // lookup by our reference, so never POST it again blindly.
+            if ($this->firstScalar($metadata, ['komerce.'.self::STORE_ORDER_PENDING]) !== null) {
+                throw new RuntimeException(self::storeOrderUnknownMessage());
+            }
+
             $payload = $this->storeOrderPayload($shipment);
-            $storeResponse = $delivery->storeOrder($payload);
-            $this->assertSuccessfulEnvelope($storeResponse, 'store-order');
+
+            ShipmentFulfillment::assertEligible($shipment);
+            $this->rememberStoreOrderAttempt($shipment);
+
+            try {
+                $storeResponse = $delivery->storeOrder($payload);
+            } catch (Throwable $e) {
+                if (! $this->storeOrderMayExist($e)) {
+                    $this->forgetStoreOrderAttempt($shipment);
+
+                    throw $e;
+                }
+
+                throw new RuntimeException(self::storeOrderUnknownMessage(), 0, $e);
+            }
+
+            try {
+                $this->assertSuccessfulEnvelope($storeResponse, 'store-order');
+            } catch (RuntimeException $e) {
+                // Komerce answered and rejected it: nothing was created.
+                $this->forgetStoreOrderAttempt($shipment);
+
+                throw $e;
+            }
 
             $deliveryOrderId = $this->firstScalar($storeResponse, ['data.order_id']);
             $deliveryOrderNo = $this->firstScalar($storeResponse, ['data.order_no']);
 
             if ($deliveryOrderId === null || $deliveryOrderNo === null) {
+                // "success" without an order number: the order may exist.
                 throw new RuntimeException('Komerce store-order response must include data.order_id and data.order_no.');
             }
 
@@ -157,6 +220,8 @@ final class KomerceDeliveryFulfillment
         if (preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/', $pickupTime) !== 1) {
             throw new RuntimeException('Komerce pickup time must use the HH:mm:ss format.');
         }
+
+        ShipmentFulfillment::assertEligible($shipment);
 
         $pickupResponse = $delivery->requestPickup([
             'pickup_date' => $this->pickupDate($pickupTime),
@@ -678,8 +743,60 @@ final class KomerceDeliveryFulfillment
             'order_no' => $deliveryOrderNo,
             'store_order_response' => $storeResponse,
         ]), static fn (mixed $value): bool => $value !== null);
+        unset($metadata['komerce'][self::STORE_ORDER_PENDING]);
 
         return $metadata;
+    }
+
+    /**
+     * Recorded BEFORE Store Order is sent, removed once Komerce answers
+     * (order number stored, or a definite rejection). When it survives, the
+     * outcome is unknown and the shipment waits for staff reconciliation.
+     */
+    private function rememberStoreOrderAttempt(OrderShipment $shipment): void
+    {
+        $metadata = $this->decodeMetadata($shipment->metadata);
+        $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
+        $komerce[self::STORE_ORDER_PENDING] = now()->toIso8601String();
+        $metadata['komerce'] = $komerce;
+
+        $shipment->forceFill(['metadata' => $metadata])->save();
+    }
+
+    private function forgetStoreOrderAttempt(OrderShipment $shipment): void
+    {
+        $metadata = $this->decodeMetadata($shipment->metadata);
+
+        if (! isset($metadata['komerce'][self::STORE_ORDER_PENDING])) {
+            return;
+        }
+
+        unset($metadata['komerce'][self::STORE_ORDER_PENDING]);
+        $shipment->forceFill(['metadata' => $metadata])->save();
+    }
+
+    /**
+     * Could Komerce have created the order although we got no answer? Yes
+     * after a read timeout / empty reply or a 5xx; no when the request never
+     * left (DNS / connect failure), was refused with a 4xx, or failed before
+     * sending (not configured, invalid payload).
+     */
+    private function storeOrderMayExist(Throwable $exception): bool
+    {
+        if ($exception instanceof ConnectionException) {
+            return ! ProviderRequestFailure::notSent($exception);
+        }
+
+        if ($exception instanceof RequestException) {
+            return $exception->response->serverError();
+        }
+
+        return false;
+    }
+
+    private static function storeOrderUnknownMessage(): string
+    {
+        return __('Komerce did not confirm the store order for this shipment, so it may already exist at Komerce. It is not sent again automatically: check the Komerce dashboard before booking this shipment again.');
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Integrations\Komerce\Services\Concerns;
 use App\Integrations\Komerce\Exceptions\KomerceNotConfiguredException;
 use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Support\KomerceCapabilities;
+use App\Shipping\ProviderRequestFailure;
 use Closure;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -83,7 +84,7 @@ trait UsesKomerceHttp
             ->withResponseMiddleware(resolve(KomerceCapabilities::class)->responseObserver('shipping_delivery'))
             ->connectTimeout($this->connectTimeout())
             ->timeout($this->timeout())
-            ->retry(2, 300, $this->retryOnConnectionFailure(), throw: true)
+            ->retry(2, 300, $this->retryUnsentOrReadOnConnectionFailure(), throw: true)
             ->acceptJson()
             ->asJson()
             ->withHeaders([
@@ -127,6 +128,18 @@ trait UsesKomerceHttp
     protected function retryOnConnectionFailure(): Closure
     {
         return static fn (Throwable $exception): bool => $exception instanceof ConnectionException;
+    }
+
+    /**
+     * Shipping Delivery writes (store order, pickup request) are not
+     * idempotent: a read timeout after Komerce accepted a store order would
+     * book a second parcel when re-sent. Reads retry on any connection
+     * failure; writes only when the request provably never left
+     * (DNS / connect failure), see App\Shipping\ProviderRequestFailure.
+     */
+    protected function retryUnsentOrReadOnConnectionFailure(): Closure
+    {
+        return static fn (Throwable $exception, mixed $request = null, ?string $method = null): bool => ProviderRequestFailure::retryable($exception, $method);
     }
 
     protected function timeout(): int

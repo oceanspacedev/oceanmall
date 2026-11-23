@@ -67,9 +67,14 @@ final class GatewayNeutralityTest extends TestCase
             'reference' => 'pi_123',
         ]);
         $driver->result = new WebhookResult('captured', 'pi_123', 90000);
+        // The webhook only runs with Stripe switched on and a signing secret
+        // set, and always needs a Stripe-Signature (the fake driver skips it).
+        config()->set('shopper.payment.drivers.stripe.enabled', true);
+        config()->set('shopper.payment.drivers.stripe.credentials.webhook_secret', 'whsec_test');
+        $headers = ['Stripe-Signature' => 't=1,v1=fake'];
 
-        $this->postJson('/webhooks/stripe')->assertOk()->assertJsonPath('status', 'handled');
-        $this->postJson('/webhooks/stripe')->assertOk()->assertJsonPath('status', 'already_processed');
+        $this->postJson('/webhooks/stripe', [], $headers)->assertOk()->assertJsonPath('status', 'handled');
+        $this->postJson('/webhooks/stripe', [], $headers)->assertOk()->assertJsonPath('status', 'already_processed');
 
         Event::assertDispatchedTimes(OrderPaid::class, 1);
         $this->assertSame(PaymentStatus::Paid, $order->refresh()->payment_status);

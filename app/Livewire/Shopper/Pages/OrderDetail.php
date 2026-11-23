@@ -24,7 +24,8 @@ use Shopper\Livewire\Pages\Order\Detail as ShopperOrderDetail;
  * marked paid by asking that provider, and an order whose shipments are
  * fulfilled by a provider (FulfillsShipments) completes when the provider
  * reports delivery. Manual / COD orders keep Shopper's own actions even
- * while a provider is configured for other orders.
+ * while a provider is configured for other orders, except cancel / archive:
+ * every order is cancelled through CancelOrderWithProviders.
  */
 final class OrderDetail extends ShopperOrderDetail
 {
@@ -100,21 +101,26 @@ final class OrderDetail extends ShopperOrderDetail
             });
     }
 
+    /**
+     * Every staff cancel, manual / COD included, goes through the
+     * provider-neutral CancelOrderWithProviders: it voids an unpaid payment,
+     * releases the reserved stock once, closes shipments, notifies the
+     * customer and fires OrderCancelled. Shopper's own action only flips
+     * the status, so its label, visibility and authorization are kept.
+     */
     public function cancelOrderAction(): Action
     {
-        $action = parent::cancelOrderAction();
+        $withProviders = $this->cancelsWithProviders();
 
-        if (! $this->cancelsWithProviders()) {
-            return $action;
-        }
-
-        return $action->action(function (): void {
+        return parent::cancelOrderAction()->action(function () use ($withProviders): void {
             resolve(CancelOrderWithProviders::class)->handle($this->order);
             $this->order->refresh();
             $this->dispatch('order.updated');
 
             Notification::make()
-                ->title('Pesanan dibatalkan di toko dan di penyedia pembayaran/pengiriman.')
+                ->title($withProviders
+                    ? 'Pesanan dibatalkan di toko dan di penyedia pembayaran/pengiriman.'
+                    : __('shopper::pages/orders.notifications.cancelled'))
                 ->success()
                 ->send();
         });
@@ -137,7 +143,23 @@ final class OrderDetail extends ShopperOrderDetail
         $action = parent::archiveAction();
 
         if (! $this->cancelsWithProviders()) {
-            return $action;
+            // Archiving ends an unpaid order for good: while it could still be
+            // cancelled and nothing left the warehouse, cancel it through the
+            // same path as a staff cancel first (stock back once, payment
+            // voided, shipments closed, customer told), then archive it. A
+            // shipped or delivered order (e.g. COD cash not yet marked paid)
+            // is only archived, as Shopper does.
+            return $action->before(function (): void {
+                $cancel = resolve(CancelOrderWithProviders::class);
+
+                if ($this->order->status !== OrderStatus::Cancelled
+                    && $this->order->canBeCancelled()
+                    && ! $cancel->hasShipped($this->order)) {
+                    $cancel->handle($this->order);
+                }
+
+                $this->order->refresh();
+            });
         }
 
         return $action

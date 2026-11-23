@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Checkout\AttachCartShippingAddress;
 use App\Actions\Checkout\BuildShippingPackages;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\Actions\Checkout\FetchPaymentMethods;
 use App\Actions\Checkout\InitiateOrderPayment;
 use App\Actions\Checkout\PersistUserShippingAddress;
+use App\Actions\Checkout\SelectedShipmentRates;
 use App\Actions\CreateOrder;
 use App\Actions\GetCountriesByZone;
 use App\Actions\Notify\NotifyOrderCustomer;
 use App\Actions\Warehouse\SuggestAllocation;
+use App\DTO\AllocationPlan;
 use App\DTO\CountryByZoneData;
 use App\Enums\OrderNotificationType;
 use App\Http\Controllers\Controller;
@@ -30,7 +33,6 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\Models\Cart;
-use Shopper\Core\Enum\AddressType;
 use Shopper\Core\Models\PaymentMethod;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
@@ -108,6 +110,7 @@ final class CheckoutController extends Controller
         }
 
         $this->checkoutState->putShippingAddress($user, $mapped);
+        resolve(AttachCartShippingAddress::class)->handle($this->customerCart->current($user), $mapped);
 
         return $this->show($request);
     }
@@ -164,17 +167,7 @@ final class CheckoutController extends Controller
         $data['saved_address_id'] = $saved->id;
         $this->checkoutState->putShippingAddress($user, $data);
 
-        $cart = $this->customerCart->current($user);
-        resolve(CartManager::class)->addAddress($cart, AddressType::Shipping, [
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'address_1' => $data['street_address'],
-            'address_2' => $data['street_address_plus'] ?? null,
-            'postal_code' => $data['postal_code'],
-            'city' => $data['city'],
-            'phone' => $data['phone_number'] ?? null,
-            'country_id' => $data['country_id'],
-        ]);
+        resolve(AttachCartShippingAddress::class)->handle($this->customerCart->current($user), $data);
 
         return $this->show($request);
     }
@@ -189,30 +182,54 @@ final class CheckoutController extends Controller
         }
 
         $data = $request->validate([
-            'service_code' => ['required', 'string'],
+            // Shopper service codes are string|int: Shopper zone options
+            // (manual carriers) quote the CarrierOption id as an integer.
+            'service_code' => ['required', static function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! is_string($value) && ! is_int($value)) {
+                    $fail('validation.string')->translate();
+                }
+            }],
         ]);
 
         $cart = $this->customerCart->current($user);
-        $rates = $this->ratesForCart($cart, $address);
+        ['plan' => $plan, 'by_shipment' => $ratesByShipment, 'rates' => $rates] = $this->quoteCart($cart, $address);
         $selected = collect($rates)->first(
             fn (array $option): bool => (string) $option['service_code'] === (string) $data['service_code'],
         );
 
-        if (! is_array($selected)) {
+        if (! is_array($selected) || ! $plan instanceof AllocationPlan) {
             return response()->json(['message' => 'Opsi pengiriman tidak tersedia.'], 422);
         }
 
-        // Generic fields plus whatever details the quoting driver attached.
-        $this->checkoutState->putShippingOption($user, [SelectedRate::fromQuote($selected)]);
-
         $state = $this->checkoutState->get($user);
-        try {
-            $plan = resolve(SuggestAllocation::class)->handle($cart, $address);
-            $state['allocation_plan'] = $plan;
-            $this->checkoutState->put($user, $state);
-        } catch (Throwable $e) {
-            report($e);
+        // Generic fields plus whatever details the quoting driver attached.
+        // A cart split over several warehouses ships every package with the
+        // picked service, each at its own rate; shipping_option then only
+        // sums them up (what the app shows and the payment amount checks).
+        $selectedByShipment = [];
+        $selectedRates = resolve(SelectedShipmentRates::class);
+
+        if (count($plan->shipments) > 1) {
+            foreach ($plan->shipments as $shipment) {
+                $row = collect($ratesByShipment[$shipment->inventory_id] ?? [])->first(
+                    fn (array $option): bool => (string) $option['service_code'] === (string) $data['service_code'],
+                );
+
+                if (! is_array($row)) {
+                    return response()->json(['message' => 'Opsi pengiriman tidak tersedia.'], 422);
+                }
+
+                $selectedByShipment[$shipment->inventory_id] = $selectedRates->stamp(SelectedRate::fromQuote($row), $shipment);
+            }
+
+            $state['shipping_option'] = [SelectedRate::fromQuote($selected)];
+        } else {
+            $state['shipping_option'] = [$selectedRates->stamp(SelectedRate::fromQuote($selected), $plan->shipments[0])];
         }
+
+        $state['shipping_options_by_shipment'] = $selectedByShipment;
+        $state['allocation_plan'] = $plan;
+        $this->checkoutState->put($user, $state);
 
         return $this->show($request);
     }
@@ -364,30 +381,69 @@ final class CheckoutController extends Controller
      */
     private function ratesForCart(Cart $cart, array $address): array
     {
+        return $this->quoteCart($cart, $address)['rates'];
+    }
+
+    /**
+     * Quote every package of the cart's allocation plan. The app picks one
+     * service for the whole cart, so the rows it is offered are the services
+     * every package can ship with, priced as the sum of the packages.
+     *
+     * @param  array<string, mixed>  $address
+     * @return array{plan: AllocationPlan|null, by_shipment: array<int, list<array<string, mixed>>>, rates: list<array<string, mixed>>}
+     */
+    private function quoteCart(Cart $cart, array $address): array
+    {
         try {
             $plan = resolve(SuggestAllocation::class)->handle($cart, $address);
         } catch (Throwable) {
-            return [];
+            return ['plan' => null, 'by_shipment' => [], 'rates' => []];
         }
 
         if ($plan->shipments === []) {
-            return [];
+            return ['plan' => null, 'by_shipment' => [], 'rates' => []];
         }
 
-        $lines = $plan->shipments[0]->lines;
-        $packages = resolve(BuildShippingPackages::class)->handleFromLines($lines);
+        $byShipment = [];
 
-        $rates = resolve(FetchDeliveryRates::class)->handle(
-            $address,
-            $packages,
-            $plan->shipments[0]->inventory_id,
-            ShipmentItemValue::forCart($cart, $lines),
-        );
+        foreach ($plan->shipments as $shipment) {
+            $byShipment[$shipment->inventory_id] = resolve(FetchDeliveryRates::class)->handle(
+                $address,
+                resolve(BuildShippingPackages::class)->handleFromLines($shipment->lines),
+                $shipment->inventory_id,
+                ShipmentItemValue::forCart($cart, $shipment->lines),
+            );
+        }
+
+        $rates = $byShipment[$plan->shipments[0]->inventory_id];
+
+        if (count($plan->shipments) > 1) {
+            $rates = array_values(array_filter(array_map(
+                static function (array $rate) use ($byShipment): ?array {
+                    $amount = 0;
+
+                    foreach ($byShipment as $packageRates) {
+                        $match = collect($packageRates)->first(
+                            static fn (array $option): bool => (string) $option['service_code'] === (string) $rate['service_code'],
+                        );
+
+                        if (! is_array($match)) {
+                            return null;
+                        }
+
+                        $amount += (int) ($match['amount'] ?? 0);
+                    }
+
+                    return [...$rate, 'amount' => $amount, 'shipping_cost' => $amount];
+                },
+                $rates,
+            )));
+        }
 
         // Cheapest first; a stable sort keeps the provider order for ties.
         usort($rates, static fn (array $a, array $b): int => (int) ($a['amount'] ?? 0) <=> (int) ($b['amount'] ?? 0));
 
-        return $rates;
+        return ['plan' => $plan, 'by_shipment' => $byShipment, 'rates' => $rates];
     }
 
     /**

@@ -12,11 +12,18 @@ use Shopper\Core\Models\Order;
 
 final class ReleaseOrderShipmentStock
 {
+    /**
+     * Gives the order's reserved shipment lines back to their warehouses once:
+     * metadata.stock_released_at marks the release, so a second call (a
+     * retried cancel, an expiry after a staff cancel) changes nothing.
+     */
     public function handle(Order $order): void
     {
+        $metadata = $this->metadata($order);
+
         // Legacy rows recorded the release under metadata.komerce.
-        $released = data_get($order->metadata, 'stock_released_at')
-            ?? data_get($order->metadata, 'komerce.stock_released_at');
+        $released = data_get($metadata, 'stock_released_at')
+            ?? data_get($metadata, 'komerce.stock_released_at');
 
         if (is_string($released) && $released !== '') {
             return;
@@ -33,9 +40,24 @@ final class ReleaseOrderShipmentStock
             }
         }
 
-        $metadata = is_array($order->metadata) ? $order->metadata : [];
+        // Merge into the existing metadata (address snapshot, payment refs):
+        // Shopper's Order does not cast it, so it is stored as JSON text.
         $metadata['stock_released_at'] = now()->toIso8601String();
-        $order->forceFill(['metadata' => $metadata])->save();
+        $order->forceFill(['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)])->save();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function metadata(Order $order): array
+    {
+        $metadata = $order->getAttribute('metadata');
+
+        if (is_string($metadata) && trim($metadata) !== '') {
+            $metadata = json_decode($metadata, true);
+        }
+
+        return is_array($metadata) ? $metadata : [];
     }
 
     private function releaseLine(OrderShipment $shipment, OrderShipmentLine $line, Order $order): void

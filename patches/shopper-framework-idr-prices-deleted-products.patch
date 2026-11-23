@@ -1,0 +1,103 @@
+Zero-decimal currencies and deleted products in the admin panel. (1) MoneyInput keeps zero-decimal currencies (IDR after patches/shopper-core-idr-zero-decimal.patch) in whole units, so the 2-decimal price rule regex:/^\d{1,6}(\.\d{0,2})?$/ capped product, variant and shipping option prices at 999,999; zero-decimal currencies now accept up to 9 whole-unit digits. (2) Order items keep pointing at soft-deleted (or removed) products; the orders table cell, the order items list and the shipment detail no longer dereference a null product and fall back to the stored item name and the fallback image.
+
+--- a/src/Components/Form/CurrenciesField.php
++++ b/src/Components/Form/CurrenciesField.php
+@@ -31,7 +31,7 @@
+                                 ->label(__('shopper::forms.label.price_amount'))
+                                 ->helperText(__('shopper::pages/products.amount_price_help_text'))
+                                 ->statePath($currency->id.'.amount')
+-                                ->rules(['regex:/^\d{1,6}(\.\d{0,2})?$/'])
++                                ->rules([self::amountRule($currency->code)])
+                                 ->required(fn (Get $get): bool => $get($currency->id.'.compare_amount') !== null)
+                                 ->suffix($currency->code)
+                                 ->currency($currency->code)
+@@ -43,7 +43,7 @@
+                                 ->afterStateUpdated(
+                                     fn (?string $state, Set $set): mixed => $state ?? $set($currency->id.'.compare_amount', null)
+                                 )
+-                                ->rules(['regex:/^\d{1,6}(\.\d{0,2})?$/'])
++                                ->rules([self::amountRule($currency->code)])
+                                 ->suffix($currency->code)
+                                 ->currency($currency->code)
+                                 ->live(),
+@@ -51,7 +51,7 @@
+                                 ->label(__('shopper::forms.label.cost_per_item'))
+                                 ->helperText(__('shopper::pages/products.cost_per_items_help_text'))
+                                 ->statePath($currency->id.'.cost_amount')
+-                                ->rules(['regex:/^\d{1,6}(\.\d{0,2})?$/'])
++                                ->rules([self::amountRule($currency->code)])
+                                 ->suffix($currency->code)
+                                 ->currency($currency->code),
+                         ])
+@@ -65,4 +65,17 @@
+                 ]))
+             ->toArray();
+     }
++
++    /**
++     * MoneyInput keeps zero-decimal currencies (IDR, JPY, ...) in whole units,
++     * so the 2-decimal rule (999,999.99 major units) would cap them at 999,999.
++     * Allow up to 9 whole-unit digits, which still fits the unsigned integer
++     * price columns.
++     */
++    public static function amountRule(string $currency): string
++    {
++        return is_no_division_currency($currency)
++            ? 'regex:/^\d{1,9}$/'
++            : 'regex:/^\d{1,6}(\.\d{0,2})?$/';
++    }
+ }
+--- a/src/Livewire/SlideOvers/ShippingOptionForm.php
++++ b/src/Livewire/SlideOvers/ShippingOptionForm.php
+@@ -19,6 +19,7 @@
+ use Laravelcm\LivewireSlideOvers\SlideOverComponent;
+ use Livewire\Attributes\Computed;
+ use Livewire\Attributes\Locked;
++use Shopper\Components\Form\CurrenciesField;
+ use Shopper\Components\Form\MoneyInput;
+ use Shopper\Components\Separator;
+ use Shopper\Contracts\SlideOverForm;
+@@ -86,7 +87,7 @@
+                         MoneyInput::make('price')
+                             ->label(__('shopper::forms.label.price'))
+                             ->required()
+-                            ->rules(['regex:/^\d{1,6}(\.\d{0,2})?$/'])
++                            ->rules([CurrenciesField::amountRule($this->zone->currency->code)])
+                             ->suffix($this->zone->currency->code)
+                             ->currency($this->zone->currency->code),
+                         Select::make('carrier_id')
+--- a/resources/views/livewire/tables/cells/orders/purchased.blade.php
++++ b/resources/views/livewire/tables/cells/orders/purchased.blade.php
+@@ -9,8 +9,8 @@
+ <div class="flex items-center gap-2">
+     <img
+         class="size-8 rounded-full object-cover"
+-        src="{{ $firstItem->product->getFirstMediaUrl(config('shopper.media.storage.thumbnail_collection')) }}"
+-        alt="Avatar {{ $firstItem->product->name }}"
++        src="{{ $firstItem->product?->getFirstMediaUrl(config('shopper.media.storage.thumbnail_collection')) ?? shopper_fallback_url() }}"
++        alt="Avatar {{ $firstItem->product?->name ?? $firstItem->name }}"
+     />
+ 
+     <span
+--- a/resources/views/livewire/components/orders/order-items.blade.php
++++ b/resources/views/livewire/components/orders/order-items.blade.php
+@@ -23,7 +23,7 @@
+                 <div class="flex min-w-0 flex-1 items-center gap-2">
+                     <img
+                         class="size-6 shrink-0 rounded object-cover"
+-                        src="{{ $item->product->getFirstMediaUrl(config('shopper.media.storage.thumbnail_collection')) }}"
++                        src="{{ $item->product?->getFirstMediaUrl(config('shopper.media.storage.thumbnail_collection')) ?? shopper_fallback_url() }}"
+                         alt="{{ $item->name }}"
+                     />
+                     <p class="truncate text-sm text-gray-900 dark:text-white">
+--- a/resources/views/livewire/slide-overs/shipment-detail.blade.php
++++ b/resources/views/livewire/slide-overs/shipment-detail.blade.php
+@@ -193,7 +193,7 @@
+                                 <div class="flex items-center gap-2">
+                                     <img
+                                         class="size-6 shrink-0 rounded object-cover"
+-                                        src="{{ $item->product->getFirstMediaUrl(config('shopper.media.storage.thumbnail_collection')) }}"
++                                        src="{{ $item->product?->getFirstMediaUrl(config('shopper.media.storage.thumbnail_collection')) ?? shopper_fallback_url() }}"
+                                         alt="{{ $item->name }}"
+                                     />
+                                     <span class="text-sm text-gray-700 dark:text-gray-300">

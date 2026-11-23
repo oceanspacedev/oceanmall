@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\OrderShipment;
+use App\Shipping\ShipmentFulfillment;
 use App\Shipping\ShippingCapabilities;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -18,6 +19,11 @@ use Illuminate\Queue\SerializesModels;
  * it (App\Shipping\Contracts\FulfillsShipments), whichever provider that is.
  * The driver records its own errors on the shipment and throws so the queue
  * retries.
+ *
+ * ShouldBeUnique only dedupes queue entries; the booking itself goes through
+ * App\Shipping\ShipmentFulfillment, which locks the shipment against the
+ * inline after-response run and the shipping:fulfill-paid sweep and re-checks,
+ * on every attempt, that the order is still open and the shipment unlabelled.
  */
 final class FulfillOrderShipment implements ShouldBeUnique, ShouldQueue
 {
@@ -39,18 +45,22 @@ final class FulfillOrderShipment implements ShouldBeUnique, ShouldQueue
         return (string) $this->orderShipmentId;
     }
 
-    public function handle(ShippingCapabilities $capabilities): void
+    /**
+     * @return string one of the ShipmentFulfillment outcomes (BOOKED, SKIPPED,
+     *                BUSY, NO_DRIVER), for callers that run the job inline
+     */
+    public function handle(ShippingCapabilities $capabilities): string
     {
-        $shipment = OrderShipment::query()->find($this->orderShipmentId);
+        return ShipmentFulfillment::run($this->orderShipmentId, static function (OrderShipment $shipment) use ($capabilities): bool {
+            $driver = $capabilities->fulfillerFor($shipment);
 
-        if (! $shipment instanceof OrderShipment) {
-            return;
-        }
+            if ($driver === null) {
+                return false;
+            }
 
-        if (trim((string) ($shipment->awb ?: $shipment->tracking_number)) !== '') {
-            return;
-        }
+            $driver->fulfillShipment($shipment);
 
-        $capabilities->fulfillerFor($shipment)?->fulfillShipment($shipment);
+            return true;
+        });
     }
 }

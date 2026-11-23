@@ -156,6 +156,8 @@ final class KomerceServiceProvider extends ServiceProvider
         $this->callAfterResolving(Schedule::class, static function (Schedule $schedule): void {
             $schedule->command('komerce:capabilities')
                 ->dailyAt('00:05')
+                ->withoutOverlapping(30)
+                ->onOneServer()
                 ->when(static fn (): bool => Komerce::enabled());
         });
     }

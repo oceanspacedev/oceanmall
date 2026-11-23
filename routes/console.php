@@ -21,22 +21,37 @@ Artisan::command('inspire', function () {
  */
 $shippingSupports = static fn (string $contract): Closure => static fn (): bool => resolve(ShippingCapabilities::class)->supports($contract);
 
+/*
+ | Every lifecycle command talks to providers (bookings, quota-limited APIs):
+ | a slow run must never overlap the next one, and with several app servers
+ | only one runs it (onOneServer needs the shared database / redis cache).
+ | The overlap mutex expires (minutes) so a killed run cannot block the
+ | schedule for the default 24 hours.
+ */
 Schedule::command('shipping:fulfill-paid')
     ->everyFiveMinutes()
+    ->withoutOverlapping(30)
+    ->onOneServer()
     ->when($shippingSupports(FulfillsShipments::class));
 
 Schedule::command('shipping:refresh-tracking')
     ->hourly()
+    ->withoutOverlapping(120)
+    ->onOneServer()
     ->when($shippingSupports(FulfillsShipments::class));
 
 Schedule::command('shipping:sync-carriers')
     ->dailyAt('00:15')
+    ->withoutOverlapping(120)
+    ->onOneServer()
     ->when($shippingSupports(SyncsCarriers::class));
 
 // Runs while a ready (switched on + configured) driver ExpiresPayments, or a
 // switched-off / unconfigured one still has unpaid orders to expire locally.
 Schedule::command('orders:expire-unpaid')
     ->everyFifteenMinutes()
+    ->withoutOverlapping(60)
+    ->onOneServer()
     ->when(static fn (): bool => ExpireUnpaidOrders::hasWork());
 
 // Provider-specific schedules (e.g. komerce:capabilities) are registered by

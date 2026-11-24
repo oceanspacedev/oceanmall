@@ -383,26 +383,6 @@ export type HomePayload = {
   currency: string;
 };
 
-export async function fetchFeatured(): Promise<Product[]> {
-  const res = await api<{ data: Product[] }>('/catalog/featured');
-  return res.data ?? [];
-}
-export async function fetchPromo(): Promise<Product[]> {
-  const res = await api<{ data: Product[] }>('/catalog/promo');
-  return res.data ?? [];
-}
-export async function fetchCategories(): Promise<Category[]> {
-  const res = await api<{ data: { categories: Category[] } }>('/catalog/categories');
-  return res.data.categories ?? [];
-}
-export async function fetchBrands(): Promise<Brand[]> {
-  const res = await api<{ data: Brand[] }>('/catalog/brands');
-  return res.data ?? [];
-}
-export async function fetchCollections(): Promise<Collection[]> {
-  const res = await api<{ data: Collection[] }>('/catalog/collections');
-  return res.data ?? [];
-}
 /**
  * Reports a published review as inappropriate (App Store 1.2, Play UGC policy). The server puts
  * it back to pending, so it leaves the public list until a moderator looks at it.

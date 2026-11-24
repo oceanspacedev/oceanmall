@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Shopper\Cart\Actions\CreateOrderFromCartAction;
+use Shopper\Cart\Exceptions\DiscountLimitReachedException;
 use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Models\Carrier;
@@ -96,6 +97,11 @@ final class CreateOrder
                     // The stock the plan counted on is gone (sold meanwhile or
                     // lowered by staff): nothing stays reserved, the order is refused.
                     abort(422, __('Some items in your cart are no longer in stock. Please update your cart and try again.'));
+                } catch (DiscountLimitReachedException) {
+                    // Another buyer took the coupon's last use between checkout
+                    // and this order: the atomic reservation refused it and
+                    // nothing was created. Tell the customer, not the error log.
+                    abort(422, __('The promo code in your cart has just run out. Remove it from your cart and try again.'));
                 }
 
                 $shipmentTotal = $this->storeShipments($order, $allocationPlan, $checkout);

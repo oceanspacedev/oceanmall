@@ -126,10 +126,33 @@ final class VendorShopperPatchesTest extends TestCase
         Exceptions::fake();
 
         $this->post(route('shop.checkout.place-order'), ['payment_method_id' => $this->payment->id])
-            ->assertSessionHasErrors('order');
+            ->assertSessionHasErrors(['order' => __('The promo code in your cart has just run out. Remove it from your cart and try again.')]);
 
         // The atomic reservation still guards the limit: no order, no extra use.
-        Exceptions::assertReported(DiscountLimitReachedException::class);
+        // The losing buyer gets a customer-facing 422, not an error report.
+        Exceptions::assertNotReported(DiscountLimitReachedException::class);
+        $this->assertSame(0, Order::query()->count());
+        $this->assertSame(1, (int) $discount->fresh()->total_use);
+    }
+
+    public function test_app_place_order_explains_a_coupon_that_ran_out_meanwhile(): void
+    {
+        $this->bootStore();
+        $discount = $this->coupon('RACEAPP', limit: 1);
+
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $this->postJson('/api/v1/cart/items', ['product_id' => $this->product(200000)->id, 'quantity' => 1])->assertOk();
+        $this->postJson('/api/v1/cart/coupon', ['code' => 'RACEAPP'])->assertSuccessful();
+        $this->postJson('/api/v1/checkout/shipping-address', $this->address())->assertOk();
+        $this->postJson('/api/v1/checkout/shipping-option', ['service_code' => $this->option->id])->assertOk();
+
+        $discount->update(['total_use' => 1]);
+
+        $this->postJson('/api/v1/checkout/place-order', ['payment_method_id' => $this->payment->id])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', __('The promo code in your cart has just run out. Remove it from your cart and try again.'));
+
         $this->assertSame(0, Order::query()->count());
         $this->assertSame(1, (int) $discount->fresh()->total_use);
     }

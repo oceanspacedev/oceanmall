@@ -19,7 +19,6 @@ import {
   getRecentSearches,
   rememberSearch,
 } from '@/lib/recent-searches';
-import { consumePendingSearchQuery } from '@/lib/search-query';
 import { COLORS } from '@/lib/theme';
 import { useRefresh } from '@/lib/use-refresh';
 import {
@@ -121,13 +120,7 @@ export default function SearchScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const pending = consumePendingSearchQuery();
       const fromParams = typeof params.q === 'string' ? params.q : '';
-      if (pending !== '') {
-        setQ(pending);
-        appliedQuery.current = pending;
-        return undefined;
-      }
       if (fromParams !== '' && fromParams !== appliedQuery.current) {
         setQ(fromParams);
         appliedQuery.current = fromParams;

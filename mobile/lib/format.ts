@@ -243,13 +243,54 @@ export function paymentTypeLabel(type?: string | null): string {
   return PAYMENT_TYPE_LABELS[type.toLowerCase()] ?? type.split('_').join(' ');
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+  nbsp: ' ',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+};
+
+function codePoint(code: number, raw: string): string {
+  try {
+    return String.fromCodePoint(code);
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * Rich-editor HTML (cpanel product descriptions) as plain text: paragraphs, line breaks and list
+ * items keep their own lines (bullets get "• "), entities are decoded, and blank lines collapse
+ * to one between paragraphs.
+ */
 export function stripHtml(value?: string | null): string {
   if (!value) {
     return '';
   }
 
-  return value
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    value
+      // The rich editor wraps each list item in <p>: no blank line between bullets.
+      .replace(/<\/p>\s*<\/li>/gi, '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<li[^>]*>/gi, '\n• ')
+      .replace(/<\/(p|ul|ol|h[1-6]|blockquote)>/gi, '\n\n')
+      .replace(/<\/(div|tr)>/gi, '\n')
+      // Inline tags (<strong>, <a>) vanish without a space so words they wrap are not split.
+      .replace(/<[^>]+>/g, '')
+      .replace(/&#x([0-9a-f]+);/gi, (raw, hex: string) => codePoint(parseInt(hex, 16), raw))
+      .replace(/&#(\d+);/g, (raw, dec: string) => codePoint(parseInt(dec, 10), raw))
+      .replace(
+        /&(nbsp|lt|gt|quot|apos);/gi,
+        (raw, name: string) => HTML_ENTITIES[name.toLowerCase()] ?? raw
+      )
+      // Last, so a double-escaped "&amp;lt;" ends as "&lt;" rather than "<".
+      .replace(/&amp;/gi, '&')
+      .replace(/ /g, ' ')
+      .replace(/[ \t\f\v]+/g, ' ')
+      .replace(/ *\r?\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
 }

@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { api, errorMessage, type Cart } from '@/lib/api';
+import { KeyboardAvoider } from '@/components/keyboard-avoider';
+import { api, ApiError, errorMessage, SESSION_EXPIRED_MESSAGE, type Cart } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { cartItemCount, useCart } from '@/lib/cart';
 import { formatIdr, mediaUrl } from '@/lib/format';
@@ -18,7 +19,7 @@ import { ripple } from '@/lib/ripple';
 import { toast } from '@/lib/toast';
 import { useRefresh } from '@/lib/use-refresh';
 import { cn } from '@/lib/utils';
-import { Link, useFocusEffect, useRouter, useScrollToTop, type Href } from 'expo-router';
+import { useFocusEffect, useRouter, useScrollToTop, type Href } from 'expo-router';
 import {
   ChevronRight,
   CircleAlert,
@@ -31,15 +32,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
-import {
-  Alert as RNAlert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  View,
-} from 'react-native';
+import { Alert as RNAlert, Keyboard, Platform, Pressable, ScrollView, View } from 'react-native';
 
 /** Mirrors CustomerCart::MAX_LINE_QUANTITY on the API. */
 const MAX_LINE_QUANTITY = 10;
@@ -91,10 +84,16 @@ export function ClearCartButton() {
  */
 export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
   const { user } = useAuth();
-  const { cart, applyCart } = useCart();
+  const { cart, applyCart, refresh } = useCart();
   const { offline } = useNetwork();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
+  // Set by the first tap that leaves the cart; released when the cart regains focus, so a quick
+  // second tap during a slow push animation does not stack a second checkout or product page.
+  const navigatingRef = useRef(false);
+  // Line edits run one at a time (all steppers and trash buttons are off meanwhile). The ref
+  // also stops a second tap that lands before the disabled state renders.
+  const lineMutatingRef = useRef(false);
   const [loading, setLoading] = useState(!cart);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [coupon, setCoupon] = useState('');
@@ -106,29 +105,56 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
   // On the stack page there is no tab navigator above, so this is a no-op there.
   useScrollToTop(scrollRef);
 
+  // Toasts on the tab drop in from the top; on the stack page the default bottom spot clears the bar.
+  const placement = inTabs ? ({ position: 'top' } as const) : {};
+
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const res = await api<{ data: Cart }>('/cart');
-      applyCart(res.data);
+      // Through the provider, so a slow read is dropped when a line edit lands meanwhile.
+      await refresh();
     } catch (e) {
-      setLoadError(errorMessage(e, 'Gagal memuat keranjang'));
+      if (e instanceof ApiError && e.status === 401) {
+        // The session ended on another device (or a password change): lib/auth has signed out
+        // and the provider reloads the guest cart. Say so, instead of an "empty" cart.
+        toast.show({
+          tone: 'error',
+          message: SESSION_EXPIRED_MESSAGE,
+          action: { label: 'Masuk', onPress: () => router.push('/login') },
+          ...(inTabs ? { position: 'top' as const } : {}),
+        });
+      } else {
+        setLoadError(errorMessage(e, 'Gagal memuat keranjang'));
+      }
     } finally {
       setLoading(false);
     }
-  }, [applyCart]);
+  }, [refresh, router, inTabs]);
 
   useFocusEffect(
     useCallback(() => {
+      navigatingRef.current = false;
       void load();
     }, [load])
   );
+
+  function pushOnce(href: Href) {
+    if (navigatingRef.current) {
+      return;
+    }
+    navigatingRef.current = true;
+    // Fallback for a push that never takes focus away (the focus effect is the main release).
+    setTimeout(() => {
+      navigatingRef.current = false;
+    }, 1000);
+    router.push(href);
+  }
 
   const { refreshing, onRefresh } = useRefresh(load);
 
   async function applyCoupon() {
     const code = coupon.trim();
-    if (code === '' || couponBusy) {
+    if (code === '' || couponBusy || lineBusy !== null) {
       return;
     }
     setCouponBusy(true);
@@ -172,10 +198,11 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
     }
   }
 
-  // Toasts on the tab drop in from the top; on the stack page the default bottom spot clears the bar.
-  const placement = inTabs ? ({ position: 'top' } as const) : {};
-
   async function changeQty(lineId: number, quantity: number) {
+    if (lineMutatingRef.current) {
+      return;
+    }
+    lineMutatingRef.current = true;
     setLineBusy(lineId);
     try {
       const res = await api<{ data: Cart }>(`/cart/items/${lineId}`, {
@@ -190,11 +217,16 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
         ...placement,
       });
     } finally {
+      lineMutatingRef.current = false;
       setLineBusy(null);
     }
   }
 
   async function removeLine(line: CartLine) {
+    if (lineMutatingRef.current) {
+      return;
+    }
+    lineMutatingRef.current = true;
     setLineBusy(line.id);
     try {
       const res = await api<{ data: Cart }>(`/cart/items/${line.id}`, { method: 'DELETE' });
@@ -207,6 +239,7 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
         ...placement,
       });
     } finally {
+      lineMutatingRef.current = false;
       setLineBusy(null);
     }
   }
@@ -221,10 +254,10 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
 
   function checkout() {
     if (!user) {
-      router.push({ pathname: '/login', params: { redirect: '/checkout' } });
+      pushOnce({ pathname: '/login', params: { redirect: '/checkout' } });
       return;
     }
-    router.push('/checkout');
+    pushOnce('/checkout');
   }
 
   const lines = cart?.lines ?? [];
@@ -280,7 +313,7 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
           contentContainerClassName="pb-3"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          // iOS insets the scroll content itself; Android is handled by the KeyboardAvoidingView
+          // iOS insets the scroll content itself; Android is handled by the KeyboardAvoider
           // around this body. Using both on iOS would adjust twice and leave a blank gap.
           automaticallyAdjustKeyboardInsets
           refreshControl={<BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
@@ -300,9 +333,11 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
                 key={line.id}
                 line={line}
                 busy={lineBusy === line.id}
+                disabled={updating}
                 divided={index < lines.length - 1}
                 onQty={(quantity) => void changeQty(line.id, quantity)}
                 onRemove={() => confirmRemove(line)}
+                onOpen={pushOnce}
               />
             ))}
           </View>
@@ -323,7 +358,7 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Lepas kode promo"
-                  disabled={couponBusy}
+                  disabled={updating}
                   onPress={() => void removeCoupon()}
                   android_ripple={ripple.icon}
                   className="h-10 w-10 items-center justify-center active:opacity-70">
@@ -353,7 +388,7 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
                 <Button
                   className="min-h-11 rounded-sm px-4"
                   loading={couponBusy}
-                  disabled={coupon.trim() === ''}
+                  disabled={coupon.trim() === '' || lineBusy !== null}
                   onPress={() => void applyCoupon()}>
                   <Text className="font-bold">Pakai</Text>
                 </Button>
@@ -403,12 +438,20 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
           <View className="flex-row items-center gap-3">
             <View className="min-w-0 flex-1">
               <Text className="text-[12px] text-muted-foreground">Total harga</Text>
-              <Text className="text-[18px] font-extrabold text-om-navy" numberOfLines={1}>
+              {/* Shrinks rather than truncating at a large system font size on a 360dp screen. */}
+              <Text
+                className="text-[18px] font-extrabold text-om-navy"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+                maxFontSizeMultiplier={1.3}>
                 {formatIdr(totals?.total)}
               </Text>
             </View>
-            <Button onPress={checkout} loading={updating} className="min-h-11 rounded-sm px-6">
-              <Text className="font-bold">{user ? `Checkout (${count})` : 'Masuk & checkout'}</Text>
+            <Button onPress={checkout} loading={updating} className="min-h-11 rounded-sm px-4">
+              <Text className="font-bold" maxFontSizeMultiplier={1.2}>
+                {user ? `Checkout (${count})` : 'Masuk & checkout'}
+              </Text>
             </Button>
           </View>
         </StickyBar>
@@ -417,26 +460,29 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
   }
 
   return Platform.OS === 'android' ? (
-    <KeyboardAvoidingView behavior="height" style={{ flex: 1 }} className="bg-om-surface">
-      {content}
-    </KeyboardAvoidingView>
+    <KeyboardAvoider className="bg-om-surface">{content}</KeyboardAvoider>
   ) : (
     <View className="flex-1 bg-om-surface">{content}</View>
   );
 }
 
+/** `busy` dims the line being changed; `disabled` locks every line while any cart edit runs. */
 function CartLineRow({
   line,
   busy,
+  disabled,
   divided,
   onQty,
   onRemove,
+  onOpen,
 }: {
   line: CartLine;
   busy: boolean;
+  disabled: boolean;
   divided?: boolean;
   onQty: (quantity: number) => void;
   onRemove: () => void;
+  onOpen: (href: Href) => void;
 }) {
   const href: Href | null = line.slug ? `/product/${line.slug}` : null;
 
@@ -447,9 +493,9 @@ function CartLineRow({
         divided && 'border-b border-border',
         busy && 'opacity-50'
       )}>
-      <LineThumb uri={mediaUrl(line.thumbnail)} href={href} />
+      <LineThumb uri={mediaUrl(line.thumbnail)} href={href} onOpen={onOpen} />
       <View className="min-w-0 flex-1">
-        <LineName name={line.name} href={href} />
+        <LineName name={line.name} href={href} onOpen={onOpen} />
         {line.variant ? (
           <View className="mt-1 self-start rounded-sm bg-om-surface px-1.5 py-0.5">
             <Text className="text-[12px] text-muted-foreground">{line.variant}</Text>
@@ -462,7 +508,7 @@ function CartLineRow({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Hapus ${line.name} dari keranjang`}
-            disabled={busy}
+            disabled={disabled}
             onPress={onRemove}
             android_ripple={ripple.icon}
             className="h-11 w-11 items-center justify-center active:opacity-70">
@@ -472,7 +518,7 @@ function CartLineRow({
             size="sm"
             value={line.quantity}
             max={MAX_LINE_QUANTITY}
-            busy={busy}
+            busy={disabled}
             itemLabel={line.name}
             onChange={onQty}
           />
@@ -487,7 +533,15 @@ function CartLineRow({
   );
 }
 
-function LineThumb({ uri, href }: { uri: string | undefined; href: Href | null }) {
+function LineThumb({
+  uri,
+  href,
+  onOpen,
+}: {
+  uri: string | undefined;
+  href: Href | null;
+  onOpen: (href: Href) => void;
+}) {
   const image = <ProductImage uri={uri} width={84} height={84} radius={6} contentFit="cover" />;
 
   if (!href) {
@@ -495,19 +549,27 @@ function LineThumb({ uri, href }: { uri: string | undefined; href: Href | null }
   }
 
   // The product name next to it is the link for screen readers; the picture only needs the tap.
+  // onOpen (not <Link>) so a double tap opens the product once.
   return (
-    <Link href={href} asChild>
-      <Pressable
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        className="active:opacity-80">
-        {image}
-      </Pressable>
-    </Link>
+    <Pressable
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      onPress={() => onOpen(href)}
+      className="active:opacity-80">
+      {image}
+    </Pressable>
   );
 }
 
-function LineName({ name, href }: { name: string; href: Href | null }) {
+function LineName({
+  name,
+  href,
+  onOpen,
+}: {
+  name: string;
+  href: Href | null;
+  onOpen: (href: Href) => void;
+}) {
   const text = (
     <Text className="text-[14px] leading-5" numberOfLines={2}>
       {name}
@@ -519,10 +581,8 @@ function LineName({ name, href }: { name: string; href: Href | null }) {
   }
 
   return (
-    <Link href={href} asChild>
-      <Pressable accessibilityRole="link" className="active:opacity-60">
-        {text}
-      </Pressable>
-    </Link>
+    <Pressable accessibilityRole="link" onPress={() => onOpen(href)} className="active:opacity-60">
+      {text}
+    </Pressable>
   );
 }

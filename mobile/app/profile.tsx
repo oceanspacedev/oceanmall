@@ -11,11 +11,14 @@ import { useRouter } from 'expo-router';
 import { ChevronRight, KeyRound, ShieldCheck, Trash2, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { useBottomPad } from '@/components/safe-area-view';
 
 /** Pressed feedback for a full-width row: a ripple on Android, a gray wash on iOS (not both). */
 const ROW_PRESSED = Platform.OS === 'ios' ? 'active:bg-om-surface' : '';
 
 export default function ProfileScreen() {
+  // Clears the Android navigation bar (the app draws edge-to-edge).
+  const bottomPad = useBottomPad(40);
   const { user } = useAuth();
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -41,7 +44,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen title="Profil & keamanan" surface>
-      <ScrollView className="flex-1" contentContainerClassName="pb-10">
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: bottomPad }}>
         <View
           accessible
           accessibilityLabel={`${fullName}, ${user.email}`}

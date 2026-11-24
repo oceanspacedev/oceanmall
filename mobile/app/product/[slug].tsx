@@ -47,7 +47,7 @@ import {
   Star,
   Truck,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   NativeScrollEvent,
@@ -70,6 +70,10 @@ const MAX_GALLERY_DOTS = 8;
 const TOAST_OFFSET = 72;
 /** Extra distance for the add-to-cart toast when the bar carries its "Maks." hint row. */
 const HINT_ROW_OFFSET = 24;
+/** Reasons offered by "Laporkan" on a review; sent to the API as given. */
+const REPORT_REASONS = ['Kata-kata tidak pantas', 'Spam atau iklan', 'Tidak sesuai produk'];
+/** Description lines shown before "Lihat selengkapnya". */
+const DESCRIPTION_PREVIEW_LINES = 5;
 
 export default function ProductScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -87,8 +91,11 @@ export default function ProductScreen() {
   const [busy, setBusy] = useState<'cart' | 'buy' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  // Measured from an unclamped copy of the description: font scale decides the line count.
+  const [canExpand, setCanExpand] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [reporting, setReporting] = useState<number | null>(null);
+  const galleryRef = useRef<ScrollView>(null);
 
   /** "Laporkan" on a review: needs an account, asks for a reason, then hides the review here. */
   function askToReport(review: ProductReview) {
@@ -118,12 +125,30 @@ export default function ProductScreen() {
         .catch((e) => toast.show({ tone: 'error', message: errorMessage(e) }))
         .finally(() => setReporting(null));
     };
-    Alert.alert('Laporkan ulasan ini?', 'Ulasan disembunyikan sampai tim OceanMall meninjaunya.', [
-      { text: 'Kata-kata tidak pantas', onPress: () => send('Kata-kata tidak pantas') },
-      { text: 'Spam atau iklan', onPress: () => send('Spam atau iklan') },
-      { text: 'Tidak sesuai produk', onPress: () => send('Tidak sesuai produk') },
-      { text: 'Batal', style: 'cancel' },
-    ]);
+    const reasons = REPORT_REASONS.map((reason) => ({ text: reason, onPress: () => send(reason) }));
+    const title = 'Laporkan ulasan ini?';
+    const message = 'Ulasan disembunyikan sampai tim OceanMall meninjaunya.';
+    if (Platform.OS === 'ios') {
+      Alert.alert(title, message, [...reasons, { text: 'Batal', style: 'cancel' }]);
+      return;
+    }
+    // Android shows at most 3 buttons (a 4th "Batal" would be dropped) and its dialog ignores
+    // Back unless cancelable, so it confirms first and then asks for the reason.
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Laporkan',
+          onPress: () =>
+            Alert.alert('Pilih alasan', 'Tekan Kembali untuk batal.', reasons, {
+              cancelable: true,
+            }),
+        },
+      ],
+      { cancelable: true }
+    );
   }
 
   useEffect(() => {
@@ -140,7 +165,11 @@ export default function ProductScreen() {
           return;
         }
         setProduct(res.data);
-        setVariantId(res.data.variants?.[0]?.id ?? null);
+        // The first variant in stock (null = untracked), so a sold-out first size does not make
+        // the whole product look sold out; all sold out keeps the first one.
+        const variants = res.data.variants ?? [];
+        const available = variants.find((variant) => variant.stock == null || variant.stock > 0);
+        setVariantId((available ?? variants[0])?.id ?? null);
         setImageIndex(0);
         setQty(1);
       })
@@ -168,11 +197,18 @@ export default function ProductScreen() {
     if (!product) {
       return [];
     }
-    const urls = [product.thumbnail, ...(product.images ?? []).map((image) => image.url)]
+    // The selected variant's own photo leads the gallery when it has one.
+    const variants = product.variants ?? [];
+    const variantThumbnail = variants.find((variant) => variant.id === variantId)?.thumbnail;
+    const urls = [
+      variantThumbnail,
+      product.thumbnail,
+      ...(product.images ?? []).map((image) => image.url),
+    ]
       .map((url) => mediaUrl(url))
       .filter((url): url is string => Boolean(url));
     return [...new Set(urls)];
-  }, [product]);
+  }, [product, variantId]);
 
   async function addToCart(next: 'stay' | 'checkout', toastOffset?: number) {
     if (!product || busy !== null) {
@@ -250,7 +286,8 @@ export default function ProductScreen() {
     );
   }
 
-  const selectedVariant = product.variants?.find((variant) => variant.id === variantId);
+  const variants = product.variants ?? [];
+  const selectedVariant = variants.find((variant) => variant.id === variantId);
   const price = selectedVariant?.price ?? product.price;
   const compare = selectedVariant ? selectedVariant.compare_price : product.compare_price;
   const off = discountPercent(price, compare);
@@ -297,6 +334,7 @@ export default function ProductScreen() {
           <View style={{ height: width, backgroundColor: COLORS.white }}>
             {images.length > 0 ? (
               <ScrollView
+                ref={galleryRef}
                 horizontal
                 pagingEnabled
                 nestedScrollEnabled
@@ -417,13 +455,13 @@ export default function ProductScreen() {
           </View>
 
           {/* Variants */}
-          {(product.variants?.length ?? 0) > 0 ? (
+          {variants.length > 0 ? (
             <Section
               title={
                 selectedVariant?.name ? `Pilih varian: ${selectedVariant.name}` : 'Pilih varian'
               }>
               <View className="flex-row flex-wrap gap-2">
-                {product.variants?.map((variant) => {
+                {variants.map((variant) => {
                   const active = variant.id === variantId;
                   const empty =
                     variant.stock !== null && variant.stock !== undefined && variant.stock < 1;
@@ -444,6 +482,11 @@ export default function ProductScreen() {
                         }
                         setVariantId(variant.id);
                         setError(null);
+                        if (variant.thumbnail || selectedVariant?.thumbnail) {
+                          // The gallery's first photo changed: show it.
+                          galleryRef.current?.scrollTo({ x: 0, animated: false });
+                          setImageIndex(0);
+                        }
                         if (variant.stock != null) {
                           setQty((current) =>
                             Math.max(1, Math.min(current, variant.stock ?? current))
@@ -453,7 +496,10 @@ export default function ProductScreen() {
                       className={cn(
                         'flex-row items-center gap-1.5 rounded-sm border px-3 py-2 active:opacity-70',
                         empty
-                          ? 'border-dashed border-border bg-white'
+                          ? cn(
+                              'border-dashed bg-white',
+                              active ? 'border-om-navy' : 'border-border'
+                            )
                           : active
                             ? 'border-om-navy bg-om-navy-soft'
                             : 'border-border bg-white'
@@ -502,12 +548,26 @@ export default function ProductScreen() {
           {/* Description */}
           {description ? (
             <Section title="Deskripsi produk">
-              <Text
-                className="text-[13px] leading-5 text-foreground/80"
-                numberOfLines={expanded ? undefined : 5}>
-                {description}
-              </Text>
-              {description.length > 220 ? (
+              <View>
+                <Text
+                  className="text-[13px] leading-5 text-foreground/80"
+                  numberOfLines={expanded ? undefined : DESCRIPTION_PREVIEW_LINES}>
+                  {description}
+                </Text>
+                {/* Unclamped, invisible copy: Android's onTextLayout reports only the clamped
+                    lines, so the toggle is decided here at the real width and font scale. */}
+                <Text
+                  pointerEvents="none"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  onTextLayout={(event) =>
+                    setCanExpand(event.nativeEvent.lines.length > DESCRIPTION_PREVIEW_LINES)
+                  }
+                  className="absolute inset-x-0 top-0 text-[13px] leading-5 opacity-0">
+                  {description}
+                </Text>
+              </View>
+              {canExpand || expanded ? (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setExpanded((value) => !value)}
@@ -605,7 +665,10 @@ export default function ProductScreen() {
                     <Text className="text-[13px] font-semibold text-om-navy">
                       {showAllReviews
                         ? 'Tampilkan lebih sedikit'
-                        : `Lihat semua ulasan (${reviewItems.length})`}
+                        : // The API sends at most 20 reviews; "semua" only when that is all of them.
+                          reviews.count > reviewItems.length
+                          ? `Lihat ${reviewItems.length} ulasan teratas`
+                          : `Lihat semua ulasan (${reviewItems.length})`}
                     </Text>
                     <Icon
                       as={showAllReviews ? ChevronUp : ChevronRight}

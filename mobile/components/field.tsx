@@ -1,10 +1,11 @@
 import { Icon } from '@/components/ui/icon';
 import { Input, type InputProps } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { KeyboardAvoider } from '@/components/keyboard-avoider';
 import { cn } from '@/lib/utils';
 import { CircleAlert } from 'lucide-react-native';
 import { useId, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 
 /**
  * Accessibility props that give a text input exactly one spoken name.
@@ -101,7 +102,7 @@ export function Field({
 /**
  * Scrolling body for a form inside <Screen>: taps reach buttons while the keyboard is open,
  * dragging dismisses it, and the content makes room for it. One mechanism per platform, never
- * both: iOS insets the scroll content itself, Android shrinks with a KeyboardAvoidingView (the
+ * both: iOS insets the scroll content itself, Android pads with a KeyboardAvoider (the
  * same split as AuthShell).
  */
 export function FormScroll({
@@ -122,11 +123,5 @@ export function FormScroll({
     </ScrollView>
   );
 
-  return Platform.OS === 'android' ? (
-    <KeyboardAvoidingView behavior="height" style={{ flex: 1 }}>
-      {scroll}
-    </KeyboardAvoidingView>
-  ) : (
-    scroll
-  );
+  return Platform.OS === 'android' ? <KeyboardAvoider>{scroll}</KeyboardAvoider> : scroll;
 }

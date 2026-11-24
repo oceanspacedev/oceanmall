@@ -7,7 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { announce, useReducedMotion } from '@/lib/a11y';
-import { api, errorMessage, paymentFromAction, type OrderDetail } from '@/lib/api';
+import {
+  api,
+  errorMessage,
+  isOfflinePayment,
+  offlinePaymentNote,
+  paymentFromAction,
+  PROVIDER_TIMEOUT_MS,
+  type OrderDetail,
+} from '@/lib/api';
 import { useCountdown, usePolling } from '@/lib/countdown';
 import { formatDateTime, formatIdr } from '@/lib/format';
 import { orderStage } from '@/lib/order-status';
@@ -42,7 +50,8 @@ export default function OrderPlacedScreen() {
   const wasPaid = useRef<boolean | null>(null);
 
   const goHome = useCallback(() => {
-    // The stack is [Beranda, this]: pop back to the existing Beranda instead of stacking a second.
+    // Pop back to the existing Beranda (and past any cart/product pages under this) instead of
+    // stacking a second.
     if (router.canDismiss()) {
       router.dismissTo('/(tabs)');
     } else {
@@ -51,9 +60,11 @@ export default function OrderPlacedScreen() {
   }, [router]);
 
   function openOrder() {
+    // `from=placed` makes the order screen send Back to Beranda, so it never lands on the cart
+    // that was just emptied (which can still sit under this screen).
     router.replace({
       pathname: '/order/[number]',
-      params: { number, ...(notice ? { notice } : {}) },
+      params: { number, from: 'placed', ...(notice ? { notice } : {}) },
     });
   }
 
@@ -138,7 +149,10 @@ export default function OrderPlacedScreen() {
       return;
     }
     try {
-      await api(`/orders/${number}/sync-payment`, { method: 'POST' });
+      await api(`/orders/${number}/sync-payment`, {
+        method: 'POST',
+        timeoutMs: PROVIDER_TIMEOUT_MS,
+      });
       await load();
     } catch {
       // The poll will pick it up.
@@ -146,7 +160,9 @@ export default function OrderPlacedScreen() {
   }, [number, load]);
 
   const showPayment = Boolean(order) && unpaid && hasPaymentDetails && !expired;
-  const missingPayment = Boolean(order) && !paid && !showPayment;
+  // Manual / COD: nothing to pay in the app, so no instructions is expected, not a failure.
+  const offline = order !== null && unpaid && isOfflinePayment(order);
+  const missingPayment = Boolean(order) && !paid && !showPayment && (!offline || Boolean(notice));
   const title = paid
     ? 'Pembayaran diterima!'
     : missingPayment
@@ -156,7 +172,9 @@ export default function OrderPlacedScreen() {
     ? 'Pesananmu sedang disiapkan.'
     : missingPayment
       ? null
-      : 'Selesaikan pembayaran agar pesananmu segera diproses.';
+      : offline
+        ? 'Selesaikan pembayaran sesuai instruksi di bawah.'
+        : 'Selesaikan pembayaran agar pesananmu segera diproses.';
 
   return (
     <SafeAreaView className="flex-1 bg-om-navy" edges={['top']}>
@@ -269,6 +287,15 @@ export default function OrderPlacedScreen() {
               {showPayment ? (
                 <Section title="Instruksi pembayaran" icon={CreditCard}>
                   <PaymentPanel compact payment={payment} onClosed={() => void checkAfterSheet()} />
+                </Section>
+              ) : null}
+
+              {offline && order ? (
+                <Section title="Pembayaran" icon={CreditCard}>
+                  <Text selectable className="text-[13px] leading-5 text-muted-foreground">
+                    {offlinePaymentNote(order) ??
+                      'Pembayaran tidak dilakukan di aplikasi. Kami konfirmasi setelah pembayaran diterima.'}
+                  </Text>
                 </Section>
               ) : null}
 

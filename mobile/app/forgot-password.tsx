@@ -26,16 +26,26 @@ export default function ForgotPasswordScreen() {
 
   const address = email.trim();
 
+  // Counts down on both views: after a send ("Kirim ulang") and after a throttled first send.
   useEffect(() => {
-    if (!done || countdown <= 0) {
+    if (countdown <= 0) {
       return;
     }
     const timer = setTimeout(() => setCountdown((seconds) => seconds - 1), 1000);
     return () => clearTimeout(timer);
+  }, [countdown]);
+
+  // The throttle banner quotes a fixed wait; once the form's countdown runs out it is stale.
+  // (Only a throttled send starts a countdown on the form, so this only clears that banner.)
+  useEffect(() => {
+    if (countdown === 0 && !done) {
+      setError(null);
+    }
   }, [countdown, done]);
 
   async function submit() {
-    if (busy || !isEmail(address)) {
+    // The keyboard's send key calls this directly, past the disabled button.
+    if (busy || !isEmail(address) || countdown > 0) {
       return;
     }
     setBusy(true);
@@ -54,7 +64,7 @@ export default function ForgotPasswordScreen() {
     } catch (e) {
       setError(errorMessage(e, 'Gagal mengirim tautan reset'));
       // Throttled: the server says how long to wait, so the button counts down the same time.
-      if (done && e instanceof ApiError && e.retryAfter) {
+      if (e instanceof ApiError && e.retryAfter) {
         setCountdown(Math.min(Math.max(e.retryAfter, 1), 300));
       }
     } finally {
@@ -129,10 +139,12 @@ export default function ForgotPasswordScreen() {
           {error ? <ErrorBanner message={error} className="mx-0 mb-0 mt-5" /> : null}
           <Button
             className="mt-6 min-h-12 rounded-sm"
-            disabled={!isEmail(address)}
+            disabled={!isEmail(address) || countdown > 0}
             loading={busy}
             onPress={() => void submit()}>
-            <Text className="font-bold">Kirim tautan</Text>
+            <Text className="font-bold">
+              {countdown > 0 ? `Kirim tautan (${countdown})` : 'Kirim tautan'}
+            </Text>
           </Button>
 
           <Pressable

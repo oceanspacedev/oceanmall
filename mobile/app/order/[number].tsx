@@ -20,16 +20,19 @@ import { DetailSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useBottomPad } from '@/components/safe-area-view';
 import {
   api,
   errorMessage,
   isOfflinePayment,
   offlinePaymentNote,
   paymentFromAction,
+  PROVIDER_TIMEOUT_MS,
   type OrderDetail,
 } from '@/lib/api';
 import { announce, useReducedMotion } from '@/lib/a11y';
 import { useAuth } from '@/lib/auth';
+import { TimeoutError } from '@/lib/network';
 import { HAS_SUPPORT_CHANNEL, sendSupportMessage } from '@/lib/support';
 import { usePolling } from '@/lib/countdown';
 import {
@@ -47,7 +50,14 @@ import { toast } from '@/lib/toast';
 import { useRefresh } from '@/lib/use-refresh';
 import { ripple } from '@/lib/ripple';
 import { cn } from '@/lib/utils';
-import { Link, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  Link,
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+  useRouter,
+} from 'expo-router';
 import {
   Check,
   CircleAlert,
@@ -101,9 +111,18 @@ function reviewedKey(userId: number, slug: string): string {
 }
 
 export default function OrderScreen() {
-  const { number, notice } = useLocalSearchParams<{ number: string; notice?: string }>();
+  const { number, notice, from } = useLocalSearchParams<{
+    number: string;
+    notice?: string;
+    from?: string;
+  }>();
   const { user } = useAuth();
   const router = useRouter();
+  const navigation = useNavigation();
+  // Without the StickyBar nothing else clears the Android navigation bar.
+  const bottomPad = useBottomPad(16);
+  // Opened by "Lihat pesanan" right after checkout (order-placed passes `from=placed`).
+  const fromPlaced = from === 'placed';
   const reduceMotion = useReducedMotion();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   // True only until the first answer: later focus reloads keep the page on screen.
@@ -173,6 +192,31 @@ export default function OrderScreen() {
   );
 
   const { refreshing, onRefresh } = useRefresh(load);
+
+  // Right after checkout the screen under this one is the cart that has just been emptied (or
+  // the product page), so Back, from the header arrow or Android's button, goes to Beranda
+  // instead, like "Selesai" and Back on order-placed. Other removals (dismissTo) pass through.
+  useEffect(() => {
+    if (!fromPlaced) {
+      return;
+    }
+
+    return navigation.addListener('beforeRemove', (event) => {
+      const type = event.data.action.type;
+      if (type !== 'GO_BACK' && type !== 'POP') {
+        return;
+      }
+      event.preventDefault();
+      // Outside the event, so the new navigation is not dispatched while this one is running.
+      setTimeout(() => {
+        if (router.canDismiss()) {
+          router.dismissTo('/(tabs)');
+        } else {
+          router.replace('/(tabs)');
+        }
+      }, 0);
+    });
+  }, [fromPlaced, navigation, router]);
 
   // Reviewed products are remembered per account, so "Sudah diulas" survives leaving the screen.
   useEffect(() => {
@@ -250,7 +294,11 @@ export default function OrderScreen() {
           payment: OrderDetail['payment'];
           payment_action?: OrderDetail['payment_action'];
         };
-      }>(`/orders/${orderNumber}/sync-payment`, { method: 'POST' });
+      }>(`/orders/${orderNumber}/sync-payment`, {
+        method: 'POST',
+        // Waits on the payment gateway, not the catalog's 8 s.
+        timeoutMs: PROVIDER_TIMEOUT_MS,
+      });
       if (res.data.payment_status === 'paid') {
         await load();
         return;
@@ -291,9 +339,23 @@ export default function OrderScreen() {
       return;
     }
     await run('retry', async () => {
-      const res = await api<{
+      let res: {
         data: { payment: OrderDetail['payment']; payment_action?: OrderDetail['payment_action'] };
-      }>(`/orders/${order.number}/retry-payment`, { method: 'POST' });
+      };
+      try {
+        res = await api(`/orders/${order.number}/retry-payment`, {
+          method: 'POST',
+          // Waits on the payment gateway, not the catalog's 8 s.
+          timeoutMs: PROVIDER_TIMEOUT_MS,
+        });
+      } catch (e) {
+        // The server may still have created the payment: refetch so it shows up (polling is off
+        // once the old one has expired), then report the timeout.
+        if (e instanceof TimeoutError) {
+          void load();
+        }
+        throw e;
+      }
       setNow(Date.now());
       setOrder((current) =>
         current
@@ -314,7 +376,7 @@ export default function OrderScreen() {
     await run(`track-${shipmentId}`, async () => {
       const res = await api<{ data: OrderDetail }>(
         `/orders/${order.number}/shipments/${shipmentId}/track`,
-        { method: 'POST' }
+        { method: 'POST', timeoutMs: PROVIDER_TIMEOUT_MS }
       );
       applyOrder(res.data);
       toast.show({
@@ -443,9 +505,11 @@ export default function OrderScreen() {
 
   return (
     <Screen title="Detail pesanan" surface>
+      {/* Swipe-back would skip the Back handling above (iOS). */}
+      {fromPlaced ? <Stack.Screen options={{ gestureEnabled: false }} /> : null}
       <ScrollView
         className="flex-1"
-        contentContainerClassName="pb-4"
+        contentContainerStyle={{ paddingBottom: showStickyBar ? 16 : bottomPad }}
         refreshControl={<BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         {/* Status banner */}
         <View
@@ -751,10 +815,11 @@ export default function OrderScreen() {
 
         {/* Order info */}
         <Section title="Info pesanan" icon={FileText}>
+          {/* The number gives way at large font sizes (it wraps), so "Salin nomor" stays on screen. */}
           <View className="flex-row items-center justify-between py-1">
-            <Text className="text-[13px] text-muted-foreground">No. pesanan</Text>
-            <View className="flex-row items-center gap-2">
-              <Text selectable className="text-[13px] font-semibold">
+            <Text className="shrink-0 text-[13px] text-muted-foreground">No. pesanan</Text>
+            <View className="ml-3 min-w-0 flex-1 flex-row items-center justify-end gap-2">
+              <Text selectable className="shrink text-right text-[13px] font-semibold">
                 {order.number}
               </Text>
               <CopyButton value={order.number} label="Salin nomor" />

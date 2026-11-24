@@ -27,6 +27,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CircleAlert, PackageOpen, ReceiptText, Store } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, ScrollView, View, type ListRenderItem } from 'react-native';
+import { useBottomPad } from '@/components/safe-area-view';
 
 type Counts = Partial<Record<OrderTab, number>>;
 type TabKey = OrderTab | 'all';
@@ -38,6 +39,8 @@ function isTabKey(value: unknown): value is OrderTab {
 }
 
 export default function OrdersScreen() {
+  // Clears the Android navigation bar (the app draws edge-to-edge).
+  const bottomPad = useBottomPad(32);
   const { user } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams<{ status?: string }>();
@@ -52,47 +55,69 @@ export default function OrdersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const request = useRef(0);
+  // Pages on screen (loadMore raises it), so a focus reload can bring all of them back.
+  const shownPages = useRef(1);
   const tabsRef = useRef<ScrollView>(null);
   const tabX = useRef<Partial<Record<TabKey, number>>>({});
 
   const path = tab === 'all' ? '/orders' : `/orders?status=${tab}`;
   const userId = user?.id ?? null;
 
-  const load = useCallback(async () => {
-    if (userId === null) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-    const id = ++request.current;
-    try {
-      const res = await api<{ data: OrderSummary[]; meta?: PageMeta & { counts?: Counts } }>(path);
-      if (id !== request.current) {
+  // `keepPages` (a focus reload, e.g. back from an order) refetches every page already shown and
+  // swaps them in at once, so the list keeps its length and scroll position. Pull-to-refresh, a
+  // tab change and "Coba lagi" start over from page 1.
+  const load = useCallback(
+    async (keepPages = false) => {
+      if (userId === null) {
+        setOrders([]);
+        setLoading(false);
         return;
       }
-      setOrders(res.data ?? []);
-      setMeta(res.meta ?? null);
-      setCounts(res.meta?.counts ?? {});
-      setError(null);
-      setLoadError(null);
-    } catch (e) {
-      if (id === request.current) {
-        setError(errorMessage(e, 'Gagal memuat pesanan'));
+      const id = ++request.current;
+      const pages = keepPages ? Math.max(1, shownPages.current) : 1;
+      try {
+        const responses = await Promise.all(
+          Array.from({ length: pages }, (_, index) =>
+            api<{ data: OrderSummary[]; meta?: PageMeta & { counts?: Counts } }>(
+              index === 0 ? path : withPage(path, index + 1)
+            )
+          )
+        );
+        if (id !== request.current) {
+          return;
+        }
+        const last = responses[responses.length - 1];
+        setOrders(
+          responses.reduce<OrderSummary[]>((rows, res) => appendUnique(rows, res.data ?? []), [])
+        );
+        setMeta(last.meta ?? null);
+        setCounts(responses[0].meta?.counts ?? {});
+        setError(null);
+        setLoadError(null);
+      } catch (e) {
+        if (id === request.current) {
+          setError(errorMessage(e, 'Gagal memuat pesanan'));
+        }
+      } finally {
+        if (id === request.current) {
+          setLoading(false);
+        }
       }
-    } finally {
-      if (id === request.current) {
-        setLoading(false);
-      }
-    }
-  }, [path, userId]);
+    },
+    [path, userId]
+  );
+
+  useEffect(() => {
+    shownPages.current = meta?.current_page ?? 1;
+  }, [meta]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void load(true);
     }, [load])
   );
 
-  const { refreshing, onRefresh } = useRefresh(load);
+  const { refreshing, onRefresh } = useRefresh(() => load());
 
   function selectTab(next: TabKey) {
     if (next === tab) {
@@ -151,7 +176,11 @@ export default function OrdersScreen() {
     ({ item }) => (
       <OrderCard
         order={item}
-        onOpen={() => router.push({ pathname: '/order/[number]', params: { number: item.number } })}
+        // navigate, not push: a second tap before the transition starts reuses the order screen
+        // just opened instead of stacking another copy of it.
+        onOpen={() =>
+          router.navigate({ pathname: '/order/[number]', params: { number: item.number } })
+        }
       />
     ),
     [router]
@@ -276,7 +305,7 @@ export default function OrdersScreen() {
           keyExtractor={orderKey}
           renderItem={renderOrder}
           className="flex-1"
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={{ paddingBottom: bottomPad }}
           refreshControl={<BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListHeaderComponent={
             error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null
@@ -364,10 +393,14 @@ function OrderCard({ order, onOpen }: { order: OrderSummary; onOpen: () => void 
         </View>
       ) : null}
 
-      <View className="mt-3 flex-row items-center justify-between border-t border-border pt-3">
-        <View>
+      <View className="mt-3 flex-row items-center justify-between gap-3 border-t border-border pt-3">
+        <View className="min-w-0 flex-1">
           <Text className="text-[12px] text-muted-foreground">Total belanja</Text>
-          <Text className="text-[15px] font-extrabold text-foreground">
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            className="text-[15px] font-extrabold text-foreground">
             {formatIdr(order.amount)}
           </Text>
         </View>
@@ -377,7 +410,11 @@ function OrderCard({ order, onOpen }: { order: OrderSummary; onOpen: () => void 
           onPress={onOpen}
           importantForAccessibility="no-hide-descendants"
           className={cn('min-h-11 rounded-sm px-4', stage.key !== 'unpaid' && 'border-om-navy')}>
-          <Text className={cn('text-[12px] font-bold', stage.key !== 'unpaid' && 'text-om-navy')}>
+          {/* Capped like the tab strip, so a large system font cannot push it off the card. */}
+          <Text
+            numberOfLines={1}
+            maxFontSizeMultiplier={1.2}
+            className={cn('text-[12px] font-bold', stage.key !== 'unpaid' && 'text-om-navy')}>
             {cta}
           </Text>
         </Button>

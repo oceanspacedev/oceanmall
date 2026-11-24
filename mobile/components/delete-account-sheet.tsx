@@ -7,6 +7,7 @@ import { apiFieldErrors, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { ripple } from '@/lib/ripple';
 import { toast } from '@/lib/toast';
+import { useKeyboardHeight } from '@/lib/keyboard';
 import { useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -44,6 +45,7 @@ export function DeleteAccountSheet({
   const { deleteAccount } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const { height: windowHeight } = useWindowDimensions();
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -104,7 +106,9 @@ export function DeleteAccountSheet({
       navigationBarTranslucent
       onRequestClose={requestClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        // Android pads the sheet by useKeyboardHeight() instead (see lib/keyboard.ts).
+        enabled={Platform.OS === 'ios'}
+        behavior="padding"
         style={styles.fill}>
         <View className="flex-1 justify-end bg-black/50">
           <Pressable
@@ -118,7 +122,7 @@ export function DeleteAccountSheet({
             style={{
               flexShrink: 1,
               maxHeight: windowHeight * 0.92,
-              paddingBottom: Math.max(insets.bottom, 12),
+              paddingBottom: Math.max(insets.bottom, 12) + keyboardHeight,
             }}>
             <View className="items-center pt-2">
               <View className="h-1 w-9 rounded-full bg-om-disabled" />

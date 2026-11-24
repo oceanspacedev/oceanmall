@@ -154,7 +154,7 @@ const CONFIRM_DELAY_MS = 1500;
 /**
  * The background check: true = reachable, false = confirmed unreachable, null = inconclusive.
  *
- * The offline strip is laid out in flow and shifts every screen, so one stray failure must not
+ * The offline strip pushes every screen's header down, so one stray failure must not
  * raise it: a first 'down' is confirmed by a second ping, and only two in a row count. A timeout
  * on either ping is inconclusive and leaves the current state alone.
  */
@@ -187,6 +187,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const [recovered, setRecovered] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  // Measured height of the offline / back-online strip, so top toasts start below it.
+  const [stripHeight, setStripHeight] = useState(0);
   const wasOffline = useRef(false);
 
   useEffect(() => {
@@ -282,22 +284,37 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const stripVisible = offline || recovered;
   const stripTop = Math.max(insets.top, 8);
 
-  // The strip sits in flow under the status bar, so it already covers the top inset.
-  // Hand the screens below a zero top inset while it shows, so nothing pads for the status bar
-  // a second time. Every screen must read this context (useSafeAreaInsets, or the
-  // components/safe-area-view wrapper): the native SafeAreaView ignores it and grew each header
-  // by a second status-bar height whenever the strip appeared.
+  // The strip floats over the top of the app instead of sitting in flow. In flow it shrank the
+  // navigator by its own height, and on Android the native stack screens did not follow
+  // (react-native-screens sizes them natively): a screen kept its full height, shifted down by the
+  // strip, so its bottom button / the tab bar went under the navigation bar. Floating keeps every
+  // screen's frame unchanged; the screens get the strip's height as their top inset instead, so
+  // each header pads below it. Every screen must read this context (useSafeAreaInsets, or the
+  // components/safe-area-view wrapper): the native SafeAreaView ignores it.
   const childInsets = useMemo(
-    () => (stripVisible ? { ...insets, top: 0 } : insets),
-    [insets, stripVisible]
+    () => (stripVisible ? { ...insets, top: Math.max(stripHeight, insets.top) } : insets),
+    [insets, stripVisible, stripHeight]
   );
+  const stripPosition = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    elevation: 10,
+  } as const;
 
   return (
     <View style={{ flex: 1 }}>
+      <SafeAreaInsetsContext.Provider value={childInsets}>
+        <View style={{ flex: 1 }}>{children}</View>
+      </SafeAreaInsetsContext.Provider>
       {offline ? (
         <View
           accessibilityLiveRegion="polite"
+          onLayout={(event) => setStripHeight(event.nativeEvent.layout.height)}
           style={{
+            ...stripPosition,
             backgroundColor: COLORS.warning,
             paddingTop: stripTop,
             paddingBottom: 8,
@@ -326,7 +343,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       ) : recovered ? (
         <View
           accessibilityLiveRegion="polite"
+          onLayout={(event) => setStripHeight(event.nativeEvent.layout.height)}
           style={{
+            ...stripPosition,
             backgroundColor: COLORS.success,
             paddingTop: stripTop,
             paddingBottom: 8,
@@ -342,10 +361,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
           </View>
         </View>
       ) : null}
-      <SafeAreaInsetsContext.Provider value={childInsets}>
-        <View style={{ flex: 1 }}>{children}</View>
-      </SafeAreaInsetsContext.Provider>
-      <ToastHost />
+      <ToastHost topInset={stripVisible && stripHeight > 0 ? stripHeight : undefined} />
     </View>
   );
 }

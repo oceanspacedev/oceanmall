@@ -23,7 +23,7 @@ const ICON_RIPPLE = { color: 'rgba(255,255,255,0.25)', borderless: true, radius:
  */
 export function HomeHeader({ hints }: { hints?: string[] }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, sessionPending } = useAuth();
   const { itemCount } = useCart();
   const { unread } = useUnreadCount();
   const reduceMotion = useReducedMotion();
@@ -44,8 +44,9 @@ export function HomeHeader({ hints }: { hints?: string[] }) {
     }, [rotates])
   );
 
-  const signedIn = Boolean(user);
-  const bellCount = signedIn ? unread : 0;
+  // A stored session whose profile is still loading counts as signed in: no login detour.
+  const signedIn = Boolean(user) || sessionPending;
+  const bellCount = user ? unread : 0;
 
   function openNotifications() {
     if (signedIn) {

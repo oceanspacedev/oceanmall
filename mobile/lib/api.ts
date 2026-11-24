@@ -335,6 +335,8 @@ export type Product = {
     compare_price?: number | null;
     /** null = stock not tracked */
     stock?: number | null;
+    /** The variant's own photo URL; null/absent = none, keep the product gallery. */
+    thumbnail?: string | null;
   }[];
   /** Product detail only; null for variant products or untracked stock. */
   stock?: number | null;

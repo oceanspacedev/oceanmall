@@ -6,12 +6,15 @@ import { formatDate } from '@/lib/format';
 import { FileQuestionMark } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, View } from 'react-native';
+import { useBottomPad } from '@/components/safe-area-view';
 
 /**
  * Terms and privacy policy, in the app. Reachable without an account (the consent line on the
  * sign-up form and the Akun tab both open it), and the in-app privacy link the stores expect.
  */
 export default function LegalScreen() {
+  // Clears the Android navigation bar (the app draws edge-to-edge).
+  const bottomPad = useBottomPad(40);
   const router = useRouter();
   const params = useLocalSearchParams<{ slug?: string | string[] }>();
   const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
@@ -34,7 +37,10 @@ export default function LegalScreen() {
 
   return (
     <Screen title={doc.title}>
-      <ScrollView className="flex-1" contentContainerClassName="px-4 pb-10 pt-4">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-4 pt-4"
+        contentContainerStyle={{ paddingBottom: bottomPad }}>
         {LEGAL_IS_DRAFT ? (
           <View className="mb-4 rounded-sm bg-om-warning-soft px-3 py-2.5">
             <Text className="text-[12px] leading-5 text-om-warning">

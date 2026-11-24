@@ -19,11 +19,14 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { CircleAlert, MapPin, Plus, Trash2 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { Alert as RNAlert, ScrollView, View } from 'react-native';
+import { useBottomPad } from '@/components/safe-area-view';
 
 /** Toasts clear the sticky bar by this much. */
 const BAR_OFFSET = 96;
 
 export default function AddressesScreen() {
+  // Clears the Android navigation bar (the app draws edge-to-edge).
+  const bottomPad = useBottomPad(40);
   const { user } = useAuth();
   const { itemCount } = useCart();
   const router = useRouter();
@@ -168,7 +171,8 @@ export default function AddressesScreen() {
     <Screen title="Daftar alamat" surface>
       <ScrollView
         className="flex-1"
-        contentContainerClassName="pb-10 pt-1"
+        contentContainerClassName="pt-1"
+        contentContainerStyle={{ paddingBottom: bottomPad }}
         refreshControl={<BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         {loadError ? <ErrorBanner message={loadError} onRetry={() => void load()} /> : null}
         {error ? <ErrorBanner message={error} /> : null}

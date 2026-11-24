@@ -26,8 +26,9 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, SectionList, View, type SectionListRenderItem } from 'react-native';
+import { useBottomPad } from '@/components/safe-area-view';
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -72,7 +73,9 @@ function renderHeader({ section }: { section: NotificationSection }) {
 }
 
 export default function NotificationsScreen() {
-  const { user } = useAuth();
+  // Clears the Android navigation bar (the app draws edge-to-edge).
+  const bottomPad = useBottomPad(40);
+  const { user, sessionPending } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<AppNotification[]>([]);
   // True only until the first answer: later focus reloads keep the list on screen.
@@ -84,49 +87,86 @@ export default function NotificationsScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
+  // The latest load: an older answer (or a page that was loading meanwhile) is dropped.
+  const request = useRef(0);
+  // Pages on screen (loadMore raises it), so a focus reload can bring all of them back.
+  const shownPages = useRef(1);
   const userId = user?.id ?? null;
 
-  const load = useCallback(async () => {
-    if (userId === null) {
-      setItems([]);
-      setLoading(false);
-      return;
-    }
-    try {
-      const res = await api<{ data: AppNotification[]; meta?: PageMeta }>('/notifications');
-      setItems(res.data ?? []);
-      setMeta(res.meta ?? null);
-      setError(null);
-      setLoadError(null);
-    } catch (e) {
-      setError(errorMessage(e, 'Gagal memuat notifikasi'));
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+  // `keepPages` (a focus reload, e.g. back from an order) refetches every page already shown and
+  // swaps them in at once, so the list keeps its length and scroll position. Pull-to-refresh and
+  // "Coba lagi" start over from page 1.
+  const load = useCallback(
+    async (keepPages = false) => {
+      if (userId === null) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+      const id = ++request.current;
+      const pages = keepPages ? Math.max(1, shownPages.current) : 1;
+      try {
+        const responses = await Promise.all(
+          Array.from({ length: pages }, (_, index) =>
+            api<{ data: AppNotification[]; meta?: PageMeta }>(
+              index === 0 ? '/notifications' : withPage('/notifications', index + 1)
+            )
+          )
+        );
+        if (id !== request.current) {
+          return;
+        }
+        setItems(
+          responses.reduce<AppNotification[]>((rows, res) => appendUnique(rows, res.data ?? []), [])
+        );
+        setMeta(responses[responses.length - 1].meta ?? null);
+        setError(null);
+        setLoadError(null);
+      } catch (e) {
+        if (id === request.current) {
+          setError(errorMessage(e, 'Gagal memuat notifikasi'));
+        }
+      } finally {
+        if (id === request.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [userId]
+  );
+
+  useEffect(() => {
+    shownPages.current = meta?.current_page ?? 1;
+  }, [meta]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void load(true);
     }, [load])
   );
 
-  const { refreshing, onRefresh } = useRefresh(load);
+  const { refreshing, onRefresh } = useRefresh(() => load());
 
   async function loadMore(force = false) {
     if (!meta || !hasMorePages(meta) || loadingMore || (loadError && !force)) {
       return;
     }
+    const id = request.current;
     setLoadingMore(true);
     setLoadError(null);
     try {
       const res = await api<{ data: AppNotification[]; meta?: PageMeta }>(
         withPage('/notifications', meta.current_page + 1)
       );
+      if (id !== request.current) {
+        return;
+      }
       setItems((current) => appendUnique(current, res.data ?? []));
       setMeta(res.meta ?? null);
     } catch (e) {
-      setLoadError(errorMessage(e, 'Gagal memuat notifikasi berikutnya'));
+      if (id === request.current) {
+        setLoadError(errorMessage(e, 'Gagal memuat notifikasi berikutnya'));
+      }
     } finally {
       setLoadingMore(false);
     }
@@ -161,7 +201,9 @@ export default function NotificationsScreen() {
       void api(`/notifications/${item.id}/read`, { method: 'POST' }).catch(() => {});
     }
     if (item.order_number) {
-      router.push({ pathname: '/order/[number]', params: { number: item.order_number } });
+      // navigate, not push: a second tap before the transition starts reuses the order screen
+      // just opened instead of stacking another copy of it.
+      router.navigate({ pathname: '/order/[number]', params: { number: item.order_number } });
     }
   }
 
@@ -187,7 +229,8 @@ export default function NotificationsScreen() {
     }));
   }, [items]);
 
-  if (!user) {
+  // Signed in, profile still loading (auth retries it): show the list skeleton, not a login prompt.
+  if (!user && !sessionPending) {
     return (
       <Screen title="Notifikasi">
         <LoginPrompt
@@ -200,7 +243,7 @@ export default function NotificationsScreen() {
     );
   }
 
-  if (loading && items.length === 0) {
+  if (!user || (loading && items.length === 0)) {
     return (
       <Screen
         title="Notifikasi"
@@ -289,7 +332,7 @@ export default function NotificationsScreen() {
         renderSectionHeader={renderHeader}
         stickySectionHeadersEnabled={false}
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: bottomPad }}
         refreshControl={<BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListHeaderComponent={
           error || actionError ? (

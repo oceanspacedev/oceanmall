@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Models\Country;
@@ -192,6 +195,39 @@ final class CustomerApiRegressionTest extends TestCase
             ->assertJsonPath('data.stock', null)
             ->assertJsonPath('data.variants.0.stock', 4);
         $this->assertNotNull($product->id);
+    }
+
+    public function test_product_detail_exposes_each_variant_photo(): void
+    {
+        Storage::fake('public');
+        $lamp = $this->stockedProduct(['name' => 'Lampu', 'slug' => 'lampu']);
+        $gold = ProductVariant::query()->create(['product_id' => $lamp->id, 'name' => 'Emas', 'sku' => 'LMP-GOLD']);
+        ProductVariant::query()->create(['product_id' => $lamp->id, 'name' => 'Hitam', 'sku' => 'LMP-BLACK']);
+        $gold->addMedia(UploadedFile::fake()->image('emas.jpg'))
+            ->toMediaCollection((string) config('shopper.media.storage.thumbnail_collection', 'thumbnail'));
+
+        $variants = collect($this->getJson('/api/v1/catalog/products/lampu')->assertOk()->json('data.variants'))
+            ->keyBy('name');
+
+        $this->assertStringContainsString('emas.jpg', (string) $variants['Emas']['thumbnail']);
+        // No photo of its own: null, so the app keeps the product gallery.
+        $this->assertArrayHasKey('thumbnail', $variants['Hitam']);
+        $this->assertNull($variants['Hitam']['thumbnail']);
+    }
+
+    public function test_home_sends_one_category_past_the_eight_tiles(): void
+    {
+        foreach (range(1, 10) as $position) {
+            Category::query()->create([
+                'name' => "Kategori {$position}",
+                'slug' => "kategori-{$position}",
+                'position' => $position,
+                'is_enabled' => true,
+            ]);
+        }
+
+        // Nine rows let the app show seven tiles plus "Lainnya" instead of cutting off at eight.
+        $this->getJson('/api/v1/catalog/home')->assertOk()->assertJsonCount(9, 'data.categories');
     }
 
     public function test_short_search_returns_empty_page(): void

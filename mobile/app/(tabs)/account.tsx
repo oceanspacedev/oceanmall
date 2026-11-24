@@ -53,7 +53,7 @@ const ORDER_SHORTCUTS: { key: keyof OrderCounts; label: string; icon: LucideIcon
 const LOGO_MARK = require('@/assets/images/logo-mark.png');
 
 export default function AccountScreen() {
-  const { user, logout } = useAuth();
+  const { user, sessionPending, retrySession, logout } = useAuth();
   const router = useRouter();
   const { unread, refresh: refreshUnread } = useUnreadCount();
   const [counts, setCounts] = useState<OrderCounts>({});
@@ -93,8 +93,9 @@ export default function AccountScreen() {
 
   const { refreshing, onRefresh } = useRefresh(
     useCallback(async () => {
-      await Promise.all([loadCounts(), refreshUnread()]);
-    }, [loadCounts, refreshUnread])
+      // A signed-in session whose profile has not loaded yet asks for it again.
+      await Promise.all([user ? loadCounts() : retrySession(), refreshUnread()]);
+    }, [user, loadCounts, retrySession, refreshUnread])
   );
 
   const initials = user
@@ -119,7 +120,9 @@ export default function AccountScreen() {
         className="flex-1 bg-om-surface"
         contentContainerClassName="pb-8"
         refreshControl={
-          user ? <BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
+          user || sessionPending ? (
+            <BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          ) : undefined
         }>
         {/* Profile header */}
         <View className="bg-om-navy px-4 pb-14 pt-3">
@@ -150,6 +153,40 @@ export default function AccountScreen() {
               </View>
               <Icon as={ChevronRight} size={18} color="rgba(255,255,255,0.8)" />
             </Pressable>
+          ) : sessionPending ? (
+            // Signed in, but the profile is still on its way (slow or failing /auth/me): never
+            // offer Masuk/Daftar here, since signing in again ends the session on other devices.
+            <View accessibilityLiveRegion="polite">
+              <View className="flex-row items-center gap-3">
+                <View className="size-14 items-center justify-center rounded-full bg-white">
+                  <Image
+                    source={LOGO_MARK}
+                    style={{ width: 40, height: 40 }}
+                    contentFit="contain"
+                    accessible={false}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    role="heading"
+                    aria-level={1}
+                    className="text-[18px] font-extrabold leading-6 text-white">
+                    Memuat akunmu…
+                  </Text>
+                  <Text className="text-[12px] text-white/75">
+                    Koneksi lambat. Tarik ke bawah untuk mencoba lagi.
+                  </Text>
+                </View>
+              </View>
+              <View className="mt-4 flex-row">
+                <Button
+                  className="min-h-11 flex-1 rounded-sm bg-white"
+                  loading={refreshing}
+                  onPress={() => void onRefresh()}>
+                  <Text className="font-bold text-om-navy">Coba lagi</Text>
+                </Button>
+              </View>
+            </View>
           ) : (
             <View>
               <View className="flex-row items-center gap-3">
@@ -217,11 +254,14 @@ export default function AccountScreen() {
                   onPress={() =>
                     user
                       ? router.push({ pathname: '/orders', params: { status: item.key } })
-                      : // The tapped status survives sign-in: login sends them back to that tab.
-                        router.push({
-                          pathname: '/login',
-                          params: { redirect: `/orders?status=${item.key}` },
-                        })
+                      : sessionPending
+                        ? // Still signed in: load the profile instead of offering a new sign-in.
+                          void onRefresh()
+                        : // The tapped status survives sign-in: login sends them back to that tab.
+                          router.push({
+                            pathname: '/login',
+                            params: { redirect: `/orders?status=${item.key}` },
+                          })
                   }
                   android_ripple={ripple.row}
                   className="flex-1 items-center gap-1.5 rounded-sm py-1 active:opacity-70">

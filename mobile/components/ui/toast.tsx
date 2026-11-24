@@ -2,7 +2,15 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { announce } from '@/lib/a11y';
 import { SHADOW } from '@/lib/theme';
-import { getToast, subscribeToast, toast, type ToastAction, type ToastTone } from '@/lib/toast';
+import {
+  getBottomBarTop,
+  getToast,
+  subscribeBottomBar,
+  subscribeToast,
+  toast,
+  type ToastAction,
+  type ToastTone,
+} from '@/lib/toast';
 import { CircleAlert, CircleCheckBig, Info, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -17,8 +25,10 @@ const TONE_ICON: Record<ToastTone, LucideIcon> = {
 
 /** Default gap above the safe-area bottom: clears a 56px tab bar plus breathing room. */
 const DEFAULT_BOTTOM_OFFSET = 72;
-/** Header height (52) plus a gap, for toasts anchored to the top. */
-const TOP_OFFSET = 52 + 8;
+/** Header height (56 on tabs, 52 on pushed screens) plus a gap, for toasts anchored to the top. */
+const TOP_OFFSET = 56 + 8;
+/** Gap between a bottom toast and the StickyBar it clears. */
+const BAR_GAP = 8;
 
 /**
  * Renders the current toast from lib/toast. Mounted once by NetworkProvider.
@@ -29,9 +39,12 @@ const TOP_OFFSET = 52 + 8;
  * full-screen, touch-transparent wrapper, so a replacement cross-fades in place
  * instead of stacking, and only the pill itself takes touches.
  */
-function ToastHost() {
+function ToastHost({ topInset }: { topInset?: number }) {
   const current = React.useSyncExternalStore(subscribeToast, getToast, getToast);
+  const barTop = React.useSyncExternalStore(subscribeBottomBar, getBottomBarTop, getBottomBarTop);
   const insets = useSafeAreaInsets();
+  // The wrapper fills the window from y=0, so its height turns a bar's window y into a bottom.
+  const [hostHeight, setHostHeight] = React.useState(0);
 
   // Keep the last placement while the exit animation runs after `current` becomes null.
   const placement = React.useRef({ position: 'bottom' as 'bottom' | 'top', bottomOffset: 0 });
@@ -53,12 +66,17 @@ function ToastHost() {
   }, [id, message]);
 
   const top = position === 'top';
+  const clearBar = barTop !== null && hostHeight > 0 ? hostHeight - barTop + BAR_GAP : 0;
   const placementStyle = top
-    ? { top: insets.top + TOP_OFFSET }
-    : { bottom: insets.bottom + bottomOffset };
+    ? { top: (topInset ?? insets.top) + TOP_OFFSET }
+    : { bottom: Math.max(insets.bottom + bottomOffset, clearBar) };
 
   return (
-    <View pointerEvents="box-none" accessibilityLiveRegion="polite" style={styles.wrapper}>
+    <View
+      pointerEvents="box-none"
+      accessibilityLiveRegion="polite"
+      onLayout={(event) => setHostHeight(event.nativeEvent.layout.height)}
+      style={styles.wrapper}>
       {current ? (
         <Animated.View
           key={current.id}

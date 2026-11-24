@@ -33,6 +33,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Keyboard,
+  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -40,6 +41,7 @@ import {
   type TextInput as TextInputType,
 } from 'react-native';
 import { SafeAreaView } from '@/components/safe-area-view';
+import { KeyboardAvoider } from '@/components/keyboard-avoider';
 
 /** A search needs at least this many characters (the API rejects shorter ones). */
 const MIN_QUERY = 2;
@@ -150,6 +152,11 @@ export default function SearchScreen() {
         if (id !== requestRef.current) {
           return;
         }
+        // A new query or sort reuses the same list: start it at the top, or Android clamps the
+        // old offset to the end of the shorter page and onEndReached loads page 2 straight away.
+        if (!keepResults) {
+          resultsRef.current?.scrollToOffset({ offset: 0, animated: false });
+        }
         setProducts(res.data ?? []);
         setMeta(res.meta ?? null);
         setError(null);
@@ -194,16 +201,40 @@ export default function SearchScreen() {
     };
   }, [searching, query, sort, key, runSearch]);
 
-  const { refreshing, onRefresh } = useRefresh(() => runSearch(query, sort, key, true));
+  const { refreshing, onRefresh } = useRefresh(() => {
+    loadCategories();
+    return runSearch(query, sort, key, true);
+  });
+
+  // The tab stays mounted, so a failed first fetch (offline, lift) is retried on focus and when
+  // the connection comes back, until a list has landed. One request at a time.
+  const categoriesState = useRef<'idle' | 'loading' | 'loaded'>('idle');
+  const loadCategories = useCallback(() => {
+    if (categoriesState.current !== 'idle') {
+      return;
+    }
+    categoriesState.current = 'loading';
+    void api<{ data: { categories?: Category[] } | Category[] }>('/catalog/categories')
+      .then((res) => {
+        setCategories(Array.isArray(res.data) ? res.data : (res.data.categories ?? []));
+        categoriesState.current = 'loaded';
+      })
+      .catch(() => {
+        categoriesState.current = 'idle';
+      });
+  }, []);
 
   useEffect(() => {
     void getRecentSearches().then(setRecent);
-    void api<{ data: { categories?: Category[] } | Category[] }>('/catalog/categories')
-      .then((res) =>
-        setCategories(Array.isArray(res.data) ? res.data : (res.data.categories ?? []))
-      )
-      .catch(() => setCategories([]));
   }, []);
+
+  useEffect(() => {
+    if (!offline) {
+      loadCategories();
+    }
+  }, [offline, loadCategories]);
+
+  useFocusEffect(loadCategories);
 
   // Remember a query once the user pauses on it with results.
   useEffect(() => {
@@ -296,14 +327,15 @@ export default function SearchScreen() {
                 {recent.map((item) => (
                   <View
                     key={item}
-                    className="flex-row items-center rounded-full border border-border bg-white">
+                    className="max-w-full flex-row items-center rounded-full border border-border bg-white">
+                    {/* `shrink` lets a long query ellipsize so the X stays inside the pill. */}
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Cari ${item}`}
                       hitSlop={{ top: 8, bottom: 8, left: 4 }}
                       onPress={() => setQ(item)}
-                      className="py-1.5 pl-3 pr-1.5 active:opacity-70">
-                      <Text className="text-[12px]" numberOfLines={1}>
+                      className="shrink py-1.5 pl-3 pr-1.5 active:opacity-70">
+                      <Text className="shrink text-[12px]" numberOfLines={1}>
                         {item}
                       </Text>
                     </Pressable>
@@ -462,6 +494,8 @@ export default function SearchScreen() {
     );
   }
 
+  const body = <View className="flex-1 bg-background">{renderBody()}</View>;
+
   return (
     <SafeAreaView className="flex-1 bg-om-navy" edges={['top']}>
       <TabHeader>
@@ -499,7 +533,9 @@ export default function SearchScreen() {
         </View>
       </TabHeader>
 
-      <View className="flex-1 bg-background">{renderBody()}</View>
+      {/* iOS insets the scroll content itself (automaticallyAdjustKeyboardInsets); Android is
+          edge-to-edge, so the body needs the KeyboardAvoider to stay above the keyboard. */}
+      {Platform.OS === 'android' ? <KeyboardAvoider>{body}</KeyboardAvoider> : body}
     </SafeAreaView>
   );
 }

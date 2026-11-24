@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CircleAlert, Package, WifiOff } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import { useBottomPad } from '@/components/safe-area-view';
 
 /** The hero banner and a grid of cards, so nothing jumps when the collection arrives. */
 function CollectionSkeleton() {
@@ -31,6 +32,8 @@ function CollectionSkeleton() {
 }
 
 export default function CollectionScreen() {
+  // Clears the Android navigation bar (the app draws edge-to-edge).
+  const bottomPad = useBottomPad(24);
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
   const { offline } = useNetwork();
@@ -140,7 +143,7 @@ export default function CollectionScreen() {
       ) : (
         <ProductList
           products={products}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={{ paddingBottom: bottomPad }}
           refreshControl={<BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListHeaderComponent={
             <View className="mb-3">

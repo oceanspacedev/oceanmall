@@ -116,15 +116,21 @@ export function PaymentPanel({
 
       {va !== '' ? (
         <View className="mt-2 rounded-sm border border-border bg-om-surface p-3">
-          <Text className="text-[12px] text-muted-foreground">Nomor virtual account</Text>
-          <View className="mt-1 flex-row items-center justify-between gap-2">
-            <Text
-              selectable
-              className="flex-1 text-[20px] font-extrabold tracking-wide text-foreground">
-              {va}
-            </Text>
+          {/* The copy button sits on the label row so the number gets the full width, and the
+              number shrinks instead of wrapping mid-digit (360dp phones, larger font sizes). */}
+          <View className="flex-row items-center justify-between gap-2">
+            <Text className="flex-1 text-[12px] text-muted-foreground">Nomor virtual account</Text>
             <CopyButton value={va} label="Salin nomor" />
           </View>
+          <Text
+            selectable
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            maxFontSizeMultiplier={1.3}
+            className="mt-1 text-[20px] font-extrabold tracking-wide text-foreground">
+            {va}
+          </Text>
         </View>
       ) : null}
 

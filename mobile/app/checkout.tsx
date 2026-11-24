@@ -12,6 +12,7 @@ import { PLACEHOLDER_COLOR } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
+import { KeyboardAvoider } from '@/components/keyboard-avoider';
 import {
   PROVIDER_TIMEOUT_MS,
   api,
@@ -35,7 +36,7 @@ import { ripple } from '@/lib/ripple';
 import { COLORS } from '@/lib/theme';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'expo-router';
+import { Stack, useNavigation, useRouter } from 'expo-router';
 import {
   Check,
   CircleAlert,
@@ -54,7 +55,6 @@ import {
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -113,6 +113,9 @@ export default function CheckoutScreen() {
   const { user } = useAuth();
   const { applyCart } = useCart();
   const router = useRouter();
+  const navigation = useNavigation();
+  /** True while "Buat pesanan" waits for the server; leaving then would lose the result. */
+  const placingRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const lastNameRef = useRef<TextInput>(null);
   const phoneRef = useRef<TextInput>(null);
@@ -228,6 +231,20 @@ export default function CheckoutScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Back (header, Android button) is held while the order is being created: the order may still
+  // be placed, and the success screen would then replace whatever page the user moved to.
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', (event) => {
+        if (!placingRef.current) {
+          return;
+        }
+        event.preventDefault();
+        toast.show({ message: 'Pesanan sedang dibuat. Tunggu sebentar, ya.' });
+      }),
+    [navigation]
+  );
 
   const capabilities = checkout?.shipping_capabilities ?? LEGACY_CAPABILITIES;
   const searchEnabled = capabilities.destination_search;
@@ -541,6 +558,7 @@ export default function CheckoutScreen() {
       return;
     }
     setBusy('order');
+    placingRef.current = true;
     setOrderError(null);
     try {
       const res = await api<{ data: { number: string; payment_error?: string | null } }>(
@@ -552,6 +570,7 @@ export default function CheckoutScreen() {
         }
       );
       applyCart(null);
+      placingRef.current = false;
       // The success screen replaces this page, so Back never returns to an emptied checkout.
       router.replace({
         pathname: '/order-placed',
@@ -566,6 +585,7 @@ export default function CheckoutScreen() {
         const found = await findPlacedOrder();
         if (found.state === 'placed') {
           applyCart(null);
+          placingRef.current = false;
           router.replace({ pathname: '/order-placed', params: { number: found.number } });
           return;
         }
@@ -578,6 +598,7 @@ export default function CheckoutScreen() {
       }
       setOrderError(errorMessage(e, 'Gagal membuat pesanan'));
     } finally {
+      placingRef.current = false;
       setBusy(null);
     }
   }
@@ -689,7 +710,7 @@ export default function CheckoutScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         // iOS insets the scroll content itself and the bar stays under the keyboard; Android is
-        // handled by the KeyboardAvoidingView around this body. Using both on iOS would adjust
+        // handled by the KeyboardAvoider around this body. Using both on iOS would adjust
         // twice and leave a blank gap.
         automaticallyAdjustKeyboardInsets>
         {/* Address */}
@@ -848,8 +869,24 @@ export default function CheckoutScreen() {
                           maxFontSizeMultiplier={1.3}
                           value={destination ? destination.label : destinationQuery}
                           onChangeText={(value) => {
-                            setDestination(null);
-                            setDestinationQuery(value);
+                            if (destination) {
+                              // Editing a picked kecamatan starts a new search, not one for its
+                              // whole label: backspace or a one-character edit empties the field,
+                              // typing at the end keeps only the new characters, and replacing
+                              // the selected label (select all + type/paste) keeps the new text.
+                              const label = destination.label;
+                              setDestination(null);
+                              setDestinationQuery(
+                                value.startsWith(label)
+                                  ? value.slice(label.length)
+                                  : label.startsWith(value) ||
+                                      Math.abs(value.length - label.length) <= 1
+                                    ? ''
+                                    : value
+                              );
+                            } else {
+                              setDestinationQuery(value);
+                            }
                             clearFieldError('destination');
                           }}
                           onFocus={() => setDestFocused(true)}
@@ -1028,8 +1065,12 @@ export default function CheckoutScreen() {
                   loading={busy === 'rate' && busyRate === rate.service_code}
                   onPress={() => void chooseRate(rate)}
                   icon={<LogoImage uri={rate.carrier_logo} fallback={Truck} />}
-                  title={`${rate.carrier_name ?? rate.carrier_code} ${rate.service_name}`}
-                  subtitle={etaLabel(rate.estimated_days)}
+                  // The title is one line, so the service goes first in the subtitle (two
+                  // lines) where it is never cut off.
+                  title={rate.carrier_name ?? rate.carrier_code ?? rate.service_name}
+                  subtitle={[rate.service_name, etaLabel(rate.estimated_days)]
+                    .filter(Boolean)
+                    .join(' · ')}
                   trailing={<Text className="text-[14px] font-bold">{formatIdr(rate.amount)}</Text>}
                 />
               ))
@@ -1060,9 +1101,12 @@ export default function CheckoutScreen() {
                 subtitle={
                   limit
                     ? null
-                    : isQris
-                      ? 'Scan dari aplikasi bank atau e-wallet mana saja'
-                      : 'Verifikasi otomatis setelah transfer'
+                    : method.driver === 'manual'
+                      ? // The store confirms these by hand: the method's own note (COD), else none.
+                        method.description?.trim() || null
+                      : isQris
+                        ? 'Scan dari aplikasi bank atau e-wallet mana saja'
+                        : 'Verifikasi otomatis setelah transfer'
                 }
                 note={limit}
               />
@@ -1148,10 +1192,10 @@ export default function CheckoutScreen() {
 
   return (
     <Screen title="Checkout" surface>
+      {/* iOS swipe-back is native and skips the Back guard, so it is off while ordering. */}
+      <Stack.Screen options={{ gestureEnabled: busy !== 'order' }} />
       {Platform.OS === 'android' ? (
-        <KeyboardAvoidingView behavior="height" style={{ flex: 1 }}>
-          {body}
-        </KeyboardAvoidingView>
+        <KeyboardAvoider>{body}</KeyboardAvoider>
       ) : (
         <View style={{ flex: 1 }}>{body}</View>
       )}

@@ -1,14 +1,25 @@
 import { Icon } from '@/components/ui/icon';
 import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
+import { useKeyboardCoversBottom } from '@/components/keyboard-avoider';
 import { announce } from '@/lib/a11y';
 import { ripple } from '@/lib/ripple';
 import { COLORS, SHADOW } from '@/lib/theme';
+import { setBottomBarTop } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
+import { useIsFocused } from 'expo-router';
 import { Check, ChevronRight, Copy, Minus, Plus, type LucideIcon } from 'lucide-react-native';
-import { isValidElement, useEffect, useState, type ReactNode } from 'react';
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Platform, Pressable, View, type AccessibilityActionEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -76,10 +87,32 @@ export function StickyBar({
   safeBottom?: boolean;
 }) {
   const insets = useSafeAreaInsets();
-  const paddingBottom = safeBottom ? Math.max(insets.bottom, 12) : 12;
+  // On the keyboard (inside a KeyboardAvoider) the nav bar is already covered: sit flush on it.
+  const onKeyboard = useKeyboardCoversBottom();
+  const paddingBottom = safeBottom && !onKeyboard ? Math.max(insets.bottom, 12) : 12;
+
+  // Tell ToastHost where this bar starts while its screen is focused, so toasts float above it.
+  const key = useId();
+  const focused = useIsFocused();
+  const ref = useRef<View>(null);
+  const report = useCallback(() => {
+    if (!focused) {
+      setBottomBarTop(key, null);
+      return;
+    }
+    // Page y (the edge-to-edge root starts at the screen top); measureInWindow is offset by the
+    // status bar on Android.
+    ref.current?.measure((_x, _y, _w, _h, _pageX, pageY) => setBottomBarTop(key, pageY));
+  }, [focused, key]);
+  useEffect(() => {
+    report();
+    return () => setBottomBarTop(key, null);
+  }, [report, key]);
 
   return (
     <View
+      ref={ref}
+      onLayout={report}
       className="border-t border-border bg-white px-4 pt-2.5"
       style={[SHADOW.bar, { paddingBottom }]}>
       {children}

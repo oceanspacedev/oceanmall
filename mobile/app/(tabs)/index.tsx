@@ -31,6 +31,7 @@ import { CircleAlert, Grid3x3, Store, UserRound, WifiOff, X } from 'lucide-react
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  AppState,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -41,14 +42,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from '@/components/safe-area-view';
 
-const BANNER_GAP = 10;
 const BANNER_PAD = 12;
+// Must be >= BANNER_PAD, or a sliver of the neighbouring banner shows at the screen edge.
+const BANNER_GAP = BANNER_PAD;
 const BANNER_HEIGHT = 156;
 const BANNER_INTERVAL_MS = 4000;
 /** After the user touches the banner, autoplay waits at least this long before moving it. */
 const BANNER_IDLE_MS = 2500;
 const MAX_CATEGORY_TILES = 8;
 const NUDGE_KEY = 'oceanmall.home-nudge-dismissed';
+/** Beranda data older than this is quietly reloaded when the tab regains focus or the app resumes. */
+const HOME_STALE_MS = 5 * 60 * 1000;
 
 function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
@@ -366,7 +370,7 @@ function BrandRail({ brands }: { brands: Brand[] }) {
 }
 
 export default function HomeScreen() {
-  const { user } = useAuth();
+  const { user, sessionPending } = useAuth();
   const { offline } = useNetwork();
   const scrollRef = useRef<ScrollView>(null);
   const [featured, setFeatured] = useState<Product[]>([]);
@@ -379,20 +383,42 @@ export default function HomeScreen() {
   // null until the stored choice has been read, so the strip never flashes before it is hidden.
   const [nudgeDismissed, setNudgeDismissed] = useState<boolean | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const home = await fetchHome();
-      setFeatured(home.featured_products ?? []);
-      setPromo(home.promo_products ?? []);
-      setCollections(home.featured_collections ?? home.collections ?? []);
-      setCategories(home.categories ?? []);
-      setBrands(home.brands ?? []);
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e, 'Gagal memuat katalog'));
-    } finally {
-      setLoading(false);
+  // Time of the last successful load (0 = never), the request in flight, and whether that request
+  // is a background refresh whose failure should keep the screen as it is.
+  const loadedAt = useRef(0);
+  const inFlight = useRef<Promise<void> | null>(null);
+  const inFlightSilent = useRef(false);
+
+  // One request at a time: a pull, a retry, the offline recovery and a stale refresh share it.
+  const load = useCallback((silent = false): Promise<void> => {
+    if (inFlight.current) {
+      // A visible caller joining a background refresh still wants to hear about a failure.
+      inFlightSilent.current = inFlightSilent.current && silent;
+      return inFlight.current;
     }
+    inFlightSilent.current = silent;
+    const request = (async () => {
+      try {
+        const home = await fetchHome();
+        setFeatured(home.featured_products ?? []);
+        setPromo(home.promo_products ?? []);
+        setCollections(home.featured_collections ?? home.collections ?? []);
+        setCategories(home.categories ?? []);
+        setBrands(home.brands ?? []);
+        setError(null);
+        loadedAt.current = Date.now();
+      } catch (e) {
+        // A failed background refresh keeps yesterday's screen instead of an error banner.
+        if (!inFlightSilent.current) {
+          setError(errorMessage(e, 'Gagal memuat katalog'));
+        }
+      } finally {
+        setLoading(false);
+        inFlight.current = null;
+      }
+    })();
+    inFlight.current = request;
+    return request;
   }, []);
 
   const { refreshing, onRefresh } = useRefresh(load);
@@ -407,6 +433,25 @@ export default function HomeScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // The tab stays mounted for the life of the app, so promos and prices would otherwise stay as
+  // they were at first load. Reload quietly (no skeleton) on focus and on resume once stale.
+  useFocusEffect(
+    useCallback(() => {
+      function refreshIfStale() {
+        if (loadedAt.current > 0 && Date.now() - loadedAt.current > HOME_STALE_MS) {
+          void load(true);
+        }
+      }
+      refreshIfStale();
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          refreshIfStale();
+        }
+      });
+      return () => subscription.remove();
+    }, [load])
+  );
 
   const wasOffline = useRef(offline);
   useEffect(() => {
@@ -456,7 +501,7 @@ export default function HomeScreen() {
     collections.length === 0 &&
     categories.length === 0 &&
     brands.length === 0;
-  const showNudge = !user && nudgeDismissed === false;
+  const showNudge = !user && !sessionPending && nudgeDismissed === false;
 
   // maxOff is the best discount among today's promo products (the API has no promo end time, so
   // there is deliberately no countdown).

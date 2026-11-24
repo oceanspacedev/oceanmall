@@ -18,6 +18,7 @@ import {
 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { useBottomPad } from '@/components/safe-area-view';
 
 /** The one tagline the app uses (the intro's last slide says the same). */
 const TAGLINE = 'Belanja Lebih Luas, Pilihan Tanpa Batas';
@@ -69,6 +70,8 @@ const CONTACT_FAQ: Faq = {
 };
 
 export default function AboutScreen() {
+  // Clears the Android navigation bar (the app draws edge-to-edge).
+  const bottomPad = useBottomPad(40);
   const router = useRouter();
   const [openKey, setOpenKey] = useState<string | null>(null);
   const channels = supportChannels();
@@ -79,7 +82,7 @@ export default function AboutScreen() {
 
   return (
     <Screen title="Tentang OceanMall" surface>
-      <ScrollView className="flex-1" contentContainerClassName="pb-10">
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: bottomPad }}>
         <View className="items-center bg-white px-6 pb-6 pt-7">
           <BrandLogo variant="dark" size={48} />
           <Text className="mt-4 text-center text-[14px] font-semibold text-foreground">

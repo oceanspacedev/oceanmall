@@ -91,7 +91,7 @@ export default function RegisterScreen() {
     if (justRegistered.current && next === DEFAULT_AUTH_REDIRECT) {
       setWelcomePending(true);
     }
-    leaveAuth(router, next);
+    leaveAuth(router, next, navigation);
   }, [navigation, next, router, user]);
 
   const clientErrors: FieldMap = {

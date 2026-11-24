@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { CircleAlert, Package, WifiOff } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import { useBottomPad } from '@/components/safe-area-view';
 
 /** Placeholder with the same silhouette as the loaded page: the sort bar and a grid of cards. */
 function CatalogSkeleton() {
@@ -50,6 +51,8 @@ export function CatalogList({
   /** List endpoint; category pages pass `/catalog/categories/{slug}`. */
   path?: string;
 }) {
+  // Clears the Android navigation bar (the app draws edge-to-edge).
+  const bottomPad = useBottomPad(24);
   const router = useRouter();
   const { offline } = useNetwork();
   const [products, setProducts] = useState<Product[]>([]);
@@ -65,6 +68,9 @@ export function CatalogList({
   // Bumped by every first-page request: an answer for an older sort or an older pull must not
   // overwrite a newer one, and a next page for the old list must not be appended to the new one.
   const requestRef = useRef(0);
+  // The url (sort) that produced the rows and `meta` on screen. A failed sort change keeps the
+  // old rows, so the next page must not come from the new sort and be appended under them.
+  const loadedUrlRef = useRef<string | null>(null);
 
   const search = new URLSearchParams({ ...query, sort }).toString();
   const url = `${path}?${search}`;
@@ -80,6 +86,7 @@ export function CatalogList({
       }
       setProducts(res.data ?? []);
       setMeta(res.meta ?? null);
+      loadedUrlRef.current = url;
       if (res.category?.name) {
         setTitle(res.category.name);
       }
@@ -109,7 +116,14 @@ export function CatalogList({
   }, [load]);
 
   async function loadMore(isRetry = false) {
-    if (!meta || !hasMorePages(meta) || loadingMore || loading || (loadError && !isRetry)) {
+    if (
+      !meta ||
+      !hasMorePages(meta) ||
+      loadingMore ||
+      loading ||
+      (loadError && !isRetry) ||
+      loadedUrlRef.current !== url
+    ) {
       return;
     }
     const id = requestRef.current;
@@ -154,7 +168,7 @@ export function CatalogList({
         <View className={cn('flex-1', loading && 'opacity-60')}>
           <ProductList
             products={products}
-            contentContainerStyle={{ paddingBottom: 24 }}
+            contentContainerStyle={{ paddingBottom: bottomPad }}
             refreshControl={<BrandRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             ListHeaderComponent={
               hasProducts ? (

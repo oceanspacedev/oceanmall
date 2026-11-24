@@ -1,13 +1,15 @@
 import { ErrorBanner } from '@/components/error-banner';
 import { Field, FormScroll } from '@/components/field';
+import { LoginPrompt } from '@/components/login-prompt';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { api, apiFieldErrors, errorMessage } from '@/lib/api';
+import { SESSION_EXPIRED_MESSAGE, api, apiFieldErrors, errorMessage, type User } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { toast } from '@/lib/toast';
 import { emailError, isEmail, phoneError, required } from '@/lib/validate';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { UserRound } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import { Keyboard, TextInput, View } from 'react-native';
 
@@ -39,7 +41,7 @@ const COPY: Record<EditField, { title: string; hint: string }> = {
 
 /** Edits one profile attribute at a time, marketplace-style. */
 export default function ProfileEditScreen() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, setProfile } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams<{ field?: string }>();
   const field: EditField =
@@ -54,8 +56,19 @@ export default function ProfileEditScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Signed out under this screen (e.g. the token was revoked on save): say so and offer sign-in
+  // instead of an empty page.
   if (!user) {
-    return <Screen title={COPY[field].title} />;
+    return (
+      <Screen title={COPY[field].title}>
+        <LoginPrompt
+          icon={UserRound}
+          title="Sesi kamu sudah habis"
+          body={SESSION_EXPIRED_MESSAGE}
+          redirect="/profile"
+        />
+      </Screen>
+    );
   }
 
   const changed =
@@ -92,9 +105,10 @@ export default function ProfileEditScreen() {
     setBusy(true);
     setError(null);
     setServerErrors({});
+    let saved: { data?: User };
     try {
       // The API updates the whole profile; send the untouched values as they are.
-      await api('/auth/profile', {
+      saved = await api<{ data?: User }>('/auth/profile', {
         method: 'PATCH',
         body: JSON.stringify({
           first_name: field === 'name' ? firstName.trim() : user.first_name,
@@ -103,10 +117,6 @@ export default function ProfileEditScreen() {
           phone_number: field === 'phone' ? phone.trim() || null : (user.phone_number ?? null),
         }),
       });
-      await refresh();
-      // The toast host sits above the navigator, so it outlives the pop.
-      toast.show({ tone: 'success', message: 'Profil diperbarui' });
-      router.back();
     } catch (e) {
       setBusy(false);
       Keyboard.dismiss();
@@ -121,7 +131,22 @@ export default function ProfileEditScreen() {
       setError(
         Object.keys(mapped).length > 0 ? null : errorMessage(e, 'Gagal menyimpan perubahan')
       );
+      return;
     }
+    // Saved. The PATCH answers with the updated profile; a failed follow-up must never be
+    // reported as a failed save.
+    if (saved.data) {
+      setProfile(saved.data);
+    } else {
+      try {
+        await refresh();
+      } catch {
+        // The change is saved; the profile fills in on the next refresh.
+      }
+    }
+    // The toast host sits above the navigator, so it outlives the pop.
+    toast.show({ tone: 'success', message: 'Profil diperbarui' });
+    router.back();
   }
 
   return (

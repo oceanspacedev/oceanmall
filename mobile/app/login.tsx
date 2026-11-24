@@ -31,7 +31,7 @@ export default function LoginScreen() {
   // screen buried under register never navigates on its own when the user signs in.
   useEffect(() => {
     if (user && navigation.isFocused()) {
-      leaveAuth(router, next);
+      leaveAuth(router, next, navigation);
     }
   }, [navigation, next, router, user]);
 

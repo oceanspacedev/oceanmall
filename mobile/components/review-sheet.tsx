@@ -11,6 +11,7 @@ import { ripple } from '@/lib/ripple';
 import { COLORS } from '@/lib/theme';
 import { toast, type ToastTone } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { useKeyboardHeight } from '@/lib/keyboard';
 import { Flag, Star, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -75,6 +76,7 @@ export function ReviewSheet({
   toastBottomOffset?: number;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const { height: windowHeight } = useWindowDimensions();
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
@@ -184,7 +186,9 @@ export function ReviewSheet({
       onRequestClose={requestClose}
       onDismiss={flushToast}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        // Android pads the sheet by useKeyboardHeight() instead (see lib/keyboard.ts).
+        enabled={Platform.OS === 'ios'}
+        behavior="padding"
         style={styles.fill}>
         <View className="flex-1 justify-end bg-black/50">
           <Pressable
@@ -198,7 +202,7 @@ export function ReviewSheet({
             style={{
               flexShrink: 1,
               maxHeight: windowHeight * 0.92,
-              paddingBottom: Math.max(insets.bottom, 12),
+              paddingBottom: Math.max(insets.bottom, 12) + keyboardHeight,
             }}>
             <View className="items-center pt-2">
               <View className="h-1 w-9 rounded-full bg-om-disabled" />

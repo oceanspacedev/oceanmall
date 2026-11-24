@@ -93,3 +93,38 @@ function show(options: ToastOptions): string {
 }
 
 export const toast = { show, hide };
+
+/**
+ * Screen-y of the top edge of each StickyBar on a focused screen (components/shop.tsx reports
+ * them). ToastHost keeps bottom toasts above the highest one, so a toast never covers the bar's
+ * buttons, its error banner or its hint row, whatever their height (and on top of the keyboard).
+ */
+const barTops = new Map<string, number>();
+let highestBarTop: number | null = null;
+const barListeners = new Set<() => void>();
+
+export function setBottomBarTop(key: string, top: number | null): void {
+  if (top === null) {
+    barTops.delete(key);
+  } else {
+    barTops.set(key, top);
+  }
+  const next = barTops.size > 0 ? Math.min(...barTops.values()) : null;
+  if (next !== highestBarTop) {
+    highestBarTop = next;
+    barListeners.forEach((listener) => listener());
+  }
+}
+
+/** For useSyncExternalStore. */
+export function subscribeBottomBar(listener: () => void): () => void {
+  barListeners.add(listener);
+  return () => {
+    barListeners.delete(listener);
+  };
+}
+
+/** For useSyncExternalStore: the highest StickyBar top on screen, or null. */
+export function getBottomBarTop(): number | null {
+  return highestBarTop;
+}

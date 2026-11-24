@@ -11,6 +11,7 @@ use Shopper\Core\Models\Country;
 use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Setting;
+use Shopper\Shipping\Facades\Shipping;
 
 class StoreConfigSeeder extends Seeder
 {
@@ -114,9 +115,14 @@ class StoreConfigSeeder extends Seeder
                 'is_default' => true,
                 'country_id' => $indonesiaId,
                 // Warehouse origin per shipping driver, saved to
-                // inventory_shipping_origins by InventoryObserver.
+                // inventory_shipping_origins by InventoryObserver. Demo ids
+                // are only written for drivers that are actually installed,
+                // so a pure Shopper store gets no provider rows.
                 // KERTAWINANGUN, KEDAWUNG, CIREBON — RajaOngkir domestic destination id
-                'shipping_origins' => ['rajaongkir' => '17248'],
+                'shipping_origins' => array_intersect_key(
+                    ['rajaongkir' => '17248'],
+                    array_flip(Shipping::availableDrivers()),
+                ),
             ],
         );
 

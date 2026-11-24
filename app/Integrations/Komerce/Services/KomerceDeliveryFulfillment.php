@@ -223,6 +223,11 @@ final class KomerceDeliveryFulfillment
 
         ShipmentFulfillment::assertEligible($shipment);
 
+        // Unlike Store Order, a repeated pickup request cannot book a second
+        // parcel: it names the existing order_no. A retry after an unanswered
+        // pickup first reconciles the order above (detail by order_no) and
+        // stops once Komerce shows its AWB; only an order Komerce still holds
+        // without an AWB is asked for a pickup again.
         $pickupResponse = $delivery->requestPickup([
             'pickup_date' => $this->pickupDate($pickupTime),
             'pickup_time' => $pickupTime,

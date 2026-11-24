@@ -57,8 +57,9 @@ final class FulfillPaidShipments extends Command
                 $query->where('payment_status', PaymentStatus::Paid);
             })
             ->when($maxAgeDays > 0, static function ($query) use ($maxAgeDays): void {
-                // Shipments are allocated when the order is paid: an old row
-                // predates this retry net (e.g. shipped by hand on a plan
+                // Shipments are created when the order is placed (and an
+                // unpaid order expires within a day): a row older than this
+                // predates the retry net (e.g. shipped by hand on a plan
                 // without the provider's booking API) and is left to staff.
                 $query->where('created_at', '>=', now()->subDays($maxAgeDays));
             })

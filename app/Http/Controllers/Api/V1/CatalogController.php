@@ -79,7 +79,8 @@ final class CatalogController extends Controller
             ->whereNull('parent_id')
             ->with('media')
             ->orderBy('position')
-            ->limit(8)
+            // One past the 8 home tiles, so the app can tell there are more and show "Lainnya".
+            ->limit(9)
             ->get()
             ->map(fn (Category $category): array => [
                 'id' => $category->id,
@@ -191,6 +192,11 @@ final class CatalogController extends Controller
                 'price' => $variant->prices->first()?->amount,
                 'compare_price' => $variant->prices->first()?->compare_amount,
                 'stock' => self::availableStock($variant),
+                // The variant's own photo (null = none); the app swaps the gallery to it on pick.
+                // Not `->thumbnail`: that falls back to the cpanel placeholder image.
+                'thumbnail' => $variant->getFirstMedia(
+                    (string) config('shopper.media.storage.thumbnail_collection', 'thumbnail'),
+                )?->getUrl(),
             ];
         })->values()->all();
         // Null = stock is not tracked (unlimited); the app caps quantity with it.

@@ -53,7 +53,8 @@ type AuthContextValue = {
   sessionPending: boolean;
   /** Asks for the profile of a pending session again now (pull-to-refresh, "Coba lagi"). */
   retrySession: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  /** `code`: the two-step verification code (authenticator or recovery), when the account asks for one. */
+  login: (email: string, password: string, code?: string) => Promise<void>;
   register: (payload: {
     first_name: string;
     last_name: string;
@@ -302,10 +303,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Anything else: the backoff effect keeps trying.
         }
       },
-      async login(email, password) {
+      async login(email, password, code) {
         const res = await api<{ token: string; data: User }>('/auth/login', {
           method: 'POST',
-          body: JSON.stringify({ email, password }),
+          // Always send the key: the server tells builds without a code field to update.
+          body: JSON.stringify({ email, password, code: code ?? '' }),
         });
         await applyToken(res.token);
         setUser(res.data);

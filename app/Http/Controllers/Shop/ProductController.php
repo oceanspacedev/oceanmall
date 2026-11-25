@@ -122,9 +122,8 @@ final class ProductController extends Controller
             'brand',
             'media',
             'prices' => $priceConstraint,
-            'relatedProducts.brand',
-            'relatedProducts.media',
-            'relatedProducts.prices' => $priceConstraint,
+            // Published only: a draft related in cpanel is not public yet.
+            'relatedProducts' => fn ($q) => $q->scopes('publish')->with(['brand', 'media', 'prices' => $priceConstraint]),
             'variants.media',
             'variants.values.attribute',
             'variants.prices' => $priceConstraint,

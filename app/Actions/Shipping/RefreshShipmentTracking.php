@@ -8,6 +8,7 @@ use App\Models\OrderShipment;
 use App\Shipping\Contracts\TracksShipments;
 use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Shopper\Shipping\DataTransferObjects\TrackingEvent;
 use Shopper\Shipping\DataTransferObjects\TrackingInfo;
@@ -33,6 +34,49 @@ final readonly class RefreshShipmentTracking
         private NormalizeShipmentStatus $normalizeStatus,
         private SyncOrderShippingFromShipments $syncOrderShipping,
     ) {}
+
+    /**
+     * Minutes a customer's "track" tap is answered from the stored tracking
+     * instead of asking the provider again.
+     */
+    public const CUSTOMER_COOLDOWN_MINUTES = 15;
+
+    /**
+     * The customer's "track" button (web and app). Each provider lookup may
+     * spend an account-wide quota that checkout quotes also need, so a
+     * customer cannot spend it by tapping: a delivered or cancelled parcel is final, and
+     * any other parcel is asked at most once per cooldown. Staff, webhooks
+     * and the scheduled refresh call handle() and are not limited.
+     *
+     * @return bool Whether the provider was asked (false: stored tracking is current enough).
+     *
+     * @throws RuntimeException When the shipment has no AWB or no driver can track it.
+     */
+    public function handleForCustomer(OrderShipment $shipment): bool
+    {
+        if (in_array($shipment->status, [NormalizeShipmentStatus::DELIVERED, NormalizeShipmentStatus::CANCELLED], true)) {
+            return false;
+        }
+
+        $cooldown = 'shipment-track-cooldown:'.$shipment->getKey();
+
+        // Cache::add is atomic: of two taps at once only one asks the provider.
+        if (! Cache::add($cooldown, true, now()->addMinutes(self::CUSTOMER_COOLDOWN_MINUTES))) {
+            return false;
+        }
+
+        try {
+            $this->handle($shipment);
+        } catch (Throwable $e) {
+            // Nothing was refreshed: the next tap may try again (the route's
+            // own throttle still bounds how often).
+            Cache::forget($cooldown);
+
+            throw $e;
+        }
+
+        return true;
+    }
 
     /**
      * @throws RuntimeException When the shipment has no AWB or no driver can track it.

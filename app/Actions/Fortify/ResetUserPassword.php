@@ -27,5 +27,6 @@ class ResetUserPassword implements ResetsUserPasswords
         $user->forceFill([
             'password' => $input['password'],
         ])->save();
+        // The mobile app's tokens are signed out by App\Models\User::booted().
     }
 }

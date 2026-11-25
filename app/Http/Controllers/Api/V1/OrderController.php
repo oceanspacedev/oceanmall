@@ -213,7 +213,7 @@ final class OrderController extends Controller
             ->firstOrFail();
 
         try {
-            resolve(RefreshShipmentTracking::class)->handle($row);
+            $asked = resolve(RefreshShipmentTracking::class)->handleForCustomer($row);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         } catch (Throwable $e) {
@@ -222,7 +222,11 @@ final class OrderController extends Controller
             return response()->json(['message' => 'Gagal memperbarui pelacakan.'], 422);
         }
 
-        return $this->show($request, $number);
+        // tracking_refreshed false: the parcel is final, or was refreshed
+        // minutes ago (the stored tracking is returned as it is).
+        $response = $this->show($request, $number);
+
+        return $response->setData([...(array) $response->getData(true), 'tracking_refreshed' => $asked]);
     }
 
     public function confirmReceived(Request $request, string $number): JsonResponse

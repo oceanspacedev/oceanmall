@@ -374,14 +374,18 @@ export default function OrderScreen() {
       return;
     }
     await run(`track-${shipmentId}`, async () => {
-      const res = await api<{ data: OrderDetail }>(
+      const res = await api<{ data: OrderDetail; tracking_refreshed?: boolean }>(
         `/orders/${order.number}/shipments/${shipmentId}/track`,
         { method: 'POST', timeoutMs: PROVIDER_TIMEOUT_MS }
       );
       applyOrder(res.data);
       toast.show({
         tone: 'success',
-        message: 'Status pengiriman diperbarui',
+        // false: the parcel is final or was refreshed minutes ago (stored tracking returned).
+        message:
+          res.tracking_refreshed === false
+            ? 'Status pengiriman sudah yang terbaru'
+            : 'Status pengiriman diperbarui',
         bottomOffset: BAR_OFFSET,
       });
     });

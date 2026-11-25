@@ -120,6 +120,7 @@ Route::middleware(['auth', 'verified'])->prefix('account')->name('account.')->gr
         ->middleware('throttle:12,1')
         ->name('orders.sync-payment');
     Route::post('orders/{order}/shipments/{shipment}/track', TrackShipmentController::class)
+        ->middleware('throttle:shipment-track')
         ->name('orders.shipments.track');
     Route::post('orders/{order}/confirm-received', ConfirmOrderReceivedController::class)
         ->name('orders.confirm-received');

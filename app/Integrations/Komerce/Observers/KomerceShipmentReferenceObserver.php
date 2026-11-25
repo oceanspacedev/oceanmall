@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Observers;
 
 use App\Integrations\Komerce\Shipping\KomerceShippingDriver;
+use App\Integrations\Komerce\Support\KomerceShipments;
 use App\Models\OrderShipment;
 use App\Shipping\ShipmentMetadata;
 
@@ -29,7 +30,9 @@ final class KomerceShipmentReferenceObserver
         $metadata = is_array($shipment->metadata) ? $shipment->metadata : null;
         $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : null;
 
-        if ($metadata === null || $komerce === null) {
+        // A shipment another active module owns keeps its own reference and
+        // neutral metadata, whatever Komerce wrote into it.
+        if ($metadata === null || $komerce === null || ! KomerceShipments::owns($shipment)) {
             return;
         }
 

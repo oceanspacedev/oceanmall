@@ -25,12 +25,22 @@ final class CarrierLogos
     /** @var list<Closure(string): ?string> */
     private array $sources = [];
 
+    /** @var list<Closure(string): ?string> */
+    private array $remoteSources = [];
+
     /**
      * @param  Closure(string): ?string  $source  Receives a lower-case carrier slug
+     * @param  bool  $remote  A provider CDN: asked only after every module's
+     *                        local source, so one active module's CDN never
+     *                        overrides another module's local logo alias
      */
-    public function extend(Closure $source): void
+    public function extend(Closure $source, bool $remote = false): void
     {
-        $this->sources[] = $source;
+        if ($remote) {
+            $this->remoteSources[] = $source;
+        } else {
+            $this->sources[] = $source;
+        }
     }
 
     public function forCarrier(Carrier $carrier): ?string
@@ -76,7 +86,7 @@ final class CarrierLogos
             return $local;
         }
 
-        foreach ($this->sources as $source) {
+        foreach ([...$this->sources, ...$this->remoteSources] as $source) {
             $url = $source($slug);
 
             if (is_string($url) && $url !== '') {

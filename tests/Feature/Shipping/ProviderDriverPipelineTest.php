@@ -15,6 +15,7 @@ use App\Shipping\Contracts\CancelsShipments;
 use App\Shipping\Contracts\FulfillsShipments;
 use App\Shipping\Contracts\PrintsLabels;
 use App\Shipping\Contracts\SyncsCarriers;
+use App\Shipping\SelectedRate;
 use App\Shipping\ShippingCapabilities;
 use App\Shipping\ShippingQuoteContext;
 use Illuminate\Console\Scheduling\Event as ScheduledEvent;
@@ -121,8 +122,11 @@ final class ProviderDriverPipelineTest extends TestCase
         $rates = $this->rates($country);
 
         $this->assertSame(['rajaongkir', 'acme'], array_column($rates, 'driver'));
-        $this->assertSame('jne:REG', $rates[0]['service_code']);
-        $this->assertSame('sicepat:BEST', $rates[1]['service_code']);
+        // Two providers quote at once: option keys are namespaced by provider,
+        // the driver's own code travels as provider_service_code.
+        $this->assertSame('rajaongkir|jne:REG', $rates[0]['service_code']);
+        $this->assertSame('acme|sicepat:BEST', $rates[1]['service_code']);
+        $this->assertSame(['jne:REG', 'sicepat:BEST'], array_column($rates, 'provider_service_code'));
         $this->assertSame('SiCepat via Acme', $rates[1]['carrier_name']);
         $this->assertSame('acme-row-1', $rates[1]['acme_reference'], 'Driver details reach the checkout row.');
         $this->assertSame(['sicepat'], $this->acme->quotedCouriers);
@@ -130,6 +134,46 @@ final class ProviderDriverPipelineTest extends TestCase
 
         Http::assertSent(fn (ClientRequest $request): bool => str_contains($request->url(), 'domestic-cost')
             && $request['courier'] === 'jne');
+    }
+
+    public function test_two_providers_quoting_the_same_service_code_keep_distinct_options(): void
+    {
+        $this->requireModules('Komerce');
+
+        config()->set('komerce.shipping_cost_api_key', 'cost-key');
+        config()->set('komerce.rajaongkir.cost_base_url', 'https://cost.example.test');
+        config()->set('komerce.couriers', []);
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://cost.example.test/api/v1/calculate/domestic-cost' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [['code' => 'jne', 'name' => 'JNE', 'service' => 'REG', 'cost' => 18000, 'etd' => '2-3']],
+            ]),
+        ]);
+
+        [$zone, $country] = $this->zone();
+        $this->carrier($zone, 'jne', 'JNE Express', 'rajaongkir');
+        $this->carrier($zone, 'acme-jne', 'JNE via Acme', 'acme', ['courier_code' => 'jne']);
+        Inventory::factory()->create(['is_default' => true, 'rajaongkir_origin_id' => '501']);
+
+        // Acme answers with exactly RajaOngkir's code for the same courier service.
+        $this->acme->rates = [new ShippingRate('jne:REG', 'REG', 15000, 'IDR', 'jne', '1-2')];
+
+        $rates = $this->rates($country);
+        $keys = array_column($rates, 'service_code');
+
+        $this->assertSame(['rajaongkir|jne:REG', 'acme|jne:REG'], $keys, 'One option key per provider.');
+        $this->assertSame(['jne:REG', 'jne:REG'], array_column($rates, 'provider_service_code'));
+
+        // Picking Acme's option by its key stores Acme's rate with the driver's own code.
+        $picked = collect($rates)->firstWhere('service_code', 'acme|jne:REG');
+        $selected = SelectedRate::fromQuote($picked);
+
+        $this->assertSame('acme', $selected['driver']);
+        $this->assertSame(15000, $selected['amount']);
+        $this->assertSame('jne:REG', $selected['service_code']);
+        $this->assertSame('jne:REG', $selected['id']);
+        $this->assertArrayNotHasKey('provider_service_code', $selected);
     }
 
     public function test_zone_options_are_the_fallback_when_no_provider_returns_a_rate_and_the_store_opts_in(): void

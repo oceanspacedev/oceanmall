@@ -7,6 +7,7 @@ namespace App\Integrations\Komerce\Actions\Shipping;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Services\ShippingDeliveryClient;
+use App\Integrations\Komerce\Support\KomerceShipments;
 use App\Models\OrderShipment;
 use App\Support\OrderShipmentOpsPresenter;
 use Shopper\Core\Models\Order;
@@ -39,6 +40,12 @@ final readonly class CancelKomerceDelivery
 
     public function cancelShipment(OrderShipment $shipment): void
     {
+        // Another active shipping module owns it: its reference is not a
+        // Komerce order_no, and its status is not ours to cancel.
+        if (! KomerceShipments::owns($shipment)) {
+            return;
+        }
+
         $orderNo = $this->presenter->deliveryOrderNo($shipment);
 
         if ($orderNo === null) {

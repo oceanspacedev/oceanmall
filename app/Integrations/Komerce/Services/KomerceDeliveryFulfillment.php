@@ -10,6 +10,7 @@ use App\Integrations\Komerce\Actions\Shipping\ReconcileKomerceShipment;
 use App\Integrations\Komerce\Shipping\RajaOngkirCourier;
 use App\Integrations\Komerce\Shipping\RajaOngkirDriver;
 use App\Integrations\Komerce\Support\KomerceLabelResponse;
+use App\Integrations\Komerce\Support\KomerceShipments;
 use App\Models\OrderShipment;
 use App\Models\OrderShipmentLine;
 use App\Shipping\AddressDestination;
@@ -17,6 +18,7 @@ use App\Shipping\DestinationCoordinateResolver;
 use App\Shipping\InventoryOrigins;
 use App\Shipping\ProviderRequestFailure;
 use App\Shipping\ShipmentFulfillment;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShipmentNotFulfillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\ConnectionException;
@@ -120,6 +122,16 @@ final class KomerceDeliveryFulfillment
 
         if (is_scalar($shipment->awb) && trim((string) $shipment->awb) !== '') {
             return;
+        }
+
+        if (KomerceShipments::registeredElsewhere($shipment)) {
+            // Another provider already holds this parcel (a legacy shipment
+            // routed here as the only fulfilment driver): never book a second
+            // pickup with Komerce Delivery.
+            throw new RuntimeException(sprintf(
+                'Shipment is already registered with another provider [%s]; it is not registered with Komerce.',
+                ShipmentMetadata::externalReference($shipment),
+            ));
         }
 
         $metadata = $this->decodeMetadata($shipment->metadata);

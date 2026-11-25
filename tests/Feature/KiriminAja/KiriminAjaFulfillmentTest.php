@@ -277,6 +277,20 @@ final class KiriminAjaFulfillmentTest extends TestCase
         $this->assertStringContainsString('dashboard', (string) data_get($shipment->refresh()->metadata, 'kiriminaja.cancel_note'));
     }
 
+    public function test_a_driver_less_shipment_it_registers_becomes_kiriminajas(): void
+    {
+        $this->fakeApi();
+        [, $shipment] = $this->paidShipment();
+        $shipment->forceFill(['driver' => null])->save();
+
+        // As the only configured fulfiller it takes a legacy row with no driver.
+        $this->artisan('shipping:fulfill-paid')->assertSuccessful();
+
+        $shipment->refresh();
+        $this->assertSame($this->expectedOrderId($shipment), $shipment->external_reference);
+        $this->assertSame('kiriminaja', $shipment->driver, 'Stamped like Biteship/Komerce, so no other module takes it for a legacy row of its own.');
+    }
+
     public function test_an_unregistered_shipment_is_not_cancelled(): void
     {
         Http::fake();

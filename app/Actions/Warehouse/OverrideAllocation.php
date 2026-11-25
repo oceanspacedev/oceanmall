@@ -12,7 +12,9 @@ use App\Models\OrderShipment;
 use App\Models\OrderShipmentLine;
 use App\Models\User;
 use App\Shipping\AddressDestination;
+use App\Shipping\SelectedRate;
 use App\Shipping\ShipmentMetadata;
+use App\Shipping\ShippingCapabilities;
 use App\Support\ShipmentItemValue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -400,7 +402,7 @@ final class OverrideAllocation
                 'carrier_id' => is_numeric($rate['carrier_id'] ?? null) ? (int) $rate['carrier_id'] : $shipment->carrier_id,
                 'carrier_code' => $this->rateString($rate, 'carrier_code'),
                 'carrier_name' => $this->rateString($rate, 'carrier_name') ?? $this->rateString($rate, 'name'),
-                'service_code' => $this->rateString($rate, 'service_code') ?? $this->rateString($rate, 'id'),
+                'service_code' => $this->rateString(['service_code' => SelectedRate::serviceCode($rate)], 'service_code') ?? $this->rateString($rate, 'id'),
                 'service_name' => $this->rateString($rate, 'service_name') ?? $this->rateString($rate, 'description'),
                 'cost' => $this->rateCost($rate),
                 'currency_code' => $this->rateString($rate, 'currency_code') ?? $this->rateString($rate, 'currency') ?? $order->currency_code,
@@ -489,6 +491,22 @@ final class OverrideAllocation
      */
     private function selectRate(array $rates, OrderShipment $shipment): ?array
     {
+        // Re-quoting never moves a parcel to another provider module: with
+        // several configured, every provider's rows are quoted together, and
+        // the customer paid this shipment's provider for it.
+        // A manual / zone-option shipment is not any provider's: it may be
+        // re-quoted by whatever the store offers, as before.
+        $capabilities = resolve(ShippingCapabilities::class);
+        $family = $capabilities->providerFamily(is_string($shipment->driver) ? $shipment->driver : null);
+
+        if ($family !== 'manual') {
+            $rates = array_values(array_filter(
+                $rates,
+                fn (mixed $rate): bool => is_array($rate)
+                    && $capabilities->providerFamily($this->rateString($rate, 'driver')) === $family,
+            ));
+        }
+
         foreach ($rates as $rate) {
             if (! is_array($rate)) {
                 continue;
@@ -515,7 +533,7 @@ final class OverrideAllocation
     private function matchesPreviousRate(array $rate, OrderShipment $shipment): bool
     {
         $carrierCode = $this->rateString($rate, 'carrier_code');
-        $serviceCode = $this->rateString($rate, 'service_code') ?? $this->rateString($rate, 'id');
+        $serviceCode = $this->rateString(['service_code' => SelectedRate::serviceCode($rate)], 'service_code') ?? $this->rateString($rate, 'id');
 
         if ($carrierCode === null || $serviceCode === null) {
             return false;

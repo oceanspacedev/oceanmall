@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Actions\Shipping;
 
 use App\Actions\Shipping\RefreshShipmentTracking;
-use App\Integrations\Komerce\Shipping\KomerceShippingDriver;
-use App\Integrations\Komerce\Shipping\RajaOngkirDriver;
+use App\Integrations\Komerce\Support\KomerceShipments;
 use App\Models\OrderShipment;
 
 /**
@@ -66,13 +65,14 @@ final readonly class ApplyDeliveryWebhookStatus
      * (driver, external_reference) columns first, where driver is the quoting
      * driver (a RajaOngkir-quoted parcel keeps 'rajaongkir' after Delivery
      * registers it); the metadata bucket only for rows the observer has not
-     * mirrored yet; then the AWB.
+     * mirrored yet; then the AWB, among shipments Komerce owns only: another
+     * active shipping module (Biteship, KiriminAja) may hold the same AWB.
      */
     private function findShipment(string $orderNo, ?string $cnote): ?OrderShipment
     {
         if ($orderNo !== '') {
             $byOrderNo = OrderShipment::query()
-                ->whereIn('driver', [KomerceShippingDriver::CODE, RajaOngkirDriver::CODE])
+                ->whereIn('driver', KomerceShipments::DRIVERS)
                 ->where('external_reference', $orderNo)
                 ->orderByDesc('id')
                 ->first()
@@ -87,13 +87,14 @@ final readonly class ApplyDeliveryWebhookStatus
         }
 
         if ($cnote !== null && $cnote !== '') {
-            return OrderShipment::query()
+            return KomerceShipments::scope(OrderShipment::query())
                 ->where(function ($query) use ($cnote): void {
                     $query->where('awb', $cnote)
                         ->orWhere('tracking_number', $cnote);
                 })
                 ->orderByDesc('id')
-                ->first();
+                ->get()
+                ->first(static fn (OrderShipment $shipment): bool => KomerceShipments::owns($shipment));
         }
 
         return null;

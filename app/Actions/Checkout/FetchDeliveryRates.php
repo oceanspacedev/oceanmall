@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Checkout;
 
+use App\Shipping\SelectedRate;
 use App\Shipping\ShippingCapabilities;
 use App\Shipping\ShippingQuoteContext;
 use App\Shipping\ShippingQuoteFailure;
@@ -153,7 +154,7 @@ final readonly class FetchDeliveryRates
                         continue;
                     }
 
-                    $formatted = $this->formatProviderRates($rates, $driver, $owner);
+                    $formatted = $this->formatProviderRates($rates, $driver, $owner, count($chains) > 1);
 
                     if ($formatted !== []) {
                         array_push($rows, ...$formatted);
@@ -200,7 +201,7 @@ final readonly class FetchDeliveryRates
      * @param  Collection<int, ShippingRate>|iterable<mixed>  $rates
      * @return array<int, array<string, mixed>>
      */
-    private function formatProviderRates(iterable $rates, ShippingDriver $driver, string $owner): array
+    private function formatProviderRates(iterable $rates, ShippingDriver $driver, string $owner, bool $namespaced = false): array
     {
         // Only the chain owner's carriers: another driver may own the same
         // courier code (a namespaced 'rajaongkir-jne' next to 'jne').
@@ -226,7 +227,14 @@ final readonly class FetchDeliveryRates
                 ?? $carriers->first(static fn (Carrier $carrier): bool => strtolower((string) $carrier->slug) === $lookup);
 
             $formatted[] = [
-                'service_code' => $rate->serviceCode,
+                // Several providers can quote the same courier service under one
+                // code ('sicepat:REG' from RajaOngkir and from KiriminAja): with
+                // more than one quote chain the option key is namespaced by its
+                // chain owner, so the customer's pick never lands on another
+                // provider. The driver's own code travels as
+                // provider_service_code (SelectedRate stores that one).
+                'service_code' => $namespaced ? SelectedRate::optionKey($owner, $rate->serviceCode) : $rate->serviceCode,
+                'provider_service_code' => $rate->serviceCode,
                 'service_name' => $rate->serviceName,
                 'amount' => $rate->amount,
                 'currency' => $rate->currency,

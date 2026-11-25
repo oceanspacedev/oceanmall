@@ -42,8 +42,27 @@ final class PaymentActions
     /** metadata key of the remembered action on Shopper's Initiate PaymentTransaction. */
     public const TRANSACTION_KEY = 'payment_action';
 
+    /**
+     * The payment driver that owns an order: the one that issued its latest
+     * payment (Shopper's Initiate PaymentTransaction), else its payment
+     * method's driver. Staff can switch a payment method to another driver
+     * in cpanel; an order already paying through the old one keeps being
+     * retried, checked and cancelled there, never by another module.
+     */
     public function driverCode(Order $order): string
     {
+        $issued = PaymentTransaction::query()
+            ->where('order_id', $order->id)
+            ->where('type', TransactionType::Initiate)
+            ->whereNotNull('driver')
+            ->where('driver', '!=', '')
+            ->orderByDesc('id')
+            ->value('driver');
+
+        if (is_string($issued) && trim($issued) !== '') {
+            return trim($issued);
+        }
+
         $order->loadMissing('paymentMethod');
         $code = $order->paymentMethod?->driver;
 

@@ -202,12 +202,12 @@ final class CheckoutController extends Controller
                 : $shippingAddress,
             'deliveryOptions' => $deliveryOptions,
             'selectedDeliveryOption' => is_array($shippingOption)
-                ? ($shippingOption['id'] ?? $shippingOption[0]['id'] ?? null)
+                ? SelectedRate::optionKeyOf(is_array($shippingOption[0] ?? null) ? $shippingOption[0] : $shippingOption)
                 : null,
             'allocation' => $allocation,
             'deliveryOptionsByShipment' => $deliveryOptionsByShipment,
             'selectedRatesByShipment' => collect($selectedByShipment)->map(
-                fn (mixed $rate): string => is_array($rate) ? (string) ($rate['service_code'] ?? '') : (string) $rate
+                fn (mixed $rate): string => is_array($rate) ? (string) (SelectedRate::optionKeyOf($rate) ?? '') : (string) $rate
             )->all(),
             'paymentOptions' => $paymentOptions,
             'selectedPaymentMethod' => $payment['id'] ?? null,
@@ -396,8 +396,7 @@ final class CheckoutController extends Controller
         $originInventoryId = $singleShipment?->inventory_id;
         $deliveryOptions = resolve(FetchDeliveryRates::class)->handle($shippingAddress, $packages, $originInventoryId);
 
-        $selected = collect($deliveryOptions)
-            ->first(fn (array $option): bool => (string) $option['service_code'] === (string) $data['service_code']);
+        $selected = SelectedRate::pick($deliveryOptions, $data['service_code']);
 
         if (! $selected) {
             return back()->withErrors(['service_code' => __('Selected option is no longer available.')]);
@@ -463,8 +462,7 @@ final class CheckoutController extends Controller
 
             $shipmentPackages = $buildPackages->handleFromLines($shipmentDraft->lines);
             $options = $fetchRates->handle($shippingAddress, $shipmentPackages, $inventoryId);
-            $selected = collect($options)
-                ->first(fn (array $o): bool => (string) $o['service_code'] === (string) $serviceCode);
+            $selected = SelectedRate::pick($options, $serviceCode);
 
             if (! $selected) {
                 return back()->withErrors(['rates' => __('Selected option is no longer available.')]);

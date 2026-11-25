@@ -8,6 +8,7 @@ use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\SyncOrderShippingFromShipments;
 use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Services\ShippingDeliveryClient;
+use App\Integrations\Komerce\Support\KomerceShipments;
 use App\Models\OrderShipment;
 use App\Support\OrderShipmentOpsPresenter;
 use RuntimeException;
@@ -28,7 +29,7 @@ final readonly class ReconcileKomerceShipment
 
     public function handle(OrderShipment $shipment): OrderShipment
     {
-        if (! Komerce::shippingDeliveryEnabled()) {
+        if (! Komerce::shippingDeliveryEnabled() || ! KomerceShipments::owns($shipment)) {
             return $shipment;
         }
 

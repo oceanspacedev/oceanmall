@@ -21,7 +21,7 @@ final class TrackShipmentController extends Controller
         abort_unless($shipment->order_id === $order->id, 404);
 
         try {
-            $refreshTracking->handle($shipment);
+            $asked = $refreshTracking->handleForCustomer($shipment);
         } catch (RuntimeException $e) {
             Inertia::flash('toast', [
                 'type' => 'error',
@@ -42,10 +42,10 @@ final class TrackShipmentController extends Controller
             ]);
         }
 
-        Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => 'Status pengiriman diperbarui.',
-        ]);
+        // Not asked: the parcel is final, or was refreshed minutes ago.
+        Inertia::flash('toast', $asked
+            ? ['type' => 'success', 'message' => 'Status pengiriman diperbarui.']
+            : ['type' => 'success', 'message' => 'Status pengiriman sudah yang terbaru. Coba lagi beberapa menit lagi.']);
 
         return back();
     }

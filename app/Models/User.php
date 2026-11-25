@@ -15,6 +15,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\PersonalAccessToken;
 use Shopper\Models\Contracts\ShopperUser;
 use Shopper\Traits\InteractsWithShopper;
 
@@ -37,6 +38,28 @@ final class User extends Authenticatable implements MustVerifyEmail, ShopperUser
     use InteractsWithShopper;
     use Notifiable;
     use TwoFactorAuthenticatable;
+
+    /**
+     * A new password signs the mobile app out, whoever changed it and
+     * wherever (website settings, reset link, cpanel, a command): an owner
+     * changes the password to lock out whoever else holds the account. The
+     * API request that changes the password keeps its own token.
+     */
+    protected static function booted(): void
+    {
+        self::updated(static function (User $user): void {
+            if (! $user->wasChanged('password')) {
+                return;
+            }
+
+            $current = $user->currentAccessToken();
+            $currentKey = $current instanceof PersonalAccessToken ? $current->getKey() : null;
+
+            $user->tokens()
+                ->when(is_int($currentKey) || is_string($currentKey), static fn ($query) => $query->whereKeyNot($currentKey))
+                ->delete();
+        });
+    }
 
     public static function normalizeEmail(string $email): string
     {

@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
 use Shopper\Contracts\LoginResponse as ShopperLoginResponse;
 use Shopper\Core\Contracts\StockAllocator;
 use Shopper\Core\Events\Orders\OrderCancelled;
@@ -131,6 +132,13 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureOrderEvents(): void
     {
+        // Turning two-step verification on signs the mobile app out: a token
+        // issued before it (possibly to someone else who knew the password)
+        // must not outlive it. The owner signs in again with a code.
+        Event::listen(TwoFactorAuthenticationConfirmed::class, static function (TwoFactorAuthenticationConfirmed $event): void {
+            $event->user->tokens()->delete();
+        });
+
         Event::listen(OrderPaid::class, SendOrderPaidNotification::class);
         Event::listen(OrderPaid::class, FulfillShipmentsOnOrderPaid::class);
         Event::listen(OrderCancelled::class, CancelShipmentsOnOrderCancelled::class);
@@ -219,6 +227,17 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('checkout-quote', $perMinuteAndDay(10, 40));
         RateLimiter::for('checkout-destinations', $perMinuteAndDay(30, 300));
+        // A tracking lookup spends the same provider quota as checkout quotes.
+        // Web taps come through Inertia: answer them with the page's own
+        // inline error instead of a bare 429 page.
+        $tooManyTracks = static fn (Request $request, array $headers) => $request->expectsJson() && ! $request->header('X-Inertia')
+            ? response()->json(['message' => 'Terlalu sering memperbarui pelacakan. Coba lagi nanti.'], 429, $headers)
+            : back()->withErrors(['tracking' => 'Terlalu sering memperbarui pelacakan. Coba lagi nanti.']);
+
+        RateLimiter::for('shipment-track', static fn (Request $request): array => [
+            Limit::perMinute(6)->by('minute:'.$byUserOrIp($request))->response($tooManyTracks),
+            Limit::perDay(40)->by('day:'.$byUserOrIp($request))->response($tooManyTracks),
+        ]);
         // Coupon codes are guessable; each payment attempt may create a provider payment.
         RateLimiter::for('coupon', $perMinuteAndDay(5, 30));
         RateLimiter::for('checkout-payment', static fn (Request $request): Limit => Limit::perMinute(10)->by($byUserOrIp($request)));

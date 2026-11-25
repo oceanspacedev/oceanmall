@@ -5,10 +5,23 @@ declare(strict_types=1);
 namespace App\Traits;
 
 use App\DTO\PriceData;
+use App\Models\Price as PriceModel;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Shopper\Core\Helpers\Price;
 
 trait HasProductPricing
 {
+    /**
+     * Prices as App\Models\Price, which never serialises the merchant's
+     * cost price: storefront pages pass these models to the browser as-is.
+     *
+     * @return MorphMany<PriceModel, $this>
+     */
+    public function prices(): MorphMany
+    {
+        return $this->morphMany(PriceModel::class, 'priceable');
+    }
+
     public function getFormattedPrice(): ?PriceData
     {
         $currencyCode = current_currency();

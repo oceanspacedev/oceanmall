@@ -50,7 +50,11 @@ return [
     |
     */
 
-    'expiration' => null,
+    // 90 days: a token that leaked (lost phone, backup) does not work for
+    // ever. The app shows "session expired" on the 401 and asks to sign in
+    // again. SANCTUM_EXPIRATION (minutes) overrides it.
+    // A blank or non-positive value keeps the default (0 would mean "never").
+    'expiration' => max(0, (int) env('SANCTUM_EXPIRATION')) ?: 60 * 24 * 90,
 
     /*
     |--------------------------------------------------------------------------

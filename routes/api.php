@@ -60,7 +60,9 @@ Route::prefix('v1')->group(function (): void {
         Route::get('orders/{number}', [OrderController::class, 'show']);
         Route::post('orders/{number}/retry-payment', [OrderController::class, 'retryPayment'])->middleware('throttle:checkout-payment');
         Route::post('orders/{number}/sync-payment', [OrderController::class, 'syncPayment'])->middleware('throttle:mobile-sync-payment');
-        Route::post('orders/{number}/shipments/{shipment}/track', [OrderController::class, 'track'])->whereNumber('shipment');
+        Route::post('orders/{number}/shipments/{shipment}/track', [OrderController::class, 'track'])
+            ->whereNumber('shipment')
+            ->middleware('throttle:shipment-track');
         Route::post('orders/{number}/confirm-received', [OrderController::class, 'confirmReceived']);
 
         Route::get('addresses', [AddressController::class, 'index']);

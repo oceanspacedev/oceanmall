@@ -12,7 +12,10 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
+use Laravel\Fortify\Fortify;
 use Spatie\Permission\Models\Role;
 use Throwable;
 
@@ -59,11 +62,18 @@ final class AuthController extends Controller
         return $this->tokenResponse($user, 201);
     }
 
+    /** Wrong two-step codes allowed per account before a pause. */
+    private const TWO_FACTOR_ATTEMPTS = 5;
+
+    private const TWO_FACTOR_DECAY_SECONDS = 600;
+
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            // Two-step verification: an authenticator code or a recovery code.
+            'code' => ['nullable', 'string', 'max:64'],
         ]);
 
         $user = User::findByEmail($data['email']);
@@ -72,6 +82,50 @@ final class AuthController extends Controller
             return response()->json([
                 'message' => 'Email atau kata sandi salah.',
             ], 422);
+        }
+
+        // An account protected by two-step verification on the website is
+        // protected here too: no token without a valid code. Only asked
+        // after the password is right, so it does not reveal which accounts
+        // use it.
+        if ($user->hasEnabledTwoFactorAuthentication()) {
+            $code = trim((string) ($data['code'] ?? ''));
+
+            if ($code === '') {
+                return response()->json([
+                    // An app build from before the code field never sends
+                    // the key: tell its user what to do.
+                    'message' => $request->has('code')
+                        ? 'Masukkan kode verifikasi dua langkah dari aplikasi autentikator.'
+                        : 'Akun ini memakai verifikasi dua langkah. Perbarui aplikasi OceanMall ke versi terbaru untuk masuk.',
+                    'two_factor_required' => true,
+                ], 422);
+            }
+
+            // Per account, whatever the IP: the caller already has the
+            // password, so the six digits must not be guessable by volume
+            // (the route's own throttle is per IP). Same budget as the web.
+            $attempts = 'api-two-factor:'.$user->getKey();
+
+            if (RateLimiter::tooManyAttempts($attempts, self::TWO_FACTOR_ATTEMPTS)) {
+                $seconds = RateLimiter::availableIn($attempts);
+
+                return response()->json([
+                    'message' => 'Terlalu banyak percobaan kode. Coba lagi dalam '.max(1, (int) ceil($seconds / 60)).' menit.',
+                    'two_factor_required' => true,
+                ], 429)->header('Retry-After', (string) $seconds);
+            }
+
+            if (! $this->validTwoFactorCode($user, $code)) {
+                RateLimiter::hit($attempts, self::TWO_FACTOR_DECAY_SECONDS);
+
+                return response()->json([
+                    'message' => 'Kode verifikasi dua langkah salah.',
+                    'two_factor_required' => true,
+                ], 422);
+            }
+
+            RateLimiter::clear($attempts);
         }
 
         // One device per account: a new login signs out the previous one. Store reviewers (Apple
@@ -84,6 +138,39 @@ final class AuthController extends Controller
         $this->absorbGuestCart($request, $user);
 
         return $this->tokenResponse($user);
+    }
+
+    /**
+     * A current authenticator code, or an unused recovery code (which is
+     * consumed), exactly as Fortify's web two-factor challenge accepts them.
+     */
+    private function validTwoFactorCode(User $user, string $code): bool
+    {
+        try {
+            // Authenticator apps show "123 456": spaces are not part of it.
+            $totp = (string) preg_replace('/\s+/', '', $code);
+
+            if (preg_match('/^\d{6}$/', $totp) === 1) {
+                $secret = Fortify::currentEncrypter()->decrypt((string) $user->two_factor_secret);
+
+                if (resolve(TwoFactorAuthenticationProvider::class)->verify($secret, $totp)) {
+                    return true;
+                }
+            }
+
+            $recovery = collect($user->recoveryCodes())
+                ->first(static fn (mixed $candidate): bool => is_string($candidate) && hash_equals($candidate, $code));
+
+            if (is_string($recovery)) {
+                $user->replaceRecoveryCode($recovery);
+
+                return true;
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return false;
     }
 
     public function logout(Request $request): JsonResponse

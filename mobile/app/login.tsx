@@ -4,7 +4,7 @@ import { Field } from '@/components/field';
 import { PasswordField } from '@/components/password-field';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { errorMessage } from '@/lib/api';
+import { ApiError, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { DEFAULT_AUTH_REDIRECT, authContext, leaveAuth, safeInternalPath } from '@/lib/redirect';
 import { Link, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -24,6 +24,10 @@ export default function LoginScreen() {
   const passwordRef = useRef<TextInput>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Two-step verification: the field appears once the server asks for a code.
+  const [needsCode, setNeedsCode] = useState(false);
+  const [code, setCode] = useState('');
+  const codeRef = useRef<TextInput>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +39,7 @@ export default function LoginScreen() {
     }
   }, [navigation, next, router, user]);
 
-  const ready = email.trim() !== '' && password !== '';
+  const ready = email.trim() !== '' && password !== '' && (!needsCode || code.trim() !== '');
 
   async function submit() {
     if (busy || !ready) {
@@ -44,11 +48,17 @@ export default function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, needsCode ? code.trim() : undefined);
       // Stay busy: the effect above navigates as soon as the user is set.
     } catch (e) {
       setBusy(false);
       setError(errorMessage(e, 'Gagal masuk'));
+      const body =
+        e instanceof ApiError ? (e.body as { two_factor_required?: unknown } | null) : null;
+      if (body?.two_factor_required === true) {
+        setNeedsCode(true);
+        setTimeout(() => codeRef.current?.focus(), 100);
+      }
       Keyboard.dismiss();
       scrollRef.current?.scrollTo({ y: 0, animated: true });
     }
@@ -66,7 +76,14 @@ export default function LoginScreen() {
         <Field
           label="Email"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(value) => {
+            setEmail(value);
+            // Another account: it may not use two-step verification.
+            if (needsCode) {
+              setNeedsCode(false);
+              setCode('');
+            }
+          }}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
@@ -85,9 +102,24 @@ export default function LoginScreen() {
           autoComplete="current-password"
           textContentType="password"
           placeholder="Masukkan kata sandi"
-          returnKeyType="go"
-          onSubmitEditing={() => void submit()}
+          returnKeyType={needsCode ? 'next' : 'go'}
+          onSubmitEditing={() => (needsCode ? codeRef.current?.focus() : void submit())}
         />
+        {needsCode ? (
+          <Field
+            ref={codeRef}
+            label="Kode verifikasi dua langkah"
+            value={code}
+            onChangeText={setCode}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="one-time-code"
+            textContentType="oneTimeCode"
+            placeholder="Kode dari aplikasi autentikator atau kode pemulihan"
+            returnKeyType="go"
+            onSubmitEditing={() => void submit()}
+          />
+        ) : null}
       </View>
       <View className="mt-3 items-end">
         <Link href="/forgot-password" asChild>
@@ -108,7 +140,9 @@ export default function LoginScreen() {
         </Button>
         {!ready && !busy ? (
           <Text className="mt-2 text-center text-[12px] text-muted-foreground">
-            Isi email dan kata sandi untuk masuk
+            {needsCode
+              ? 'Isi kode verifikasi dua langkah untuk masuk'
+              : 'Isi email dan kata sandi untuk masuk'}
           </Text>
         ) : null}
       </View>

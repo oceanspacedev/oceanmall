@@ -53,7 +53,18 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   allocation plan and payment. `CreateOrder::planMatchesCart()` is the backstop: an order is refused
   (422 "Your cart changed...") unless the plan lists exactly the cart's products and quantities.
   `NotifyOrderCustomer` is best effort and runs after commit: it never throws into its caller.
-- **Test suite is green as of 2026-11-25 (1022 tests; older note: 538 on 2026-11-18).** Tests use kebab-case Inertia page names
+- **Storefront pages pass Eloquent models to Inertia as-is: every serialised attribute is public.**
+  `App\Models\Price` hides `cost_amount` (returned by `HasProductPricing::prices()` on Product and
+  ProductVariant); read the attribute directly in staff code. Do not load prices for a storefront page
+  through `Shopper\Core\Models\Price` directly, and scope related / nested products to `publish`.
+- **Account security rules.** API login asks for the two-step code when the account has 2FA (per-account
+  attempt limit `api-two-factor:{id}`); `User::booted()` deletes Sanctum tokens whenever the password
+  changes (the API change-password request keeps its own token); `AuthenticateSession` signs out other
+  web sessions; confirming 2FA deletes tokens; tokens expire after `sanctum.expiration` (90 days).
+  The customer's track endpoints go through `RefreshShipmentTracking::handleForCustomer()` (15 min
+  cooldown per shipment, final statuses never re-asked) plus the `shipment-track` limiter; staff,
+  webhooks and the schedule call `handle()`.
+- **Test suite is green as of 2026-11-25 (1032 tests; older note: 538 on 2026-11-18).** Tests use kebab-case Inertia page names
   (`settings/security`, `auth/confirm-password`), `first_name`/`last_name` profile fields, and
   `@example.com` addresses. The `email:rfc,dns` rule is skipped under `runningUnitTests()` because
   the DNS validator rejects reserved domains and needs network access.

@@ -652,7 +652,7 @@ final class CheckoutController extends Controller
     public function confirmReturn(Request $request, string $driver): RedirectResponse
     {
         $prepared = session()->get(self::CONFIRM_PAYMENT_SESSION);
-        $confirmer = self::confirmFirstDriver($driver);
+        $confirmer = self::confirmFirstDriver($driver, servicing: true);
         $reference = $confirmer?->returnReference($request);
 
         if ($confirmer === null
@@ -755,9 +755,9 @@ final class CheckoutController extends Controller
     /**
      * The confirm-first payment driver for a code, when it is ready.
      */
-    public static function confirmFirstDriver(?string $code): ?ConfirmsBeforeOrder
+    public static function confirmFirstDriver(?string $code, bool $servicing = false): ?ConfirmsBeforeOrder
     {
-        return PaymentActions::confirmFirstDriver($code);
+        return PaymentActions::confirmFirstDriver($code, $servicing);
     }
 
     /**

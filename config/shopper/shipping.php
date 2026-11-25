@@ -6,6 +6,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | The shipping provider the store sells through (store setting)
+    |--------------------------------------------------------------------------
+    |
+    | Only ONE shipping provider quotes couriers, owns the address
+    | vocabulary and syncs carriers at a time, however many modules hold a
+    | key (App\Support\ActiveProvider). Name one of its driver codes
+    | (komerce or rajaongkir: the same provider; biteship; kiriminaja);
+    | 'none' sells Shopper's zone options only. Left empty, the first
+    | configured provider in bootstrap/providers.php order is used. The
+    | other keyed providers quote nothing but still finish the parcels they
+    | already hold (tracking, webhooks, cancel, labels).
+    |
+    */
+
+    'provider' => env('SHIPPING_PROVIDER'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Shipping Drivers
     |--------------------------------------------------------------------------
     |
@@ -117,12 +135,10 @@ return [
     | Primary destination driver (store setting)
     |--------------------------------------------------------------------------
     |
-    | With several destination-based providers configured at once (e.g.
-    | RajaOngkir + Biteship + KiriminAja), address forms search the FIRST one
-    | (bootstrap/providers.php order). Set a driver code (rajaongkir,
-    | biteship, kiriminaja) to choose whose area / subdistrict vocabulary is
-    | stored on addresses; the others match by exact postal code. Ignored
-    | while that driver is not configured.
+    | Only the selected provider's drivers are considered (see 'provider'
+    | above), so this matters only when that one provider has several
+    | destination-based drivers: address forms search the FIRST one, or the
+    | driver code named here. Ignored while that driver is not configured.
     |
     */
 

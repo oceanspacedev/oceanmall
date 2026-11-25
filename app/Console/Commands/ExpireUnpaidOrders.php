@@ -64,7 +64,9 @@ final class ExpireUnpaidOrders extends Command
         $catalog = new PaymentMethodCatalog;
 
         foreach ($drivers as $code => $driver) {
-            $ready = $catalog->driverReady($code);
+            // Finishing issued payments: also for a gateway the store no
+            // longer sells through, while its key is set.
+            $ready = $catalog->driverServiceable($code);
             $orders = self::pendingOrders($code)->orderBy('id')->limit($limit)->get();
 
             foreach ($orders as $order) {
@@ -114,7 +116,7 @@ final class ExpireUnpaidOrders extends Command
         $catalog = new PaymentMethodCatalog;
 
         foreach (self::expiringDrivers() as $code => $driver) {
-            if ($catalog->driverReady($code) || self::pendingOrders($code)->exists()) {
+            if ($catalog->driverServiceable($code) || self::pendingOrders($code)->exists()) {
                 return true;
             }
         }

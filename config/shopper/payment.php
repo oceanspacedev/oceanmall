@@ -6,6 +6,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | The payment provider the store sells through (store setting)
+    |--------------------------------------------------------------------------
+    |
+    | Only ONE payment gateway takes new payments at a time, however many
+    | modules hold a key (App\Support\ActiveProvider). Name its driver code
+    | (komerce, xendit, midtrans, stripe); 'none' sells through Shopper's
+    | manual methods only. Left empty, the first configured gateway in
+    | bootstrap/providers.php order is used, so a store with a single keyed
+    | gateway needs no setting. The other keyed gateways list no methods but
+    | still settle the invoices they already issued. `php artisan
+    | providers:status` shows the result.
+    |
+    */
+
+    'provider' => env('PAYMENT_PROVIDER'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Payment Drivers
     |--------------------------------------------------------------------------
     |

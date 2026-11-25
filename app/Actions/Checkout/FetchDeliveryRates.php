@@ -329,8 +329,11 @@ final readonly class FetchDeliveryRates
      */
     private function driverConfigured(CarrierRateService $service, Carrier $carrier): bool
     {
+        // Also a provider the store does not sell through
+        // (App\Support\ActiveProvider): its carriers are never offered.
         if (filled($carrier->driver) && $carrier->driver !== 'manual'
-            && OperatorSwitch::state(OperatorSwitch::SHIPPING, (string) $carrier->driver) === false) {
+            && OperatorSwitch::state(OperatorSwitch::SHIPPING, (string) $carrier->driver) !== null
+            && ! OperatorSwitch::on(OperatorSwitch::SHIPPING, (string) $carrier->driver)) {
             return true;
         }
 

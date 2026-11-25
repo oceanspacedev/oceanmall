@@ -43,7 +43,7 @@ final class RefreshPendingShipmentTracking extends Command
 
     public function handle(ShippingCapabilities $capabilities, RefreshShipmentTracking $refresh): int
     {
-        if (! $capabilities->supports(FulfillsShipments::class)) {
+        if (! $capabilities->services(FulfillsShipments::class)) {
             $this->components->info('No configured shipping driver fulfils shipments; skipping tracking refresh.');
 
             return self::SUCCESS;
@@ -89,7 +89,7 @@ final class RefreshPendingShipmentTracking extends Command
             }
         }
 
-        if ($capabilities->supports(TracksShipments::class)) {
+        if ($capabilities->services(TracksShipments::class)) {
             $fulfillable = $capabilities->whereFulfillable(OrderShipment::query())->select('id');
 
             $handEntered = $this->undelivered(OrderShipment::query())

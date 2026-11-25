@@ -110,12 +110,19 @@ final class ShippingCapabilitiesTest extends TestCase
 
         $capabilities = resolve(ShippingCapabilities::class);
 
-        // Default: the first configured destination driver (providers order).
+        // Default: the first configured provider sells, so its vocabulary is used.
         $this->assertSame('rajaongkir', $capabilities->destinationDriverCode());
 
+        // The destination setting only chooses between drivers of the provider
+        // the store sells through: another keyed provider is never picked by it.
         config()->set('shopper.shipping.destination_driver', ' fake-areas ');
+        $this->assertSame('rajaongkir', $capabilities->destinationDriverCode());
+
+        // Selling through the other provider moves the vocabulary with it.
+        config()->set('shopper.shipping.provider', 'fake-areas');
         $this->assertSame('fake-areas', $capabilities->destinationDriverCode());
         $this->assertSame('fake-areas', $capabilities->originDriverCode());
+        config()->set('shopper.shipping.provider', null);
 
         // A preferred driver that is not configured never removes the search.
         config()->set('shopper.shipping.destination_driver', 'not-configured');

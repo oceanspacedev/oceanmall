@@ -25,7 +25,33 @@ final class EnabledCarriers
      */
     public static function forDisplay(?Zone $zone = null): Collection
     {
-        return self::baseQuery($zone)->get();
+        $sold = [];
+
+        // Couriers of a provider the store does not sell through
+        // (App\Support\ActiveProvider) stay enabled in the database for the
+        // day it is selected again, but are not shown: with two providers
+        // keyed, "JNE" would appear twice.
+        return self::baseQuery($zone)->get()
+            ->filter(static function (Carrier $carrier) use (&$sold): bool {
+                $driver = is_string($carrier->driver) ? trim($carrier->driver) : '';
+
+                return $sold[$driver] ??= self::sold($driver);
+            })
+            ->values();
+    }
+
+    /**
+     * Manual carriers and carriers of an unregistered driver are the store's
+     * own; a provider driver's carriers count while it is the selected one.
+     */
+    private static function sold(string $driver): bool
+    {
+        if ($driver === '' || $driver === 'manual'
+            || OperatorSwitch::state(OperatorSwitch::SHIPPING, $driver) === null) {
+            return true;
+        }
+
+        return ActiveProvider::allows(OperatorSwitch::SHIPPING, $driver);
     }
 
     /**

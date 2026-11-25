@@ -41,6 +41,10 @@ abstract class TestCase extends BaseTestCase
             'biteship.webhook_secret' => '',
             'kiriminaja.api_key' => '',
             'kiriminaja.webhook_secret' => '',
+            // No store setting: the first configured provider sells
+            // (App\Support\ActiveProvider); tests that need one set it.
+            'shopper.payment.provider' => null,
+            'shopper.shipping.provider' => null,
         ]);
     }
 

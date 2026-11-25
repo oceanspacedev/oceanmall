@@ -18,12 +18,16 @@ use Symfony\Component\HttpFoundation\Response;
  * before any secret check or processing: nothing is read from the payload,
  * no API call is made, and Biteship stops retrying. Same approach as the
  * Komerce module's AcknowledgeDisabledWebhook.
+ *
+ * The switch alone decides (OperatorSwitch::switchedOn), not which shipping
+ * provider the store sells through: parcels Biteship already holds keep
+ * receiving their status / waybill webhooks after a move to another provider.
  */
 final class AcknowledgeDisabledBiteshipWebhook
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! Biteship::configured() || ! OperatorSwitch::on(OperatorSwitch::SHIPPING, Biteship::CODE)) {
+        if (! Biteship::configured() || ! OperatorSwitch::switchedOn(OperatorSwitch::SHIPPING, Biteship::CODE)) {
             return new JsonResponse(['status' => 'disabled']);
         }
 

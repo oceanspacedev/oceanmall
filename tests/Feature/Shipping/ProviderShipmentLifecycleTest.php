@@ -10,6 +10,7 @@ use App\Actions\Shipping\SyncOrderShippingFromShipments;
 use App\Livewire\Shopper\InventoryForm;
 use App\Models\OrderShipment;
 use App\Models\User;
+use App\Shipping\Contracts\DelegatesQuotes;
 use App\Shipping\Contracts\FulfillsShipments;
 use App\Shipping\Contracts\RequiresOriginId;
 use App\Shipping\Contracts\ResolvesDestinations;
@@ -264,7 +265,9 @@ final class ProviderShipmentLifecycleTest extends TestCase
 
     public function test_a_second_destination_driver_gets_the_id_its_search_finds_for_the_postal_code(): void
     {
-        $this->register(new AreaDriver('areaone', []));
+        // One provider with two destination-based drivers (the store sells
+        // through one provider at a time, App\Support\ActiveProvider).
+        $this->register(new PartnerAreaDriver('areaone', 'areatwo'));
         $second = $this->register(new AreaDriver('areatwo', [
             ['id' => 'B-NEAR', 'label' => 'Kesambi', 'postal_code' => '45131'],
             ['id' => 'B-9', 'label' => 'Harjamukti, Cirebon', 'postal_code' => '45153'],
@@ -290,7 +293,7 @@ final class ProviderShipmentLifecycleTest extends TestCase
 
     public function test_a_second_destination_driver_without_postal_code_search_matches_by_area_name_once(): void
     {
-        $this->register(new AreaDriver('areaone', []));
+        $this->register(new PartnerAreaDriver('areaone', 'areatwo'));
         // This provider's search only knows area names, never postal codes.
         $second = $this->register(new NamedAreaDriver('areatwo', [
             ['id' => 'B-CITY', 'label' => 'Kota Cirebon', 'postal_code' => '45111'],
@@ -472,6 +475,32 @@ final class AreaDriver extends FakeDriver implements ResolvesDestinations
         $this->searched[] = $query;
 
         return $this->rows;
+    }
+
+    public function resolveOrigin(Inventory $inventory): ?array
+    {
+        return null;
+    }
+}
+
+/** A destination driver of the same provider as $partner (it hands its quotes over). */
+final class PartnerAreaDriver extends FakeDriver implements DelegatesQuotes, ResolvesDestinations
+{
+    public function __construct(private readonly string $driverCode, private readonly string $partner) {}
+
+    public function code(): string
+    {
+        return $this->driverCode;
+    }
+
+    public function preferredQuoteDriver(): string
+    {
+        return $this->partner;
+    }
+
+    public function searchDestinations(string $query, int $limit = 10): array
+    {
+        return [];
     }
 
     public function resolveOrigin(Inventory $inventory): ?array

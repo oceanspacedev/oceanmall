@@ -29,7 +29,9 @@ final class XenditStatusCommand extends Command
             'configured' => Xendit::configured(),
             'mode' => Xendit::mode(),
             'refusal' => Xendit::refusal(),
-            'operator_switch' => OperatorSwitch::on(OperatorSwitch::PAYMENT, XenditDriver::CODE),
+            'operator_switch' => OperatorSwitch::switchedOn(OperatorSwitch::PAYMENT, XenditDriver::CODE),
+            // The store sells through one gateway at a time (PAYMENT_PROVIDER).
+            'selected' => OperatorSwitch::on(OperatorSwitch::PAYMENT, XenditDriver::CODE),
             'checkout_ready' => (new PaymentMethodCatalog)->driverReady(XenditDriver::CODE),
             'callback_token_set' => Xendit::callbackToken() !== '',
             'webhook_url' => Route::has('webhooks.xendit.invoice') ? route('webhooks.xendit.invoice') : null,
@@ -52,6 +54,7 @@ final class XenditStatusCommand extends Command
             ['Mode', $report['mode'] ?? '-'],
             ['Refusal', $report['refusal'] ?? '-'],
             ['Operator switch (PAYMENT_XENDIT_ENABLED)', $report['operator_switch'] ? 'on' : 'off'],
+            ['Selected gateway (PAYMENT_PROVIDER)', $report['selected'] ? 'yes' : 'no'],
             ['Offered at checkout', $report['checkout_ready'] ? 'yes' : 'no'],
             ['Callback token set', $report['callback_token_set'] ? 'yes' : 'no'],
             ['Webhook URL', $report['webhook_url'] ?? '-'],

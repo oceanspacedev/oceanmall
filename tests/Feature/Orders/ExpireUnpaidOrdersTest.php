@@ -7,6 +7,7 @@ namespace Tests\Feature\Orders;
 use App\Console\Commands\ExpireUnpaidOrders;
 use App\Models\User;
 use App\Payment\Contracts\ExpiresPayments;
+use App\Payment\PaymentMethodCatalog;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Scheduling\Event as ScheduledEvent;
@@ -57,6 +58,22 @@ final class ExpireUnpaidOrdersTest extends TestCase
         $this->artisan('orders:expire-unpaid')->assertSuccessful();
 
         $this->assertSame([$order->id], $this->driver->expired);
+    }
+
+    public function test_a_gateway_the_store_no_longer_sells_through_still_expires_its_orders_through_the_provider(): void
+    {
+        // Another gateway is the one the store sells through now.
+        Payment::extend('newgate', static fn (): ExpiringGatewayDriver => new ExpiringGatewayDriver);
+        config()->set('shopper.payment.drivers.newgate.enabled', true);
+        config()->set('shopper.payment.provider', 'newgate');
+        $this->assertFalse((new PaymentMethodCatalog)->driverReady('expiring'));
+        $this->assertTrue($this->scheduled()->filtersPass($this->app));
+
+        $order = $this->unpaidOrder(expiresAt: now()->subMinute());
+
+        $this->artisan('orders:expire-unpaid')->assertSuccessful();
+
+        $this->assertSame([$order->id], $this->driver->expired, 'Settled / expired at the provider, not just locally.');
     }
 
     public function test_a_switched_off_driver_is_never_asked_and_its_orders_expire_locally_after_the_grace_period(): void

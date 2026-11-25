@@ -500,11 +500,20 @@ final class OverrideAllocation
         $family = $capabilities->providerFamily(is_string($shipment->driver) ? $shipment->driver : null);
 
         if ($family !== 'manual') {
-            $rates = array_values(array_filter(
+            $own = array_values(array_filter(
                 $rates,
                 fn (mixed $rate): bool => is_array($rate)
                     && $capabilities->providerFamily($this->rateString($rate, 'driver')) === $family,
             ));
+
+            // The store sells through one provider at a time
+            // (App\Support\ActiveProvider). A parcel sold with a previous
+            // provider that never registered it may be re-quoted by the
+            // current one; a registered parcel stays with its provider.
+            if ($own !== [] || filled($shipment->external_reference)
+                || $capabilities->sells(is_string($shipment->driver) ? $shipment->driver : null)) {
+                $rates = $own;
+            }
         }
 
         foreach ($rates as $rate) {

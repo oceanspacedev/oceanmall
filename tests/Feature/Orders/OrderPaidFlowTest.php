@@ -85,6 +85,8 @@ final class OrderPaidFlowTest extends TestCase
 
     public function test_komerce_payment_confirmation_fires_order_paid_and_listeners_notify_and_fulfil(): void
     {
+        $this->requireModules('Komerce');
+
         $this->komerceConfig();
         Bus::fake([FulfillOrderShipment::class]);
         $user = User::factory()->create();
@@ -121,6 +123,8 @@ final class OrderPaidFlowTest extends TestCase
 
     public function test_order_paid_from_shoppers_cpanel_and_a_webhook_never_registers_a_shipment_twice(): void
     {
+        $this->requireModules('Komerce');
+
         $this->komerceConfig();
         Http::fake();
         Bus::fake([FulfillOrderShipment::class]);
@@ -176,6 +180,8 @@ final class OrderPaidFlowTest extends TestCase
 
     public function test_komerce_order_mark_paid_asks_the_provider_instead(): void
     {
+        $this->requireModules('Komerce');
+
         $this->komerceConfig();
         Http::fake();
         $admin = $this->admin();

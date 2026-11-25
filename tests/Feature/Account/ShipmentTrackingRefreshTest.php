@@ -86,6 +86,8 @@ final class ShipmentTrackingRefreshTest extends TestCase
 
     public function test_customer_can_refresh_tracking_and_history_is_stored(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeDeliveryConfig();
         $this->fakeTrackingResponse();
 
@@ -113,6 +115,8 @@ final class ShipmentTrackingRefreshTest extends TestCase
 
     public function test_delivered_tracking_syncs_order_shipping_status_and_completes_order(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeDeliveryConfig();
 
         Http::fake([
@@ -193,6 +197,8 @@ final class ShipmentTrackingRefreshTest extends TestCase
 
     public function test_order_show_exposes_tracking_history_after_refresh(): void
     {
+        $this->requireModules('Komerce');
+
         $this->withoutVite();
         $this->fakeDeliveryConfig();
         $this->fakeTrackingResponse();

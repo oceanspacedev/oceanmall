@@ -32,6 +32,8 @@ final class ShipmentDriverDataTest extends TestCase
 
     public function test_komerce_order_number_is_mirrored_to_neutral_columns(): void
     {
+        $this->requireModules('Komerce');
+
         $shipment = $this->shipment(['driver' => 'rajaongkir']);
 
         $this->assertSame('rajaongkir', $shipment->driver);
@@ -50,6 +52,8 @@ final class ShipmentDriverDataTest extends TestCase
 
     public function test_a_legacy_shipment_without_driver_is_stamped_komerce_once_registered(): void
     {
+        $this->requireModules('Komerce');
+
         $shipment = $this->shipment(['driver' => null]);
 
         $shipment->update(['metadata' => ['komerce' => ['order_no' => 'KOM-78']]]);
@@ -71,6 +75,8 @@ final class ShipmentDriverDataTest extends TestCase
 
     public function test_komerce_cancel_shipment_delegates_to_the_delivery_cancel(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'delivery-key');
         config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
         Http::fake([
@@ -88,6 +94,8 @@ final class ShipmentDriverDataTest extends TestCase
 
     public function test_komerce_cancel_shipment_is_a_noop_without_a_key(): void
     {
+        $this->requireModules('Komerce');
+
         Http::fake();
         $shipment = $this->shipment(['metadata' => ['komerce' => ['order_no' => 'KOM-9']]]);
 
@@ -144,6 +152,8 @@ final class ShipmentDriverDataTest extends TestCase
 
     public function test_komerce_payment_expiry_and_reconcile_through_the_contracts(): void
     {
+        $this->requireModules('Komerce');
+
         $order = Order::factory()->create();
         PaymentTransaction::query()->create([
             'order_id' => $order->id,

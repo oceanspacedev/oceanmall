@@ -128,6 +128,8 @@ final class ProviderNeutralHardeningTest extends TestCase
 
     public function test_komerce_carrier_seeder_never_takes_over_or_re_enables_carriers(): void
     {
+        $this->requireModules('Komerce');
+
         Http::preventStrayRequests();
         Http::fake();
 
@@ -249,6 +251,8 @@ final class ProviderNeutralHardeningTest extends TestCase
 
     public function test_the_fulfilment_call_graph_script_passes(): void
     {
+        $this->requireModules('Komerce');
+
         $process = new Process([PHP_BINARY, base_path('scripts/ast-fulfillment-verify.php')], base_path());
         $process->run();
 

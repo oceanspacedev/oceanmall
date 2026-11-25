@@ -90,6 +90,8 @@ final class KomerceServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadViewsFrom(__DIR__.'/resources/views', 'komerce');
+        // Module-only strings live with the module, not in lang/*.json.
+        $this->loadJsonTranslationsFrom(__DIR__.'/resources/lang');
 
         $this->publishes([
             __DIR__.'/config/komerce.php' => config_path('komerce.php'),

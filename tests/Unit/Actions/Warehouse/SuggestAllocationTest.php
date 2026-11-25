@@ -109,6 +109,8 @@ final class SuggestAllocationTest extends TestCase
 
     public function test_komerce_enabled_skips_inventories_without_rajaongkir_origin(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.enabled', true);
         config()->set('komerce.shipping_cost_api_key', 'test-key');
         // InventoryObserver looks the origin up via RajaOngkir on save; never

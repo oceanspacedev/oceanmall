@@ -12,11 +12,13 @@ use App\Models\User;
 use App\Shipping\ShippingCapabilities;
 use Database\Seeders\CarrierSeeder;
 use Database\Seeders\PaymentMethodSeeder;
+use Database\Seeders\StoreConfigSeeder;
 use Database\Seeders\ZoneSeeder;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Sanctum\Sanctum;
@@ -232,6 +234,19 @@ final class StoreWithoutKomerceModuleTest extends TestCase
         $this->assertSame(0, PaymentMethod::query()->where('driver', 'komerce')->count());
         $this->assertTrue(PaymentMethod::query()->where('slug', 'cod')->where('is_enabled', true)->exists());
         Http::assertNothingSent();
+    }
+
+    public function test_store_seeder_writes_no_provider_origin_without_the_module(): void
+    {
+        // Production skips the demo accounts; the store settings and the
+        // default warehouse are seeded either way.
+        $this->app->detectEnvironment(static fn (): string => 'production');
+        Country::factory()->create(['cca2' => 'ID', 'cca3' => 'IDN', 'name' => 'Indonesia']);
+
+        $this->artisan('db:seed', ['--class' => StoreConfigSeeder::class, '--force' => true])->assertSuccessful();
+
+        $this->assertTrue(Inventory::query()->where('code', 'oceanmall-cirebon')->where('is_default', true)->exists());
+        $this->assertSame(0, DB::table('inventory_shipping_origins')->count());
     }
 
     /**

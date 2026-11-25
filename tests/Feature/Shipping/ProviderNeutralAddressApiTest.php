@@ -56,6 +56,8 @@ final class ProviderNeutralAddressApiTest extends TestCase
 
     public function test_legacy_destination_keys_are_stored_neutral_and_echoed_in_both_spellings(): void
     {
+        $this->requireModules('Komerce');
+
         $this->enableCost();
         $user = User::factory()->create();
         Sanctum::actingAs($user);
@@ -90,6 +92,8 @@ final class ProviderNeutralAddressApiTest extends TestCase
 
     public function test_neutral_destination_keys_are_accepted(): void
     {
+        $this->requireModules('Komerce');
+
         $this->enableCost();
         Sanctum::actingAs(User::factory()->create());
 
@@ -108,6 +112,8 @@ final class ProviderNeutralAddressApiTest extends TestCase
 
     public function test_missing_destination_error_is_mirrored_under_the_legacy_key(): void
     {
+        $this->requireModules('Komerce');
+
         $this->enableCost();
         Sanctum::actingAs(User::factory()->create());
 
@@ -160,6 +166,8 @@ final class ProviderNeutralAddressApiTest extends TestCase
 
     public function test_an_unchanged_destination_posted_back_keeps_its_driver_after_a_provider_switch(): void
     {
+        $this->requireModules('Komerce', 'Biteship');
+
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $address = Address::query()->create([

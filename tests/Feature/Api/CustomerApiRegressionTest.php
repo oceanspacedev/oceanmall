@@ -34,6 +34,8 @@ final class CustomerApiRegressionTest extends TestCase
 
     public function test_delivery_quote_keeps_the_customer_cart_and_sends_its_item_value(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeDelivery();
         $user = User::factory()->create();
         $product = $this->stockedProduct();
@@ -277,6 +279,8 @@ final class CustomerApiRegressionTest extends TestCase
 
     public function test_payment_method_over_its_maximum_is_rejected_before_the_order_exists(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeDelivery(maxAmount: 100000);
         $user = User::factory()->create();
         $product = $this->stockedProduct();
@@ -295,6 +299,8 @@ final class CustomerApiRegressionTest extends TestCase
 
     public function test_order_is_returned_when_only_payment_creation_fails(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeDelivery(paymentFails: true);
         $user = User::factory()->create();
         $product = $this->stockedProduct();

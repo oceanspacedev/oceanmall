@@ -109,6 +109,26 @@ abstract class TestCase extends BaseTestCase
         ], $routes));
     }
 
+    /**
+     * Generic tests that exercise a provider module (app/Integrations/<Name>)
+     * call this first: with the module removed (provider line and folder) they
+     * are skipped instead of failing, so a pure Shopper store keeps a green
+     * suite. Tests that only make sense with the module live in
+     * tests/{Feature,Unit}/<Name> and are deleted together with it.
+     */
+    protected function requireModules(string ...$modules): void
+    {
+        foreach ($modules as $module) {
+            $provider = "App\\Integrations\\{$module}\\{$module}ServiceProvider";
+
+            // By name only: class_exists() would autoload, and an optimized
+            // classmap still lists a deleted module until composer dump-autoload.
+            if (! array_key_exists($provider, $this->app->getLoadedProviders())) {
+                $this->markTestSkipped("Needs the {$module} provider module (app/Integrations/{$module}).");
+            }
+        }
+    }
+
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void
     {
         if (! Features::enabled($feature)) {

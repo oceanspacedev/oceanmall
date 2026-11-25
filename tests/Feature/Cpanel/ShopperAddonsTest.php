@@ -47,11 +47,15 @@ final class ShopperAddonsTest extends TestCase
 
     public function test_komerce_addon_is_off_without_a_komerce_key(): void
     {
+        $this->requireModules('Komerce');
+
         $this->assertFalse((new KomerceAddon)->isEnabled());
     }
 
     public function test_komerce_addon_turns_on_with_any_komerce_product_and_obeys_the_shopper_switch(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'test-cost-key');
         $this->assertTrue((new KomerceAddon)->isEnabled());
 
@@ -65,6 +69,8 @@ final class ShopperAddonsTest extends TestCase
 
     public function test_komerce_addon_registers_its_order_card_once_enabled(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
         $this->registerKomerceAddon();
 

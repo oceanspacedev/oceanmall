@@ -116,6 +116,8 @@ final class MultiPackageCheckoutTest extends TestCase
      */
     public function test_checkout_index_returns_allocation_and_per_shipment_rates_for_split_cart(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeRajaOngkirConfig();
 
         $user = User::factory()->create();
@@ -231,6 +233,8 @@ final class MultiPackageCheckoutTest extends TestCase
      */
     public function test_save_shipping_option_stores_per_shipment_rates_map(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeRajaOngkirConfig();
 
         $user = User::factory()->create();
@@ -346,6 +350,8 @@ final class MultiPackageCheckoutTest extends TestCase
      */
     public function test_fetch_delivery_rates_uses_origin_inventory_id_when_provided(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeRajaOngkirConfig();
 
         $country = Country::factory()->create(['cca2' => 'ID']);
@@ -396,6 +402,8 @@ final class MultiPackageCheckoutTest extends TestCase
      */
     public function test_per_shipment_weight_uses_allocated_lines_only(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeRajaOngkirConfig();
 
         $user = User::factory()->create();
@@ -570,6 +578,8 @@ final class MultiPackageCheckoutTest extends TestCase
      */
     public function test_single_shipment_legacy_path_uses_non_default_inventory_origin(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeRajaOngkirConfig();
 
         $user = User::factory()->create();

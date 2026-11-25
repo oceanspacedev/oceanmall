@@ -65,6 +65,8 @@ final class CpanelOrderDetailTest extends TestCase
 
     public function test_keyless_order_detail_shows_store_cards_without_komerce_ui(): void
     {
+        $this->requireModules('Komerce');
+
         $admin = $this->admin();
         $order = $this->orderWithShipment();
 
@@ -84,6 +86,8 @@ final class CpanelOrderDetailTest extends TestCase
 
     public function test_order_detail_shows_komerce_panel_for_komerce_fulfilled_orders(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
         config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
         $this->registerKomerceAddon();
@@ -109,6 +113,8 @@ final class CpanelOrderDetailTest extends TestCase
 
     public function test_komerce_panel_skips_orders_shipped_with_a_manual_carrier(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
         config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
         $this->registerKomerceAddon();
@@ -123,6 +129,8 @@ final class CpanelOrderDetailTest extends TestCase
 
     public function test_komerce_panel_shows_on_the_starter_plan_for_rajaongkir_quoted_orders(): void
     {
+        $this->requireModules('Komerce');
+
         // Production today: Shipping Cost only, no Shipping Delivery API.
         config()->set('komerce.shipping_cost_api_key', 'test-cost-key');
         config()->set('komerce.rajaongkir.cost_base_url', 'https://shipping.example.test');
@@ -159,6 +167,8 @@ final class CpanelOrderDetailTest extends TestCase
 
     public function test_order_customer_hides_shipping_address_and_identical_billing_under_the_komerce_panel(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
         $this->registerKomerceAddon();
         $admin = $this->admin();
@@ -179,6 +189,8 @@ final class CpanelOrderDetailTest extends TestCase
 
     public function test_order_customer_shows_billing_address_when_it_differs_under_the_komerce_panel(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
         $this->registerKomerceAddon();
         $admin = $this->admin();

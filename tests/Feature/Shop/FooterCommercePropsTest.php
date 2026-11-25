@@ -88,6 +88,8 @@ final class FooterCommercePropsTest extends TestCase
 
     public function test_footer_payment_methods_mirror_the_official_komerce_catalog(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeKomercePaymentHttp([
             'https://payment.example.test/user/api/v1/user/methods' => Http::response($this->officialCatalog()),
         ]);
@@ -110,6 +112,8 @@ final class FooterCommercePropsTest extends TestCase
 
     public function test_footer_falls_back_to_local_payment_data_when_catalog_is_unavailable(): void
     {
+        $this->requireModules('Komerce');
+
         $this->fakeKomercePaymentHttp([
             'https://payment.example.test/user/api/v1/user/methods' => Http::response(['meta' => ['code' => 500]], 500),
         ]);
@@ -128,6 +132,8 @@ final class FooterCommercePropsTest extends TestCase
 
     public function test_footer_couriers_are_exactly_the_official_rajaongkir_couriers_checkout_quotes(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.couriers', ['jne', 'jnt', 'sicepat', 'ide']);
 
         foreach ([

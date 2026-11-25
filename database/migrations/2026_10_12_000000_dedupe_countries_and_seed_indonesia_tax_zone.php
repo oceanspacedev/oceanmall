@@ -42,7 +42,9 @@ return new class extends Migration
         $duplicates = DB::table($countries)
             ->select('cca2', DB::raw('MIN(id) as keep_id'), DB::raw('COUNT(*) as total'))
             ->groupBy('cca2')
-            ->having('total', '>', 1)
+            // The aggregate itself, not the "total" alias: PostgreSQL does
+            // not accept a select alias in HAVING.
+            ->havingRaw('COUNT(*) > 1')
             ->get();
 
         foreach ($duplicates as $duplicate) {

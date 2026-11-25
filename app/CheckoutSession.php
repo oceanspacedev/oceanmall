@@ -21,4 +21,13 @@ final class CheckoutSession
     public const string ALLOCATION_PLAN = 'checkout.allocation_plan';
 
     public const string SHIPPING_OPTIONS_BY_SHIPMENT = 'checkout.shipping_options_by_shipment';
+
+    /**
+     * A payment the customer prepared before the order exists (confirm-first
+     * drivers) plus its legacy keys. It was prepared for one total: whatever
+     * changes the total (address, delivery option, zone, cart) forgets it.
+     *
+     * @var list<string>
+     */
+    public const array CONFIRM_PAYMENT_KEYS = ['confirm_payment', 'stripe_payment', 'stripe_intent_id'];
 }

@@ -72,7 +72,8 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
-        Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
+        Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead'])
+            ->whereUuid('notification');
 
         Route::post('catalog/products/{slug}/reviews', [CatalogController::class, 'storeReview'])
             ->middleware('throttle:mobile-review');

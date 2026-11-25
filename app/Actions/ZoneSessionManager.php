@@ -8,6 +8,7 @@ use App\CheckoutSession;
 use App\DTO\CountryByZoneData;
 use Illuminate\Support\Facades\Cache;
 use Shopper\Cart\CartSessionManager;
+use Shopper\Core\Models\Country;
 
 final class ZoneSessionManager
 {
@@ -82,7 +83,7 @@ final class ZoneSessionManager
         $countryId = shopper_setting('country_id');
 
         if ($countryId) {
-            $code = \Shopper\Core\Models\Country::query()
+            $code = Country::query()
                 ->whereKey($countryId)
                 ->value('cca2');
 
@@ -114,7 +115,7 @@ final class ZoneSessionManager
 
         self::setSession($zone);
 
-        session()->forget(CheckoutSession::KEY);
+        session()->forget([CheckoutSession::KEY, ...CheckoutSession::CONFIRM_PAYMENT_KEYS]);
 
         $cart = resolve(CartSessionManager::class)->current();
 

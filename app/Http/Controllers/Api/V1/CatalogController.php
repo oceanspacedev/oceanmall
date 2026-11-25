@@ -130,8 +130,9 @@ final class CatalogController extends Controller
         $search = trim((string) $request->string('search', ''));
         if ($search !== '') {
             // Explicit ESCAPE: SQLite has no default LIKE escape character.
-            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search);
-            $query->whereRaw("name like ? escape '!'", ["%{$escaped}%"]);
+            // lower() on both sides: LIKE is case-sensitive on PostgreSQL.
+            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($search));
+            $query->whereRaw("lower(name) like ? escape '!'", ["%{$escaped}%"]);
         }
 
         if ($categoryId = $request->integer('category')) {

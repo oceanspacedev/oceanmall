@@ -43,7 +43,17 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
 - **Tests need built assets.** Feature tests render Inertia views and fail with "Vite manifest not
   found" unless `npm run build` has been run (or the Vite dev server is up). Run `npm run build`
   before `composer test`.
-- **Test suite is green as of 2026-11-18 (538 tests).** Tests use kebab-case Inertia page names
+- **Production is PostgreSQL, tests and CI are SQLite only.** Nothing here runs PostgreSQL, so write
+  portable SQL: never query a JSON path on a TEXT column (`notifications.data` is TEXT: filter in PHP,
+  see `NotifyOrderCustomer::alreadySent()`), never use a select alias in HAVING (`havingRaw` with the
+  aggregate), use `lower(col) like ?` for case-insensitive search, and constrain uuid route parameters
+  (`whereUuid`). The pgsql connection sets the session time zone to the app's (`DB_TIMEZONE`).
+- **Checkout state is voided when what it was quoted for changes.** Saving the shipping address (web
+  and API), changing the cart, and absorbing / adopting a guest cart forget the picked delivery option,
+  allocation plan and payment. `CreateOrder::planMatchesCart()` is the backstop: an order is refused
+  (422 "Your cart changed...") unless the plan lists exactly the cart's products and quantities.
+  `NotifyOrderCustomer` is best effort and runs after commit: it never throws into its caller.
+- **Test suite is green as of 2026-11-25 (1022 tests; older note: 538 on 2026-11-18).** Tests use kebab-case Inertia page names
   (`settings/security`, `auth/confirm-password`), `first_name`/`last_name` profile fields, and
   `@example.com` addresses. The `email:rfc,dns` rule is skipped under `runningUnitTests()` because
   the DNS validator rejects reserved domains and needs network access.

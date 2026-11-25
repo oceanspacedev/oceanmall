@@ -21,6 +21,10 @@ Artisan::command('inspire', function () {
  */
 $shippingSupports = static fn (string $contract): Closure => static fn (): bool => resolve(ShippingCapabilities::class)->supports($contract);
 
+// Finishing parcels: a previously selected provider that still holds a key
+// keeps its in-flight shipments moving (ShippingCapabilities::services()).
+$shippingServices = static fn (string $contract): Closure => static fn (): bool => resolve(ShippingCapabilities::class)->services($contract);
+
 /*
  | Every lifecycle command talks to providers (bookings, quota-limited APIs):
  | a slow run must never overlap the next one, and with several app servers
@@ -32,13 +36,13 @@ Schedule::command('shipping:fulfill-paid')
     ->everyFiveMinutes()
     ->withoutOverlapping(30)
     ->onOneServer()
-    ->when($shippingSupports(FulfillsShipments::class));
+    ->when($shippingServices(FulfillsShipments::class));
 
 Schedule::command('shipping:refresh-tracking')
     ->hourly()
     ->withoutOverlapping(120)
     ->onOneServer()
-    ->when($shippingSupports(FulfillsShipments::class));
+    ->when($shippingServices(FulfillsShipments::class));
 
 Schedule::command('shipping:sync-carriers')
     ->dailyAt('00:15')

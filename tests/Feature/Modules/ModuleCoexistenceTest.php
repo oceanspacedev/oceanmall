@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Modules;
 
+use App\Integrations\KiriminAja\Services\KiriminAjaTracker;
 use App\Integrations\Komerce\Actions\Shipping\ApplyDeliveryWebhookStatus;
 use App\Integrations\Komerce\Actions\Shipping\CancelKomerceDelivery;
 use App\Integrations\Komerce\Support\KomerceShipments;
-use App\Integrations\KiriminAja\Services\KiriminAjaTracker;
 use App\Models\OrderShipment;
 use App\Payment\PaymentActions;
 use App\Shipping\SelectedRate;
@@ -29,9 +29,11 @@ use Tests\Support\FulfilmentSafetyFixtures;
 use Tests\TestCase;
 
 /**
- * Every provider module can be active at the same time (Komerce, Xendit,
- * Midtrans for payment; Komerce/RajaOngkir, Biteship, KiriminAja for
- * shipping) without one touching what another owns: distinct driver codes,
+ * Every provider module can be installed and keyed at the same time (Komerce,
+ * Xendit, Midtrans for payment; Komerce/RajaOngkir, Biteship, KiriminAja for
+ * shipping; only one per section SELLS, see SingleActiveProviderTest, and a
+ * store that moved from one to another holds orders of both) without one
+ * touching what another owns: distinct driver codes,
  * seeded rows, webhook URLs and config namespaces, and module code that only
  * acts on its own payments and shipments even though the provider-neutral
  * columns (external_reference, awb) hold every provider's ids.

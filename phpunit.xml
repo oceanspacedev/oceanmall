@@ -49,5 +49,7 @@
         <env name="KIRIMINAJA_API_KEY" value=""/>
         <env name="KIRIMINAJA_WEBHOOK_SECRET" value=""/>
         <env name="SHIPPING_DESTINATION_DRIVER" value=""/>
+        <env name="PAYMENT_PROVIDER" value=""/>
+        <env name="SHIPPING_PROVIDER" value=""/>
     </php>
 </phpunit>

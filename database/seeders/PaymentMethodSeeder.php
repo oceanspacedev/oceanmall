@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Payment\PaymentMethodCatalog;
 use Illuminate\Database\Seeder;
 use Shopper\Core\Models\PaymentMethod;
 use Shopper\Core\Models\Zone;
@@ -62,10 +63,16 @@ class PaymentMethodSeeder extends Seeder
         // production path and COD stays available for ops but off. Only for a
         // COD row created by this run: a re-seed keeps staff's choice.
         if ($cod->wasRecentlyCreated) {
+            // Only the gateway the store sells through counts
+            // (App\Support\ActiveProvider): a keyed gateway standing by
+            // offers nothing at checkout.
+            $catalog = new PaymentMethodCatalog;
             $prepaid = PaymentMethod::query()
                 ->where('is_enabled', true)
                 ->where('driver', '!=', 'manual')
-                ->exists();
+                ->pluck('driver')
+                ->unique()
+                ->contains(static fn (mixed $driver): bool => is_string($driver) && $catalog->driverReady($driver));
 
             $cod->forceFill(['is_enabled' => ! $prepaid])->save();
         }

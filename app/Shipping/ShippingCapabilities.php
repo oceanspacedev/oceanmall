@@ -31,6 +31,13 @@ use Throwable;
  * App\Shipping\Contracts. With no provider configured every answer is
  * "no" and checkout runs on Shopper's own carriers and zone options.
  *
+ * ONE provider sells at a time (App\Support\ActiveProvider: the store
+ * setting SHIPPING_PROVIDER, else the first configured one), so drivers(),
+ * quoteChains(), destinationDriver() and every "supports" answer only ever
+ * hold that provider's drivers. Parcels a previous provider already holds
+ * are still finished by it (fulfillerFor*, trackerFor, forShipmentSupporting,
+ * whereFulfillable use serviceable(), which ignores the selection).
+ *
  * A driver takes part when the operator switch
  * `shopper.shipping.drivers.{code}.enabled` is on (Shopper's convention, as
  * in ShippingManager::configuredDrivers(): no entry means off; values are
@@ -295,7 +302,9 @@ final class ShippingCapabilities
             return null;
         }
 
-        return $this->configured($driver) ? $driver : null;
+        // The parcel was sold with this provider: it finishes it also after
+        // the store moved to another one (serviceable(), not configured()).
+        return $this->serviceable($driver) ? $driver : null;
     }
 
     /**
@@ -349,7 +358,14 @@ final class ShippingCapabilities
     {
         $fulfillers = $this->supporting(FulfillsShipments::class);
 
-        return $fulfillers->count() === 1 ? $fulfillers->first() : null;
+        // A driver-less parcel names no provider: claim it only when no
+        // other keyed provider could have sold it (a previous provider that
+        // still services its parcels counts).
+        if ($fulfillers->count() !== 1 || $this->servicing(FulfillsShipments::class)->count() !== 1) {
+            return null;
+        }
+
+        return $fulfillers->first();
     }
 
     /**
@@ -440,7 +456,7 @@ final class ShippingCapabilities
         $own = $this->forShipment($shipment);
 
         if ($own !== null && $own->code() !== 'manual') {
-            if ($this->configured($own) && $own->supportsTracking()) {
+            if ($this->serviceable($own) && $own->supportsTracking()) {
                 return $own;
             }
 
@@ -448,7 +464,7 @@ final class ShippingCapabilities
             // same provider may track it ('komerce' through 'rajaongkir' Cost
             // tracking), never another module, even while its own is off.
             $family = $this->providerFamily($own->code());
-            $sameProvider = $this->supporting(TracksShipments::class)
+            $sameProvider = $this->servicing(TracksShipments::class)
                 ->first(fn (ShippingDriver $driver): bool => $this->providerFamily($driver->code()) === $family);
 
             // A parcel the provider registered (its order number in
@@ -475,7 +491,7 @@ final class ShippingCapabilities
     {
         $own = $this->forShipment($shipment);
 
-        if ($own instanceof $contract && $this->configured($own)) {
+        if ($own instanceof $contract && $this->serviceable($own)) {
             return $own;
         }
 
@@ -506,6 +522,85 @@ final class ShippingCapabilities
 
             return false;
         }
+    }
+
+    /**
+     * A shipping driver code may take NEW business right now: registered,
+     * switched on, of the provider the store sells through, and configured.
+     * 'manual' / empty (Shopper zone options) always may.
+     */
+    public function sells(?string $code): bool
+    {
+        $code = is_string($code) ? trim($code) : '';
+
+        if ($code === '' || $code === 'manual') {
+            return true;
+        }
+
+        $driver = $this->resolve($code);
+
+        return $driver !== null && $this->configured($driver);
+    }
+
+    /**
+     * The driver can still FINISH parcels it already holds (register a paid
+     * order sold with it, track, reconcile, cancel, print labels): its
+     * switch is on and it is configured, whichever provider the store sells
+     * through now (App\Support\ActiveProvider). configured() is the stricter
+     * question "may it take new business".
+     */
+    public function serviceable(ShippingDriver $driver): bool
+    {
+        if (! OperatorSwitch::switchedOn(OperatorSwitch::SHIPPING, $driver->code())) {
+            return false;
+        }
+
+        try {
+            return $driver->isConfigured();
+        } catch (Throwable $e) {
+            report($e);
+
+            return false;
+        }
+    }
+
+    /**
+     * Serviceable drivers implementing a capability contract: the selected
+     * provider plus previously selected ones that still hold a key.
+     *
+     * @template T of object
+     *
+     * @param  class-string<T>  $contract
+     * @return Collection<string, ShippingDriver&T>
+     */
+    public function servicing(string $contract): Collection
+    {
+        $drivers = [];
+
+        foreach (Shipping::availableDrivers() as $code) {
+            if (! is_string($code) || $code === 'manual') {
+                continue;
+            }
+
+            $driver = $this->resolve($code);
+
+            if ($driver instanceof $contract && $this->serviceable($driver)) {
+                $drivers[$code] = $driver;
+            }
+        }
+
+        return collect($drivers);
+    }
+
+    /**
+     * Some serviceable driver has the capability (lifecycle commands and
+     * their schedules: in-flight parcels of a previous provider count).
+     *
+     * @param  class-string  $contract
+     */
+    public function services(string $contract): bool
+    {
+        return $this->servicing($contract)->isNotEmpty();
     }
 
     /**

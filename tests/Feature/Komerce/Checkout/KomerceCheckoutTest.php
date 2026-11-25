@@ -518,6 +518,9 @@ final class KomerceCheckoutTest extends TestCase
         config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
         config()->set('shopper.payment.drivers.stripe.enabled', true);
         config()->set('shopper.stripe.secret_key', 'sk_test_oceanmall');
+        // One gateway sells at a time; next to a keyed Komerce, Stripe has to
+        // be named (App\Support\ActiveProvider).
+        config()->set('shopper.payment.provider', 'stripe');
         $this->fakeKomercePaymentHttp();
 
         $country = Country::factory()->create();
@@ -567,6 +570,7 @@ final class KomerceCheckoutTest extends TestCase
         // Stripe IS enabled in the zone, but placeOrder should reject the stripe path.
         config()->set('shopper.payment.drivers.stripe.enabled', true);
         config()->set('shopper.stripe.secret_key', 'sk_test_oceanmall');
+        config()->set('shopper.payment.provider', 'stripe');
         config()->set('komerce.payment_api_key', 'test-komerce-key');
         config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
         $this->fakeKomercePaymentHttp();

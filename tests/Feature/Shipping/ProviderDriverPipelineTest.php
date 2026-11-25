@@ -90,11 +90,20 @@ final class ProviderDriverPipelineTest extends TestCase
         config()->set('komerce.shipping_cost_api_key', '');
         $this->assertSame(['rajaongkir' => ['komerce']], $this->chainCodes());
 
+        // A second keyed provider never quotes next to the one the store
+        // sells through (App\Support\ActiveProvider): the first configured
+        // one by default, or the one the store setting names.
         $this->acme->configured = true;
-        $this->assertSame(['rajaongkir' => ['komerce'], 'acme' => ['acme']], $this->chainCodes());
+        $this->assertSame(['rajaongkir' => ['komerce']], $this->chainCodes());
+
+        config()->set('shopper.shipping.provider', 'acme');
+        $this->assertSame(['acme' => ['acme']], $this->chainCodes());
+
+        config()->set('shopper.shipping.provider', 'komerce');
+        $this->assertSame(['rajaongkir' => ['komerce']], $this->chainCodes());
     }
 
-    public function test_a_second_provider_quotes_its_own_carriers_next_to_rajaongkir(): void
+    public function test_a_second_keyed_provider_never_quotes_next_to_the_selected_one(): void
     {
         $this->requireModules('Komerce');
 
@@ -119,24 +128,32 @@ final class ProviderDriverPipelineTest extends TestCase
 
         $this->acme->rates = [new ShippingRate('sicepat:BEST', 'BEST', 21000, 'IDR', 'sicepat', '1-2')];
 
+        // Both hold a key; RajaOngkir is registered first, so it sells alone.
         $rates = $this->rates($country);
 
-        $this->assertSame(['rajaongkir', 'acme'], array_column($rates, 'driver'));
-        // Two providers quote at once: option keys are namespaced by provider,
-        // the driver's own code travels as provider_service_code.
-        $this->assertSame('rajaongkir|jne:REG', $rates[0]['service_code']);
-        $this->assertSame('acme|sicepat:BEST', $rates[1]['service_code']);
-        $this->assertSame(['jne:REG', 'sicepat:BEST'], array_column($rates, 'provider_service_code'));
-        $this->assertSame('SiCepat via Acme', $rates[1]['carrier_name']);
-        $this->assertSame('acme-row-1', $rates[1]['acme_reference'], 'Driver details reach the checkout row.');
-        $this->assertSame(['sicepat'], $this->acme->quotedCouriers);
+        $this->assertSame(['rajaongkir'], array_column($rates, 'driver'));
+        $this->assertSame('jne:REG', $rates[0]['service_code'], 'One provider: plain option keys.');
+        $this->assertSame([], $this->acme->quotedCouriers, 'The other provider is never asked.');
         $this->assertNotContains('manual', array_column($rates, 'driver'), 'Zone options are the fallback, not shown next to provider quotes.');
 
         Http::assertSent(fn (ClientRequest $request): bool => str_contains($request->url(), 'domestic-cost')
             && $request['courier'] === 'jne');
+        Http::assertSentCount(1);
+
+        // The store setting moves checkout to the other provider, alone.
+        config()->set('shopper.shipping.provider', 'acme');
+        $rates = $this->rates($country);
+
+        $this->assertSame(['acme'], array_column($rates, 'driver'));
+        $this->assertSame('sicepat:BEST', $rates[0]['service_code']);
+        $this->assertSame('sicepat:BEST', $rates[0]['provider_service_code']);
+        $this->assertSame('SiCepat via Acme', $rates[0]['carrier_name']);
+        $this->assertSame('acme-row-1', $rates[0]['acme_reference'], 'Driver details reach the checkout row.');
+        $this->assertSame(['sicepat'], $this->acme->quotedCouriers);
+        Http::assertSentCount(1);
     }
 
-    public function test_two_providers_quoting_the_same_service_code_keep_distinct_options(): void
+    public function test_two_keyed_providers_with_the_same_service_code_offer_it_once(): void
     {
         $this->requireModules('Komerce');
 
@@ -159,14 +176,18 @@ final class ProviderDriverPipelineTest extends TestCase
         // Acme answers with exactly RajaOngkir's code for the same courier service.
         $this->acme->rates = [new ShippingRate('jne:REG', 'REG', 15000, 'IDR', 'jne', '1-2')];
 
+        // "JNE REG" is offered once, by the provider the store sells through.
         $rates = $this->rates($country);
-        $keys = array_column($rates, 'service_code');
+        $this->assertSame(['jne:REG'], array_column($rates, 'service_code'));
+        $this->assertSame(['rajaongkir'], array_column($rates, 'driver'));
 
-        $this->assertSame(['rajaongkir|jne:REG', 'acme|jne:REG'], $keys, 'One option key per provider.');
-        $this->assertSame(['jne:REG', 'jne:REG'], array_column($rates, 'provider_service_code'));
+        config()->set('shopper.shipping.provider', 'acme');
+        $rates = $this->rates($country);
+        $this->assertSame(['jne:REG'], array_column($rates, 'service_code'));
+        $this->assertSame(['acme'], array_column($rates, 'driver'));
 
-        // Picking Acme's option by its key stores Acme's rate with the driver's own code.
-        $picked = collect($rates)->firstWhere('service_code', 'acme|jne:REG');
+        // The picked option stores that provider's rate with the driver's own code.
+        $picked = SelectedRate::pick($rates, 'jne:REG');
         $selected = SelectedRate::fromQuote($picked);
 
         $this->assertSame('acme', $selected['driver']);

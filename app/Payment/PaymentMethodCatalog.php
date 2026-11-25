@@ -18,7 +18,9 @@ use Throwable;
  * - any other driver needs its Shopper switch
  *   (`shopper.payment.drivers.{code}.enabled`; no entry means off, as in
  *   Shopper's PaymentManager::configuredDrivers(), see
- *   App\Support\OperatorSwitch) and isConfigured();
+ *   App\Support\OperatorSwitch) and isConfigured(), and must be the ONE
+ *   gateway the store sells through (App\Support\ActiveProvider:
+ *   PAYMENT_PROVIDER, else the first configured one);
  * - a driver that ProvidesPaymentCatalog also decides per method
  *   (methodAvailable) and, when its catalog is reachable, keeps only methods
  *   the account offers (with the catalog's name, logo and amount limits).
@@ -38,6 +40,24 @@ final class PaymentMethodCatalog
         }
 
         if (! OperatorSwitch::on(OperatorSwitch::PAYMENT, $code)) {
+            return false;
+        }
+
+        return Payment::isConfigured($code);
+    }
+
+    /**
+     * The driver can still FINISH payments it issued (status re-check,
+     * expire / cancel at the provider): switch on and configured, whichever
+     * gateway the store sells through now (App\Support\ActiveProvider).
+     */
+    public function driverServiceable(string $code): bool
+    {
+        if ($code === 'manual') {
+            return true;
+        }
+
+        if (! OperatorSwitch::switchedOn(OperatorSwitch::PAYMENT, $code)) {
             return false;
         }
 

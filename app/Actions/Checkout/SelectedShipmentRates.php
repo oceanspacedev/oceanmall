@@ -6,6 +6,7 @@ namespace App\Actions\Checkout;
 
 use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
+use App\Support\OperatorSwitch;
 
 /**
  * The shipping rate the customer picked for each package (shipment) of an
@@ -16,7 +17,8 @@ use App\DTO\ShipmentDraft;
  * when the plan has one package, it was quoted from that package's warehouse
  * (when it says so) and no per-package rates exist: next to per-package rates
  * it is just their summary. A plan whose every package has a rate is covered;
- * an order is never placed for a package without one (it would ship for Rp0).
+ * an order is never placed for a package without one (it would ship for Rp0),
+ * nor at a rate of a provider the store no longer sells through.
  *
  * A rate saved with stamp() records the package it was quoted for (warehouse
  * and lines): once the plan changes that package (lines moved in or out of
@@ -100,7 +102,21 @@ final class SelectedShipmentRates
         $shipmentCount = count($plan->shipments);
 
         foreach ($plan->shipments as $shipmentDraft) {
-            if ($this->forShipment($shipmentDraft, $checkout, $shipmentCount) === []) {
+            $rate = $this->forShipment($shipmentDraft, $checkout, $shipmentCount);
+
+            if ($rate === []) {
+                return false;
+            }
+
+            // The store sells through one shipping provider at a time
+            // (App\Support\ActiveProvider): a rate picked from a provider
+            // the store moved away from since (or switched off) is picked
+            // again from the current one.
+            $driver = $rate['driver'] ?? null;
+
+            if (is_string($driver) && $driver !== ''
+                && OperatorSwitch::state(OperatorSwitch::SHIPPING, $driver) !== null
+                && ! OperatorSwitch::on(OperatorSwitch::SHIPPING, $driver)) {
                 return false;
             }
         }

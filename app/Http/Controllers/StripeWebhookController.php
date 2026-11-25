@@ -18,7 +18,8 @@ use Shopper\Payment\Models\PaymentTransaction;
 
 /**
  * Stripe payment events. Accepted only while the Stripe driver is switched on
- * (PAYMENT_STRIPE_ENABLED) AND a webhook signing secret is configured: the
+ * (PAYMENT_STRIPE_ENABLED; the switch alone, so payments Stripe already took
+ * are still settled after the store moved to another gateway) AND a webhook signing secret is configured: the
  * Stripe-Signature check is an HMAC keyed by that secret, so with an empty
  * secret anyone could sign a forged event. Every event must carry a valid
  * Stripe-Signature, and an event only ever touches Stripe's own transactions.
@@ -29,7 +30,7 @@ final class StripeWebhookController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
-        if (! OperatorSwitch::on(OperatorSwitch::PAYMENT, self::DRIVER) || self::webhookSecret() === '') {
+        if (! OperatorSwitch::switchedOn(OperatorSwitch::PAYMENT, self::DRIVER) || self::webhookSecret() === '') {
             Log::warning('Stripe webhook rejected: Stripe is switched off or has no webhook secret.', [
                 'ip' => $request->ip(),
             ]);

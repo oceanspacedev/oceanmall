@@ -40,7 +40,7 @@ final class FulfillPaidShipments extends Command
 
     public function handle(ShippingCapabilities $capabilities): int
     {
-        if (! $capabilities->supports(FulfillsShipments::class)) {
+        if (! $capabilities->services(FulfillsShipments::class)) {
             $this->components->info('No configured shipping driver fulfils shipments; paid shipments are left to staff.');
 
             return self::SUCCESS;

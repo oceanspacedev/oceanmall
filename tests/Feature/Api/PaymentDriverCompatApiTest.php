@@ -61,6 +61,8 @@ final class PaymentDriverCompatApiTest extends TestCase
         Payment::extend('hostedpay', static fn (): HostedPayDriver => new HostedPayDriver);
         config()->set('shopper.payment.drivers.apicard.enabled', true);
         config()->set('shopper.payment.drivers.hostedpay.enabled', true);
+        // One gateway sells at a time (App\Support\ActiveProvider).
+        config()->set('shopper.payment.provider', 'hostedpay');
 
         $currency = Currency::query()->where('code', 'IDR')->first()
             ?? Currency::factory()->create(['code' => 'IDR', 'name' => 'Rupiah', 'symbol' => 'Rp', 'format' => 'Rp1.234']);
@@ -222,9 +224,14 @@ final class PaymentDriverCompatApiTest extends TestCase
     {
         $this->readyForPayment();
 
-        $listed = collect($this->getJson('/api/v1/checkout')->assertOk()->json('data.payment_methods'))->pluck('driver')->all();
-        $this->assertContains('hostedpay', $listed);
-        $this->assertNotContains('apicard', $listed);
+        $listed = fn (): array => collect($this->getJson('/api/v1/checkout')->assertOk()->json('data.payment_methods'))->pluck('driver')->all();
+        $this->assertContains('hostedpay', $listed());
+        $this->assertNotContains('apicard', $listed());
+
+        // Also while the confirm-first gateway is the one the store sells through.
+        config()->set('shopper.payment.provider', 'apicard');
+        $this->assertNotContains('apicard', $listed());
+        $this->assertNotContains('hostedpay', $listed());
 
         $this->postJson('/api/v1/checkout/place-order', ['payment_method_id' => $this->card->id])
             ->assertStatus(422)

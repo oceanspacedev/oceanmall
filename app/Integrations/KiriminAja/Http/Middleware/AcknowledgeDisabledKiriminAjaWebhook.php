@@ -18,12 +18,16 @@ use Symfony\Component\HttpFoundation\Response;
  * a callback is acknowledged with HTTP 200 `{status: disabled}` before any
  * authentication or processing: nothing is read from the payload and no
  * outbound call is made. Same approach as the Komerce module.
+ *
+ * The switch alone decides (OperatorSwitch::switchedOn), not which shipping
+ * provider the store sells through: parcels KiriminAja already holds keep
+ * receiving their callbacks after a move to another provider.
  */
 final class AcknowledgeDisabledKiriminAjaWebhook
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! KiriminAja::configured() || ! OperatorSwitch::on(OperatorSwitch::SHIPPING, KiriminAjaDriver::CODE)) {
+        if (! KiriminAja::configured() || ! OperatorSwitch::switchedOn(OperatorSwitch::SHIPPING, KiriminAjaDriver::CODE)) {
             return new JsonResponse(['status' => 'disabled']);
         }
 

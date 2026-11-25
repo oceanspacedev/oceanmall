@@ -74,6 +74,21 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   `KomerceShippingDriver::calculateRates()`; the selected row is persisted with
   `provider=shipping_delivery` so Store Order (`App\Integrations\Komerce\Services\KomerceDeliveryFulfillment`,
   reached via `FulfillsShipments`) reuses it without re-quoting.
+- **One payment provider and one shipping provider sell at a time.** `App\Support\ActiveProvider` picks
+  the provider family per section: store setting `shopper.{payment,shipping}.provider`
+  (`PAYMENT_PROVIDER` / `SHIPPING_PROVIDER`, `none` = no provider), else the first registered driver
+  whose switch is on and `isConfigured()`. `rajaongkir` + `komerce` shipping are ONE family
+  (`ShippingCapabilities::providerFamily()`). `OperatorSwitch::on()` = switch on AND selected: it gates
+  SELLING (payment method lists, quote chains, destination driver, carrier sync, carrier display,
+  the COD rule of PaymentMethodSeeder, place-order via SelectedShipmentRates::coverPlan). Seeders do NOT
+  bake the selection into is_enabled: rows of a standby provider stay enabled and are hidden on read. `OperatorSwitch::switchedOn()` = the switch alone: it gates SERVICING orders a previous
+  provider already holds (webhook middlewares, `PaymentMethodCatalog::driverServiceable()` in
+  `orders:expire-unpaid`, `ShippingCapabilities::serviceable()` behind `fulfillerFor*`, `trackerFor`,
+  `forShipmentSupporting`, `whereFulfillable`, and the fulfil / tracking schedules). Never put the
+  selection into a driver's `isConfigured()` or a webhook gate: paid callbacks of issued invoices
+  would be acknowledged and dropped. `php artisan providers:status` prints the result. An explicitly
+  named provider without a key is not replaced by another one. Tests that need a second provider next
+  to the selected one must set `shopper.*.provider` explicitly.
 - **One primary destination vocabulary.** An address stores one `destination_id` +
   `destination_driver` (`App\Shipping\AddressDestination`; legacy `rajaongkir_*` keys are still read
   as a fallback) picked from the first configured `ResolvesDestinations` driver

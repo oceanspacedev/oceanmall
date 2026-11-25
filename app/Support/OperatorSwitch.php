@@ -24,13 +24,33 @@ final class OperatorSwitch
 
     public const PAYMENT = 'payment';
 
+    /**
+     * The driver may take NEW business (offer payment methods, quote
+     * couriers, sync carriers, be the store's destination vocabulary): its
+     * switch is on AND it belongs to the one provider the store sells
+     * through (App\Support\ActiveProvider).
+     */
     public static function on(string $section, string $code): bool
     {
         if ($code === 'manual') {
             return true;
         }
 
-        return self::state($section, $code) === true;
+        return self::state($section, $code) === true && ActiveProvider::allows($section, $code);
+    }
+
+    /**
+     * The switch alone, whichever provider is selected: the driver may still
+     * FINISH what it already holds after the store moved to another provider
+     * (status and expiry of issued payments, registering paid parcels sold
+     * with it, tracking, cancel, labels, shipping webhooks). Setting the
+     * switch to false stops that too. Payment webhooks of the provider
+     * modules do not even ask the switch: a paid callback for an issued
+     * invoice is applied while the key is set.
+     */
+    public static function switchedOn(string $section, string $code): bool
+    {
+        return $code === 'manual' || self::state($section, $code) === true;
     }
 
     /**

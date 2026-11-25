@@ -231,13 +231,19 @@ final class PaymentActions
      * is ready. Web checkout runs its flow; the mobile app cannot render an
      * embedded form, so the API neither lists nor accepts such methods.
      */
-    public static function confirmFirstDriver(?string $code): ?ConfirmsBeforeOrder
+    public static function confirmFirstDriver(?string $code, bool $servicing = false): ?ConfirmsBeforeOrder
     {
         if (! is_string($code) || $code === '' || $code === 'manual') {
             return null;
         }
 
-        if (! (new PaymentMethodCatalog)->driverReady($code)) {
+        // $servicing: the customer returns from a confirmation that was
+        // already started. It is finished also when the store moved to
+        // another gateway meanwhile (the card may be charged); no new
+        // confirmation starts with a gateway that does not sell.
+        $catalog = new PaymentMethodCatalog;
+
+        if (! ($servicing ? $catalog->driverServiceable($code) : $catalog->driverReady($code))) {
             return null;
         }
 

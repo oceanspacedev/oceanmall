@@ -43,24 +43,33 @@ final readonly class ConfirmOrderReceived
             ]);
         }
 
-        $hasAirwayBill = $shipments->contains(function (OrderShipment $shipment): bool {
-            return (is_string($shipment->awb) && trim($shipment->awb) !== '')
-                || (is_string($shipment->tracking_number) && trim($shipment->tracking_number) !== '');
-        });
+        // A cancelled parcel is never coming and is never marked delivered.
+        $live = $shipments->reject(static fn (OrderShipment $shipment): bool => $shipment->status === NormalizeShipmentStatus::CANCELLED)->values();
 
-        if (! $hasAirwayBill) {
+        $shipped = static fn (OrderShipment $shipment): bool => (is_string($shipment->awb) && trim($shipment->awb) !== '')
+            || (is_string($shipment->tracking_number) && trim($shipment->tracking_number) !== '');
+
+        if ($live->isEmpty() || ! $live->contains($shipped)) {
             throw ValidationException::withMessages([
                 'received' => __('Shipments must have an airway bill before you can confirm receipt.'),
             ]);
         }
 
-        return DB::transaction(function () use ($order, $shipments): Order {
-            foreach ($shipments as $shipment) {
+        // The order is received when EVERY parcel arrived: one that has not
+        // even shipped yet (a second warehouse) cannot be confirmed with it.
+        if (! $live->every($shipped)) {
+            throw ValidationException::withMessages([
+                'received' => __('Some packages of this order have not been shipped yet. You can confirm receipt once all of them have arrived.'),
+            ]);
+        }
+
+        return DB::transaction(function () use ($order, $live): Order {
+            foreach ($live as $shipment) {
                 $shipment->forceFill(['status' => NormalizeShipmentStatus::DELIVERED])->save();
             }
 
-            $order->forceFill(['status' => OrderStatus::Completed])->save();
-
+            // Every live parcel is delivered now: the sync moves the order to
+            // delivered / completed and fires OrderCompleted once.
             return $this->syncOrderShipping->handle($order->refresh());
         });
     }

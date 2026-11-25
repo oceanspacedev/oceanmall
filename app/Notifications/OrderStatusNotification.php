@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use App\Enums\OrderNotificationType;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Shopper\Core\Models\Order;
 
@@ -19,9 +18,14 @@ final class OrderStatusNotification extends Notification
     /**
      * @return list<string>
      */
+    /**
+     * The in-app notification only, stored at once (NotifyOrderCustomer
+     * reads it to send each type once). The e-mail is OrderStatusMail, sent
+     * by the queue.
+     */
     public function via(object $notifiable): array
     {
-        return ['database', 'mail'];
+        return ['database'];
     }
 
     /**
@@ -39,17 +43,5 @@ final class OrderStatusNotification extends Notification
             'url' => route('account.orders.show', $this->order),
             'type' => $this->type->value,
         ];
-    }
-
-    public function toMail(object $notifiable): MailMessage
-    {
-        $number = (string) $this->order->number;
-
-        return (new MailMessage)
-            ->subject($this->type->title().' — '.$number)
-            ->greeting('Halo,')
-            ->line($this->type->body($number))
-            ->action('Lihat pesanan', route('account.orders.show', $this->order))
-            ->line('Terima kasih telah belanja di OceanMall.');
     }
 }

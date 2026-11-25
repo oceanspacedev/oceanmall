@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Http;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
+use Shopper\Core\Models\PaymentMethod;
 use Shopper\Payment\DataTransferObjects\PaymentResult;
 use Shopper\Payment\DataTransferObjects\WebhookResult;
 use Shopper\Payment\Drivers\Driver;
@@ -74,6 +75,36 @@ final class ExpireUnpaidOrdersTest extends TestCase
         $this->artisan('orders:expire-unpaid')->assertSuccessful();
 
         $this->assertSame([$order->id], $this->driver->expired, 'Settled / expired at the provider, not just locally.');
+    }
+
+    public function test_an_order_whose_payment_was_never_initiated_expires_a_day_after_it_was_placed(): void
+    {
+        $method = PaymentMethod::factory()->create(['driver' => 'expiring', 'is_enabled' => true]);
+        $cod = PaymentMethod::factory()->create(['driver' => 'manual', 'is_enabled' => true]);
+        $order = static fn (PaymentMethod $method, \DateTimeInterface $placed): Order => Order::factory()->create([
+            'customer_id' => User::factory()->create()->id,
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'payment_method_id' => $method->id,
+            'price_amount' => 10000,
+            'currency_code' => 'IDR',
+            'created_at' => $placed,
+        ]);
+
+        // The gateway was down at place-order: no payment transaction exists.
+        $stuck = $order($method, now()->subDays(2));
+        $fresh = $order($method, now()->subHours(2));
+        // Cash on delivery is not a payment that expires.
+        $cashOnDelivery = $order($cod, now()->subDays(5));
+
+        $this->assertTrue($this->scheduled()->filtersPass($this->app));
+        $this->artisan('orders:expire-unpaid')->assertSuccessful();
+
+        $this->assertSame(OrderStatus::Cancelled, $stuck->fresh()->status, 'Its stock goes back on sale.');
+        $this->assertSame(PaymentStatus::Voided, $stuck->fresh()->payment_status);
+        $this->assertSame(OrderStatus::New, $fresh->fresh()->status, 'The customer may still retry the payment.');
+        $this->assertSame(OrderStatus::New, $cashOnDelivery->fresh()->status);
+        $this->assertSame([], $this->driver->expired, 'Nothing was issued at the provider: nothing to expire there.');
     }
 
     public function test_a_switched_off_driver_is_never_asked_and_its_orders_expire_locally_after_the_grace_period(): void

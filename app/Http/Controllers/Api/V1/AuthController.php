@@ -48,16 +48,22 @@ final class AuthController extends Controller
             'password' => $data['password'],
         ]);
 
-        // Sends the verification mail (same as web registration). The app does
-        // not gate on it; web checkout and account pages do (`verified`).
-        event(new Registered($user));
-
         $role = config('shopper.admin.roles.user');
         if (is_string($role) && $role !== '' && Role::query()->where('name', $role)->exists()) {
             $user->assignRole($role);
         }
 
         $this->absorbGuestCart($request, $user);
+
+        // Queues the verification mail (same as web registration), after the
+        // account is complete: a mail problem never leaves a half-made
+        // account or fails the registration. The app does not gate on it; web
+        // checkout and account pages do (`verified`).
+        try {
+            event(new Registered($user));
+        } catch (Throwable $e) {
+            report($e);
+        }
 
         return $this->tokenResponse($user, 201);
     }

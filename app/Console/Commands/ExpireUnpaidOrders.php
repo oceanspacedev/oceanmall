@@ -99,6 +99,29 @@ final class ExpireUnpaidOrders extends Command
                     $this->warn("Order #{$order->id}: {$e->getMessage()}");
                 }
             }
+
+            // The gateway never issued a payment for these (it was down,
+            // refused the amount, timed out): nothing can be paid, so there
+            // is nothing to check at the provider and no grace period. A day
+            // after the order was placed the customer has not retried: the
+            // stock goes back on sale.
+            foreach (self::neverInitiated($code)->orderBy('id')->limit($limit)->get() as $order) {
+                $due = $order->created_at?->copy()->addDay();
+
+                if ($due === null || $due->gt($now)) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                try {
+                    $cancel->handle($order, throughPaymentProvider: false);
+                    $expired++;
+                } catch (Throwable $e) {
+                    report($e);
+                    $this->warn("Order #{$order->id}: {$e->getMessage()}");
+                }
+            }
         }
 
         $this->info("Expired {$expired} order(s); skipped {$skipped}.");
@@ -116,7 +139,7 @@ final class ExpireUnpaidOrders extends Command
         $catalog = new PaymentMethodCatalog;
 
         foreach (self::expiringDrivers() as $code => $driver) {
-            if ($catalog->driverServiceable($code) || self::pendingOrders($code)->exists()) {
+            if ($catalog->driverServiceable($code) || self::pendingOrders($code)->exists() || self::neverInitiated($code)->exists()) {
                 return true;
             }
         }
@@ -158,6 +181,24 @@ final class ExpireUnpaidOrders extends Command
             ->where('payment_status', PaymentStatus::Pending)
             ->where('status', OrderStatus::New)
             ->whereHas('paymentTransactions', static function ($query) use ($code): void {
+                $query->where('driver', $code);
+            });
+    }
+
+    /**
+     * Unpaid orders picked to be paid through this driver for which no
+     * payment was ever recorded: the initiation failed after the order (and
+     * its stock reservation) was created.
+     *
+     * @return Builder<Order>
+     */
+    private static function neverInitiated(string $code): Builder
+    {
+        return Order::query()
+            ->where('payment_status', PaymentStatus::Pending)
+            ->where('status', OrderStatus::New)
+            ->whereDoesntHave('paymentTransactions')
+            ->whereHas('paymentMethod', static function ($query) use ($code): void {
                 $query->where('driver', $code);
             });
     }

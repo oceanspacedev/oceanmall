@@ -139,6 +139,18 @@ final class SyncOrderShippingFromShipments
      */
     private function aggregateShippingStatus(array $statuses): ShippingStatus
     {
+        // A cancelled parcel is never delivered: next to parcels that do
+        // travel it does not hold the order back (an order whose every
+        // parcel is cancelled keeps the rules below).
+        $live = array_values(array_filter(
+            $statuses,
+            static fn (string $status): bool => $status !== NormalizeShipmentStatus::CANCELLED,
+        ));
+
+        if ($live !== []) {
+            $statuses = $live;
+        }
+
         $total = count($statuses);
         $delivered = count(array_filter(
             $statuses,

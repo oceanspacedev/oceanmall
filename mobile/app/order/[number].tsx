@@ -498,9 +498,11 @@ export default function OrderScreen() {
   }
 
   const style = STAGE_STYLE[stage.key] ?? STAGE_STYLE.processing;
-  const hasAwb = order.shipments.some((shipment) =>
-    Boolean(shipment.awb || shipment.tracking_number)
-  );
+  // Every parcel that still travels must have shipped (a cancelled one is not waited for).
+  const liveShipments = order.shipments.filter((shipment) => shipment.status !== 'cancelled');
+  const hasAwb =
+    liveShipments.length > 0 &&
+    liveShipments.every((shipment) => Boolean(shipment.awb || shipment.tracking_number));
   const canConfirm = order.payment_status === 'paid' && hasAwb && order.status !== 'completed';
   const reviewable = canReviewOrder(order);
   const firstSlug = order.items.find((item) => item.slug)?.slug;

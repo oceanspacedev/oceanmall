@@ -170,9 +170,14 @@ const canConfirmReceived =
     props.order.status !== 'cancelled' &&
     props.order.status !== 'completed' &&
     props.order.payment_status === 'paid' &&
-    props.shipments.some((shipment) =>
-        Boolean(shipment.awb || shipment.tracking_number),
-    );
+    // Every parcel that still travels must have shipped (a cancelled one
+    // is not waited for).
+    props.shipments.some((shipment) => shipment.status !== 'cancelled') &&
+    props.shipments
+        .filter((shipment) => shipment.status !== 'cancelled')
+        .every((shipment) =>
+            Boolean(shipment.awb || shipment.tracking_number),
+        );
 
 function trackShipment(shipment: Shipment): void {
     trackingShipmentId.value = shipment.id;

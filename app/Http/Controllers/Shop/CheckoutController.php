@@ -22,6 +22,7 @@ use App\Enums\OrderNotificationType;
 use App\Http\Controllers\Controller;
 use App\Payment\Contracts\ConfirmsBeforeOrder;
 use App\Payment\PaymentActions;
+use App\Payment\PaymentMethodCatalog;
 use App\Shipping\AddressDestination;
 use App\Shipping\SelectedRate;
 use App\Shipping\ShippingCapabilities;
@@ -593,6 +594,17 @@ final class CheckoutController extends Controller
 
         if (self::confirmFirstDriver($selectedMethod['driver'] ?? null) !== null) {
             return back()->withErrors(['payment' => __('Gunakan formulir pembayaran di halaman ini untuk menyelesaikan pesanan.')]);
+        }
+
+        // Refuse a method the gateway would refuse for this total BEFORE the
+        // order exists (QRIS above its maximum, a VA below its minimum), as
+        // the app's checkout does.
+        $cart = resolve(CartSessionManager::class)->current();
+        $payable = (int) ($cart ? resolve(CartManager::class)->calculate($cart)->total : 0)
+            + (int) data_get(session()->get(CheckoutSession::KEY), 'shipping_option.0.price', 0);
+
+        if ($message = PaymentMethodCatalog::amountOutOfRange($selectedMethod, $payable)) {
+            return back()->withErrors(['payment' => $message]);
         }
 
         session()->forget(CheckoutSession::PAYMENT);

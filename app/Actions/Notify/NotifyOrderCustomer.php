@@ -6,6 +6,7 @@ namespace App\Actions\Notify;
 
 use App\Enums\OrderNotificationType;
 use App\Models\User;
+use App\Notifications\OrderStatusMail;
 use App\Notifications\OrderStatusNotification;
 use Illuminate\Support\Facades\DB;
 use Shopper\Core\Models\Order;
@@ -33,6 +34,16 @@ final class NotifyOrderCustomer
                 }
 
                 $customer->notify(new OrderStatusNotification($order, $type));
+            } catch (Throwable $e) {
+                report($e);
+
+                return;
+            }
+
+            // The e-mail goes through the queue (retried there); a queue
+            // that cannot take it is reported, never thrown.
+            try {
+                $customer->notify(new OrderStatusMail($order, $type));
             } catch (Throwable $e) {
                 report($e);
             }

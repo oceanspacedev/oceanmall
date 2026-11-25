@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\OrderShipment;
 use App\Payment\PaymentActions;
 use App\Shipping\ShipmentTimeline;
+use App\Shipping\ShippingCapabilities;
 use App\Support\CarrierLogos;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -60,9 +61,10 @@ final class OrderController extends Controller
         // Provider history plus the events staff record in Shopper's own
         // shipment log (manual AWB parcels).
         $timelines = ShipmentTimeline::forShipments((int) $order->id, $orderShipments);
+        $shippingCapabilities = resolve(ShippingCapabilities::class);
 
         $shipments = $orderShipments
-            ->map(static function (OrderShipment $shipment) use ($timelines): array {
+            ->map(static function (OrderShipment $shipment) use ($timelines, $shippingCapabilities): array {
                 $history = $timelines[(int) $shipment->id] ?? [];
 
                 return [
@@ -76,6 +78,7 @@ final class OrderController extends Controller
                     'carrier_logo' => resolve(CarrierLogos::class)->forCode($shipment->carrier_code),
                     'cost' => $shipment->cost,
                     'currency' => $shipment->currency_code,
+                    'can_track' => $shippingCapabilities->trackerFor($shipment) !== null,
                     'tracking_history' => $history,
                 ];
             });

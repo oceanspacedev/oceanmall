@@ -86,13 +86,13 @@ final readonly class RefreshShipmentTracking
         $awb = $this->airwayBill($shipment);
 
         if ($awb === null) {
-            throw new RuntimeException('This shipment has no airway bill (AWB) to track yet.');
+            throw new RuntimeException(__('This shipment has no airway bill (AWB) to track yet.'));
         }
 
         $driver = $this->capabilities->trackerFor($shipment);
 
         if ($driver === null) {
-            throw new RuntimeException('No configured shipping provider can track this airway bill.');
+            throw new RuntimeException(__('No configured shipping provider can track this airway bill.'));
         }
 
         try {

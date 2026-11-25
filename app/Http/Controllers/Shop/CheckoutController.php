@@ -623,8 +623,13 @@ final class CheckoutController extends Controller
 
             // A notification that cannot be stored or mailed never stops the
             // checkout: the cart is still cleared and the payment initiated.
+            // A manual / COD order has nothing to pay online: it is "placed",
+            // not "awaiting payment".
             try {
-                resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
+                $notificationType = ($selectedMethod['driver'] ?? 'manual') === 'manual'
+                    ? OrderNotificationType::OrderPlaced
+                    : OrderNotificationType::AwaitingPayment;
+                resolve(NotifyOrderCustomer::class)->handle($order, $notificationType);
             } catch (Throwable $e) {
                 report($e);
             }

@@ -191,7 +191,11 @@ export default function CheckoutScreen() {
           });
         }
       }
-      setSelectedRate(data.shipping_option?.service_code ?? null);
+      setSelectedRate(
+        data.shipping_option?.service_code != null
+          ? String(data.shipping_option.service_code)
+          : null
+      );
     },
     [applyCart, user]
   );
@@ -507,8 +511,9 @@ export default function CheckoutScreen() {
     if (busy !== null) {
       return;
     }
+    const code = String(rate.service_code);
     setBusy('rate');
-    setBusyRate(rate.service_code);
+    setBusyRate(code);
     setOrderError(null);
     try {
       const res = await api<{ data: CheckoutPayload }>('/checkout/shipping-option', {
@@ -517,7 +522,7 @@ export default function CheckoutScreen() {
         timeoutMs: PROVIDER_TIMEOUT_MS,
       });
       applyCheckout(res.data);
-      setSelectedRate(rate.service_code);
+      setSelectedRate(code);
     } catch (e) {
       setOrderError(errorMessage(e, 'Gagal memilih kurir'));
     } finally {
@@ -1053,27 +1058,34 @@ export default function CheckoutScreen() {
             ) : (checkout.shipping_rates ?? []).length === 0 ? (
               <Text className="text-[13px] text-muted-foreground">
                 {address
-                  ? 'Ongkir belum tersedia untuk alamat ini. Coba kecamatan lain.'
+                  ? searchEnabled
+                    ? 'Ongkir belum tersedia untuk alamat ini. Coba kecamatan lain.'
+                    : 'Ongkir belum tersedia untuk alamat ini. Periksa kembali alamat pengirimanmu.'
                   : 'Isi alamat dulu untuk melihat pilihan kurir dan ongkir.'}
               </Text>
             ) : (
-              checkout.shipping_rates.map((rate) => (
-                <OptionCard
-                  key={rate.service_code}
-                  selected={selectedRate === rate.service_code}
-                  disabled={busy !== null}
-                  loading={busy === 'rate' && busyRate === rate.service_code}
-                  onPress={() => void chooseRate(rate)}
-                  icon={<LogoImage uri={rate.carrier_logo} fallback={Truck} />}
-                  // The title is one line, so the service goes first in the subtitle (two
-                  // lines) where it is never cut off.
-                  title={rate.carrier_name ?? rate.carrier_code ?? rate.service_name}
-                  subtitle={[rate.service_name, etaLabel(rate.estimated_days)]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  trailing={<Text className="text-[14px] font-bold">{formatIdr(rate.amount)}</Text>}
-                />
-              ))
+              checkout.shipping_rates.map((rate) => {
+                const code = String(rate.service_code);
+                return (
+                  <OptionCard
+                    key={code}
+                    selected={selectedRate === code}
+                    disabled={busy !== null}
+                    loading={busy === 'rate' && busyRate === code}
+                    onPress={() => void chooseRate(rate)}
+                    icon={<LogoImage uri={rate.carrier_logo} fallback={Truck} />}
+                    // The title is one line, so the service goes first in the subtitle (two
+                    // lines) where it is never cut off.
+                    title={rate.carrier_name ?? rate.carrier_code ?? rate.service_name}
+                    subtitle={[rate.service_name, etaLabel(rate.estimated_days)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    trailing={
+                      <Text className="text-[14px] font-bold">{formatIdr(rate.amount)}</Text>
+                    }
+                  />
+                );
+              })
             )}
           </Section>
         </View>
@@ -1181,7 +1193,10 @@ export default function CheckoutScreen() {
             <>
               <Icon as={ShieldCheck} size={11} className="text-muted-foreground" />
               <Text className="text-[12px] text-muted-foreground">
-                Pembayaran aman via bank & QRIS
+                {chosenMethod?.driver === 'manual' ||
+                !(checkout.payment_methods ?? []).some((m) => m.driver !== 'manual')
+                  ? 'Transaksi aman & tercatat resmi'
+                  : 'Pembayaran aman via bank & QRIS'}
               </Text>
             </>
           )}

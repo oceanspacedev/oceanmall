@@ -17,10 +17,18 @@ export const ORDER_TABS: { key: OrderTab | 'all'; label: string }[] = [
   { key: 'cancelled', label: 'Dibatalkan' },
 ];
 
-type StageInput = Pick<OrderSummary, 'status' | 'payment_status' | 'shipping_status'> & {
+type StageInput = Pick<
+  OrderSummary,
+  'status' | 'payment_status' | 'shipping_status' | 'payment_driver'
+> & {
   /** Present on the detail payload; the list payload has none. */
   shipments?: { status?: string | null; awb?: string | null; tracking_number?: string | null }[];
+  payment_action?: { kind?: string | null } | null;
 };
+
+function isManualUnpaid(order: StageInput): boolean {
+  return order.payment_driver === 'manual' || order.payment_action?.kind === 'none';
+}
 
 export type OrderStage = {
   key: OrderTab;
@@ -69,14 +77,6 @@ export function orderStage(order: StageInput): OrderStage {
       hint: 'Pesanan sudah diterima. Terima kasih!',
     };
   }
-  if (order.payment_status !== 'paid') {
-    return {
-      key: 'unpaid',
-      label: 'Belum bayar',
-      tone: 'warning',
-      hint: 'Selesaikan pembayaran sebelum batas waktu.',
-    };
-  }
   if (order.shipping_status && order.shipping_status !== 'unfulfilled') {
     if (order.shipping_status === 'delivered') {
       return {
@@ -102,6 +102,16 @@ export function orderStage(order: StageInput): OrderStage {
       hint: waitingForPickup
         ? 'Pesanan sudah terdaftar di kurir, menunggu penjemputan.'
         : 'Paket sedang dalam perjalanan.',
+    };
+  }
+  if (order.payment_status !== 'paid') {
+    return {
+      key: 'unpaid',
+      label: 'Belum bayar',
+      tone: 'warning',
+      hint: isManualUnpaid(order)
+        ? 'Pesananmu dicatat. Pembayaran dikonfirmasi oleh toko.'
+        : 'Selesaikan pembayaran sebelum batas waktu.',
     };
   }
 

@@ -469,7 +469,9 @@ const selectedPaymentMethodValue = computed<string>({
 const selectedDelivery = computed<DeliveryOption | null>(
     () =>
         props.deliveryOptions.find(
-            (o) => o.service_code === props.selectedDeliveryOption,
+            (o) =>
+                props.selectedDeliveryOption !== null &&
+                String(o.service_code) === String(props.selectedDeliveryOption),
         ) ?? null,
 );
 
@@ -764,8 +766,11 @@ const steps = [
                             Alamat tersimpan
                         </h2>
                         <p class="mt-1 text-[11px] text-muted-foreground">
-                            Ketuk sekali untuk pakai lagi — district tersimpan
-                            ikut dipakai.
+                            {{
+                                shippingCapabilities.destinationSearch
+                                    ? 'Ketuk sekali untuk pakai lagi — kecamatan tersimpan ikut dipakai.'
+                                    : 'Ketuk sekali untuk langsung memakai alamat ini.'
+                            }}
                         </p>
                         <RadioGroup
                             v-model="selectedSavedAddressValue"

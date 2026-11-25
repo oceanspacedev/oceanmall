@@ -300,7 +300,10 @@ final class CheckoutController extends Controller
         $this->checkoutState->forget($user);
 
         try {
-            resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
+            $notificationType = ($selected['driver'] ?? 'manual') === 'manual'
+                ? OrderNotificationType::OrderPlaced
+                : OrderNotificationType::AwaitingPayment;
+            resolve(NotifyOrderCustomer::class)->handle($order, $notificationType);
         } catch (Throwable $e) {
             report($e);
         }

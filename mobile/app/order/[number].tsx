@@ -43,7 +43,7 @@ import {
   parseApiDate,
   statusLabel,
 } from '@/lib/format';
-import { canReviewOrder, orderStage, orderSteps } from '@/lib/order-status';
+import { canReviewOrder, isCancelled, orderStage, orderSteps } from '@/lib/order-status';
 import { getSecureItem, setSecureItem } from '@/lib/storage';
 import { COLORS } from '@/lib/theme';
 import { toast } from '@/lib/toast';
@@ -254,6 +254,8 @@ export default function OrderScreen() {
 
   const stage = order ? orderStage(order) : null;
   const unpaid = stage?.key === 'unpaid';
+  const offline = order ? isOfflinePayment(order) : false;
+  const needsOnlinePayment = unpaid && !offline;
   const paymentExpiry = parseApiDate(order?.payment?.expiry_date)?.getTime();
   const paymentExpired = paymentExpiry !== undefined && paymentExpiry < now;
 
@@ -267,7 +269,7 @@ export default function OrderScreen() {
       const res = await api<{ data: OrderDetail }>(`/orders/${number}`);
       applyOrder(res.data);
     }, [number, applyOrder]),
-    unpaid && !paymentExpired
+    needsOnlinePayment && !paymentExpired
   );
 
   async function run(action: string, task: () => Promise<void>) {
@@ -511,7 +513,10 @@ export default function OrderScreen() {
   const reviewable = canReviewOrder(order);
   const firstSlug = order.items.find((item) => item.slug)?.slug;
   const showStickyBar =
-    unpaid || canConfirm || (stage.key === 'completed' && Boolean(firstSlug)) || Boolean(error);
+    needsOnlinePayment ||
+    canConfirm ||
+    (stage.key === 'completed' && Boolean(firstSlug)) ||
+    Boolean(error);
 
   return (
     <Screen title="Detail pesanan" surface>
@@ -575,14 +580,14 @@ export default function OrderScreen() {
         </Section>
 
         {/* Payment */}
-        {unpaid && isOfflinePayment(order) ? (
+        {order.payment_status !== 'paid' && !isCancelled(order) && offline ? (
           <Section title="Pembayaran" icon={CreditCard}>
             <Text className="text-[13px] text-muted-foreground">
               {offlinePaymentNote(order) ??
                 'Pembayaran tidak dilakukan di aplikasi. Kami konfirmasi setelah pembayaran diterima.'}
             </Text>
           </Section>
-        ) : unpaid ? (
+        ) : needsOnlinePayment ? (
           <Section title="Instruksi pembayaran" icon={CreditCard}>
             <PaymentPanel
               payment={order.payment}
@@ -698,7 +703,7 @@ export default function OrderScreen() {
                     </View>
                   ) : null}
 
-                  {awb ? (
+                  {awb && shipment.can_track !== false ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -861,7 +866,7 @@ export default function OrderScreen() {
       {showStickyBar ? (
         <StickyBar>
           {error ? <ErrorBanner message={error} className="mx-0 mb-2.5 mt-0" /> : null}
-          {unpaid ? (
+          {needsOnlinePayment ? (
             <Button
               loading={busyAction === 'sync'}
               disabled={busy}

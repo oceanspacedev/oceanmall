@@ -89,6 +89,7 @@ type Shipment = {
     carrier_logo?: string | null;
     cost: number;
     currency: string;
+    can_track?: boolean;
     tracking_history: TrackingEvent[];
 };
 
@@ -104,12 +105,26 @@ const paymentError = computed(
     () => (page.props.errors as Record<string, string> | undefined)?.payment,
 );
 const retryingPayment = ref(false);
-// An online payment step is pending (manual / COD orders have nothing to do).
+// Online payment step is pending (manual / COD orders show an offline info card instead).
 const pendingPayment = computed<PaymentAction | null>(() =>
     props.paymentAction && props.paymentAction.kind !== 'none'
         ? props.paymentAction
         : null,
 );
+const offlinePayment = computed<PaymentAction | null>(() =>
+    props.order.status !== 'cancelled' &&
+    props.order.payment_status !== 'paid' &&
+    props.paymentAction?.kind === 'none'
+        ? props.paymentAction
+        : null,
+);
+const offlinePaymentTitle = computed<string | null>(() => {
+    const title = offlinePayment.value?.data?.title;
+
+    return typeof title === 'string' && title.trim() !== ''
+        ? title.trim()
+        : null;
+});
 // Instructions / QR are confirmed by the provider: offer a status check.
 const canCheckStatus = computed(
     () =>
@@ -386,6 +401,26 @@ function syncPayment(): void {
         </CardContent>
     </Card>
 
+    <Card
+        v-else-if="offlinePayment"
+        class="mt-5 gap-0 overflow-hidden py-0 shadow-none"
+    >
+        <div class="border-b border-border bg-muted/40 px-4 py-3">
+            <h3 class="text-[13px] font-semibold text-foreground">
+                Informasi pembayaran
+            </h3>
+            <p
+                v-if="offlinePaymentTitle"
+                class="mt-0.5 text-[12px] text-muted-foreground"
+            >
+                {{ offlinePaymentTitle }}
+            </p>
+        </div>
+        <CardContent class="p-3.5">
+            <PaymentActionPanel :action="offlinePayment" />
+        </CardContent>
+    </Card>
+
     <div v-if="canConfirmReceived" class="mt-4">
         <Button
             type="button"
@@ -586,11 +621,14 @@ function syncPayment(): void {
                 </dl>
 
                 <div
-                    v-if="shipment.awb || shipment.tracking_history.length"
+                    v-if="
+                        (shipment.awb && shipment.can_track !== false) ||
+                        shipment.tracking_history.length
+                    "
                     class="mt-4"
                 >
                     <Button
-                        v-if="shipment.awb"
+                        v-if="shipment.awb && shipment.can_track !== false"
                         type="button"
                         :disabled="trackingShipmentId === shipment.id"
                         variant="outline"

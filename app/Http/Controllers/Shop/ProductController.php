@@ -29,8 +29,10 @@ final class ProductController extends Controller
         $search = (string) $request->string('search', '');
 
         if ($search !== '') {
-            $escaped = str_replace(['%', '_'], ['\%', '\_'], $search);
-            $query->where('name', 'like', "%{$escaped}%");
+            // Explicit ESCAPE (SQLite has no default one) and lower() on both
+            // sides (LIKE is case-sensitive on PostgreSQL).
+            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($search));
+            $query->whereRaw("lower(name) like ? escape '!'", ["%{$escaped}%"]);
         }
 
         if ($categoryId = $request->integer('category')) {

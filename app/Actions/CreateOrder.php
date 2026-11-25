@@ -15,6 +15,7 @@ use App\Shipping\AddressDestination;
 use App\Shipping\Contracts\NormalizesSelectedRates;
 use App\Shipping\ShippingCapabilities;
 use App\Support\CheckoutAllocationContext;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,17 @@ final class CreateOrder
             return DB::transaction(function () use ($cart, $checkout): Order {
                 try {
                     $allocationPlan = $this->resolveAllocationPlan($cart, $checkout);
+
+                    // The plan (and the rates picked for it) was made for the
+                    // cart as it was then. Every path that changes the cart
+                    // should void it, but the order never trusts that: a plan
+                    // that no longer lists exactly the cart's products would
+                    // ship items at no rate and leave them out of the parcels.
+                    abort_unless(
+                        $this->planMatchesCart($allocationPlan, $cart),
+                        422,
+                        __('Your cart changed. Please select the delivery option again.'),
+                    );
 
                     // Every package of the plan ships at the rate picked for
                     // it; a package without one would ship for Rp0 (a split
@@ -256,6 +268,46 @@ final class CreateOrder
         $decoded = json_decode($metadata, true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * The plan lists exactly the products the cart holds now, in exactly the
+     * cart's quantities. A product the plan does not know, a product that
+     * left the cart, or a changed quantity means the plan and the rates
+     * picked for it (weight, item value) are stale. A plan is never short:
+     * SuggestAllocation allocates the whole cart or refuses.
+     */
+    private function planMatchesCart(AllocationPlan $plan, Cart $cart): bool
+    {
+        $planned = [];
+
+        foreach ($plan->shipments as $shipment) {
+            foreach ($shipment->lines as $line) {
+                $key = $line['purchasable_type'].':'.$line['purchasable_id'];
+                $planned[$key] = ($planned[$key] ?? 0) + (int) $line['qty'];
+            }
+        }
+
+        $inCart = [];
+
+        foreach ($cart->lines()->with('purchasable')->get() as $line) {
+            $purchasable = $line->purchasable;
+            $type = $purchasable instanceof Model ? $purchasable->getMorphClass() : (string) $line->purchasable_type;
+            $key = $type.':'.(int) $line->purchasable_id;
+            $inCart[$key] = ($inCart[$key] ?? 0) + (int) $line->quantity;
+        }
+
+        if (array_diff_key($planned, $inCart) !== [] || array_diff_key($inCart, $planned) !== []) {
+            return false;
+        }
+
+        foreach ($planned as $key => $quantity) {
+            if ($quantity !== $inCart[$key]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function resolveAllocationPlan(Cart $cart, mixed $checkout): AllocationPlan

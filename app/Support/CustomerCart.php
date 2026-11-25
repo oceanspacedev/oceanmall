@@ -36,6 +36,10 @@ final class CustomerCart
 
         if ($guest instanceof Cart && $existing instanceof Cart && $guest->id !== $existing->id) {
             $this->absorb($guest, $existing);
+            // The cart's contents changed: the courier quote, allocation and
+            // payment picked for the old contents are stale (the checkout
+            // state outlives a logout).
+            resolve(CustomerCheckoutState::class)->forgetQuote($user);
 
             return $existing->refresh();
         }
@@ -45,6 +49,8 @@ final class CustomerCart
                 'customer_id' => $user->id,
                 'metadata' => $this->withoutGuestToken($guest->metadata),
             ]);
+            // Any checkout state still cached was made for another cart.
+            resolve(CustomerCheckoutState::class)->forgetQuote($user);
 
             return $guest->refresh();
         }

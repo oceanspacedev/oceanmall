@@ -97,6 +97,12 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Timestamps are written as app-timezone wall time without an
+            // offset. For "timestamp with time zone" columns (Shopper's
+            // shipped_at, tracking events, published_at) PostgreSQL reads
+            // them in the SESSION time zone: it must be the app's, or every
+            // such value comes back shifted.
+            'timezone' => env('DB_TIMEZONE', env('APP_TIMEZONE', 'Asia/Jakarta')),
         ],
 
         'sqlsrv' => [

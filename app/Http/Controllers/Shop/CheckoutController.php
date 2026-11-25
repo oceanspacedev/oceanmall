@@ -147,7 +147,7 @@ final class CheckoutController extends Controller
 
             if ($shippingOption && $allocation !== null && $plan instanceof AllocationPlan
                 && ! resolve(SelectedShipmentRates::class)->coverPlan($plan, $checkout)) {
-                session()->forget([CheckoutSession::SHIPPING_OPTION, CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT]);
+                session()->forget([CheckoutSession::SHIPPING_OPTION, CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT, ...self::CONFIRM_PAYMENT_KEYS]);
                 $checkout = session()->get(CheckoutSession::KEY, []);
                 $shippingOption = null;
             }
@@ -340,6 +340,17 @@ final class CheckoutController extends Controller
             ]);
         }
 
+        // A delivery option is quoted for one destination: after the address
+        // changes the customer picks it again (as the API checkout state
+        // does), so the order is never charged the previous address's rate.
+        session()->forget([
+            CheckoutSession::SHIPPING_OPTION,
+            CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT,
+            CheckoutSession::ALLOCATION_PLAN,
+            CheckoutSession::PAYMENT,
+            ...self::CONFIRM_PAYMENT_KEYS,
+        ]);
+
         session()->put(CheckoutSession::SHIPPING_ADDRESS, $data);
 
         if ($cart = resolve(CartSessionManager::class)->current()) {
@@ -402,7 +413,8 @@ final class CheckoutController extends Controller
             return back()->withErrors(['service_code' => __('Selected option is no longer available.')]);
         }
 
-        session()->forget([CheckoutSession::SHIPPING_OPTION, CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT]);
+        // A payment prepared for the previous delivery price is void too.
+        session()->forget([CheckoutSession::SHIPPING_OPTION, CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT, ...self::CONFIRM_PAYMENT_KEYS]);
         // Generic fields plus whatever details the quoting driver attached,
         // and the package it was quoted for (a re-plan of it voids the rate).
         session()->push(CheckoutSession::SHIPPING_OPTION, $singleShipment !== null
@@ -477,7 +489,7 @@ final class CheckoutController extends Controller
 
         session()->put(CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT, $selectedRates);
 
-        session()->forget(CheckoutSession::SHIPPING_OPTION);
+        session()->forget([CheckoutSession::SHIPPING_OPTION, ...self::CONFIRM_PAYMENT_KEYS]);
         session()->push(CheckoutSession::SHIPPING_OPTION, [
             'id' => 'split-shipment',
             'name' => 'Split shipment',
@@ -590,7 +602,14 @@ final class CheckoutController extends Controller
 
         try {
             $order = resolve(CreateOrder::class)->handle();
-            resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
+
+            // A notification that cannot be stored or mailed never stops the
+            // checkout: the cart is still cleared and the payment initiated.
+            try {
+                resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
+            } catch (Throwable $e) {
+                report($e);
+            }
 
             // The order owns the reserved stock from here on: the customer
             // pays (or retries) on the order, never by re-ordering.

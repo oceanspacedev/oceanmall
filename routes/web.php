@@ -126,6 +126,7 @@ Route::middleware(['auth', 'verified'])->prefix('account')->name('account.')->gr
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead'])
+        ->whereUuid('notification')
         ->name('notifications.read');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])
         ->name('notifications.read-all');

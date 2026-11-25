@@ -64,7 +64,16 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   The customer's track endpoints go through `RefreshShipmentTracking::handleForCustomer()` (15 min
   cooldown per shipment, final statuses never re-asked) plus the `shipment-track` limiter; staff,
   webhooks and the schedule call `handle()`.
-- **Test suite is green as of 2026-11-25 (1032 tests; older note: 538 on 2026-11-18).** Tests use kebab-case Inertia page names
+- **Order money rules added by the QA fixes.** `orders:expire-unpaid` also cancels (a day after
+  creation) unpaid orders with NO payment transaction whose method belongs to an expiring driver;
+  `PaymentMethodCatalog::amountOutOfRange()` is checked by web and API before an order exists;
+  `ReleaseDiscountOnOrderCancelled` gives an unpaid cancelled order's coupon use back and clears
+  `orders.discount_id` (kept in `metadata.released_discount_id`); the signed Komerce payment webhook
+  answers 503 when the payment cannot be verified so it is delivered again; `ConfirmOrderReceived`
+  needs every non-cancelled parcel shipped. Order mails (`OrderStatusMail`) and the verification mail
+  (`QueuedVerifyEmail`) are QUEUED: a worker must run everywhere; `OrderStatusNotification` is the
+  in-app (database) notification only.
+- **Test suite is green as of 2026-11-25 (1045 tests; older note: 538 on 2026-11-18).** Tests use kebab-case Inertia page names
   (`settings/security`, `auth/confirm-password`), `first_name`/`last_name` profile fields, and
   `@example.com` addresses. The `email:rfc,dns` rule is skipped under `runningUnitTests()` because
   the DNS validator rejects reserved domains and needs network access.

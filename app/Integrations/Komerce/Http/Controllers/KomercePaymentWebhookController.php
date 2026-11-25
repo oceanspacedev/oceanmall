@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Integrations\Komerce\Actions\Payment\MarkOrderPaidFromKomerce;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Shopper\Payment\Exceptions\PaymentException;
 use Shopper\Payment\Facades\Payment;
 
@@ -38,7 +39,21 @@ final class KomercePaymentWebhookController extends Controller
             'amount' => ['nullable', 'integer'],
         ]);
 
-        $markOrderPaid->handle($result->reference ?? $payload['payment_id']);
+        $paymentId = $result->reference ?? $payload['payment_id'];
+
+        // This signed callback says PAID: the status is read back fresh, not
+        // from the short status cache (a "pending" answer cached a moment
+        // before the customer paid must not decide it).
+        Cache::forget('komerce:payment-status:'.hash('sha256', trim((string) $paymentId)));
+
+        $verdict = $markOrderPaid->handle($paymentId);
+
+        // The read-back failed, or does not say paid yet: answer with an
+        // error so Komerce delivers the callback again, instead of
+        // acknowledging a payment that was not applied.
+        if (in_array($verdict, ['lookup_failed', 'not_paid'], true)) {
+            return response()->json(['status' => $verdict], 503)->header('Retry-After', '30');
+        }
 
         return response()->json(['status' => 'handled']);
     }

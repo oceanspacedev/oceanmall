@@ -253,7 +253,7 @@ final class StaleCheckoutStateTest extends TestCase
 
         $order = Order::query()->latest('id')->firstOrFail();
         $customer = User::query()->findOrFail($order->customer_id);
-        $this->assertSame(1, $customer->notifications()->count(), 'Awaiting payment, sent by checkout.');
+        $this->assertSame(1, $customer->notifications()->count(), 'Order placed (a COD order has nothing to pay online), sent by checkout.');
 
         $queries = [];
         DB::listen(static function ($query) use (&$queries): void {
@@ -261,7 +261,7 @@ final class StaleCheckoutStateTest extends TestCase
         });
 
         $notify = resolve(NotifyOrderCustomer::class);
-        $notify->handle($order, OrderNotificationType::AwaitingPayment);
+        $notify->handle($order, OrderNotificationType::OrderPlaced);
         $this->assertSame(1, $customer->notifications()->count(), 'Each type once per order.');
 
         $notify->handle($order, OrderNotificationType::Paid);

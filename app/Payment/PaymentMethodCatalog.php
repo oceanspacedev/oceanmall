@@ -115,6 +115,31 @@ final class PaymentMethodCatalog
     }
 
     /**
+     * The customer-facing reason a method cannot take this amount (the
+     * provider's minimum / maximum, as listed by FetchPaymentMethods), or
+     * null. Checked BEFORE an order exists: the gateway would refuse it
+     * afterwards and leave an order that cannot be paid.
+     *
+     * @param  array<string, mixed>  $method
+     */
+    public static function amountOutOfRange(array $method, int $amount): ?string
+    {
+        $min = $method['min_amount'] ?? null;
+        $max = $method['max_amount'] ?? null;
+        $title = (string) ($method['title'] ?? 'Metode ini');
+
+        if (is_int($min) && $min > 0 && $amount < $min) {
+            return "{$title} hanya untuk total minimal Rp".number_format($min, 0, ',', '.').'. Pilih metode lain.';
+        }
+
+        if (is_int($max) && $max > 0 && $amount > $max) {
+            return "{$title} hanya untuk total maksimal Rp".number_format($max, 0, ',', '.').'. Pilih metode lain.';
+        }
+
+        return null;
+    }
+
+    /**
      * Cache signature of the ready drivers (footer cache keys).
      */
     public function signature(): string

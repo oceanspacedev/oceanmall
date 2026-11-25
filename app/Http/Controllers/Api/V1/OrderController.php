@@ -15,6 +15,7 @@ use App\Payment\Exceptions\PaymentRetryRefused;
 use App\Payment\PaymentActions;
 use App\Shipping\AddressDestination;
 use App\Shipping\ShipmentTimeline;
+use App\Shipping\ShippingCapabilities;
 use App\Support\CarrierLogos;
 use App\Support\CustomerCatalogPresenter;
 use Illuminate\Database\Eloquent\Builder;
@@ -71,13 +72,14 @@ final class OrderController extends Controller
 
         return match ($tab) {
             'unpaid' => $query->whereIn('payment_status', [PaymentStatus::Pending, PaymentStatus::Authorized])
-                ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Archived]),
+                ->where('shipping_status', ShippingStatus::Unfulfilled)
+                ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Archived, OrderStatus::Completed]),
             'processing' => $query->where('payment_status', PaymentStatus::Paid)
                 ->whereIn('status', [OrderStatus::New, OrderStatus::Processing])
                 ->where('shipping_status', ShippingStatus::Unfulfilled),
-            'shipped' => $query->where('payment_status', PaymentStatus::Paid)
+            'shipped' => $query->whereNotIn('payment_status', $closedPayment)
                 ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Completed])
-                ->whereIn('shipping_status', [ShippingStatus::Shipped, ShippingStatus::PartiallyShipped, ShippingStatus::PartiallyDelivered, ShippingStatus::Delivered]),
+                ->where('shipping_status', '!=', ShippingStatus::Unfulfilled),
             'completed' => $query->where('status', OrderStatus::Completed),
             'cancelled' => $query->where(fn (Builder $q) => $q->where('status', OrderStatus::Cancelled)->orWhereIn('payment_status', $closedPayment)),
             default => $query,
@@ -94,9 +96,10 @@ final class OrderController extends Controller
             ->orderBy('id')
             ->get();
         $timelines = ShipmentTimeline::forShipments((int) $order->id, $orderShipments);
+        $shippingCapabilities = resolve(ShippingCapabilities::class);
 
         $shipments = $orderShipments
-            ->map(static function (OrderShipment $shipment) use ($timelines): array {
+            ->map(static function (OrderShipment $shipment) use ($timelines, $shippingCapabilities): array {
                 // Neutral history (shipping driver + Shopper's shipment event
                 // log); `date` repeats `datetime` for app builds that read it.
                 $history = array_map(
@@ -113,6 +116,7 @@ final class OrderController extends Controller
                     'service' => $shipment->service_name ?? $shipment->service_code,
                     'carrier_logo' => resolve(CarrierLogos::class)->forCode($shipment->carrier_code),
                     'cost' => $shipment->cost,
+                    'can_track' => $shippingCapabilities->trackerFor($shipment) !== null,
                     'tracking_history' => $history,
                 ];
             })
@@ -270,6 +274,8 @@ final class OrderController extends Controller
                 'thumbnail' => $presenter->purchasableThumbnail($first->product),
             ] : null,
             'payment_method' => $order->paymentMethod?->title,
+            // A method without a driver is Shopper's manual one.
+            'payment_driver' => filled($driver = $order->paymentMethod?->driver) ? trim((string) $driver) : 'manual',
         ];
     }
 

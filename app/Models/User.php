@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Notifications\QueuedVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
@@ -59,6 +61,21 @@ final class User extends Authenticatable implements MustVerifyEmail, ShopperUser
                 ->when(is_int($currentKey) || is_string($currentKey), static fn ($query) => $query->whereKeyNot($currentKey))
                 ->delete();
         });
+    }
+
+    /**
+     * Queued (registration never waits for the mail transport) and sent
+     * once per address: the Registered event reaches this from more than one
+     * listener in the same request. A resend moments later, or a changed
+     * e-mail address, is sent.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        if (! Cache::add('verify-email-sent:'.$this->getKey().':'.sha1((string) $this->email), true, now()->addSeconds(5))) {
+            return;
+        }
+
+        $this->notify(new QueuedVerifyEmail);
     }
 
     public static function normalizeEmail(string $email): string

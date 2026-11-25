@@ -6,9 +6,9 @@ namespace Tests\Feature;
 
 use App\Integrations\Komerce\Actions\Payment\MarkOrderPaidFromKomerce;
 use App\Models\User;
+use App\Notifications\QueuedVerifyEmail as VerifyEmail;
 use Database\Seeders\DiscountSeeder;
 use Database\Seeders\StoreConfigSeeder;
-use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;

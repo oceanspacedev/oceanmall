@@ -16,6 +16,7 @@ declare(strict_types=1);
  * Does NOT print secrets. Exit 1 on S1/S2 fail (or S3 when DEPLOY_QA_STRICT=YES).
  */
 
+use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Http;
 
@@ -62,7 +63,7 @@ final class QaHttp
 {
     public function __construct(
         public readonly string $base,
-        public \GuzzleHttp\Cookie\CookieJar $cookieJar = new \GuzzleHttp\Cookie\CookieJar,
+        public CookieJar $cookieJar = new CookieJar,
         public string $xsrf = '',
         public string $inertiaVersion = '',
     ) {}
@@ -489,12 +490,13 @@ try {
 $runCase('TC-SEC-003', static function () use ($assertOrFail, $http): void {
     $payload = json_encode(['payment_id' => 'QA-TEST', 'status' => 'PAID'], JSON_THROW_ON_ERROR);
     $res = $http->rawJsonPost('/webhooks/komerce/payment', $payload);
-    $ok = $res->status() === 401;
+    $disabled = $res->status() === 200 && $res->json('status') === 'disabled';
+    $ok = $res->status() === 401 || $res->status() === 404 || $disabled;
     $assertOrFail(
         'TC-SEC-003',
         $ok,
-        'HTTP 401 invalid_secret',
-        'HTTP '.$res->status(),
+        'HTTP 401 invalid_secret, 200 status=disabled, or 404 when module removed',
+        $disabled ? 'HTTP 200 status=disabled' : 'HTTP '.$res->status(),
         $res,
         'security',
     );
@@ -515,7 +517,7 @@ $runCase('TC-SEC-002', static function () use ($assertOrFail): void {
     );
 });
 
-$runCase('TC-SEC-001', static function () use ($assertOrFail, $http, $ctx): void {
+$runCase('TC-SEC-001', static function () use ($assertOrFail, $http): void {
     $fresh = $http->cloneFresh();
     $fresh->seedCsrfFromLoginPage();
     // Deliberately omit CSRF header
@@ -536,7 +538,7 @@ $runCase('TC-SEC-001', static function () use ($assertOrFail, $http, $ctx): void
 
 // ── Catalog ──────────────────────────────────────────────────────────────────
 
-$runCase('TC-CAT-001', static function () use ($assertOrFail, $http, $ctx, $slowThresholdMs): void {
+$runCase('TC-CAT-001', static function () use ($assertOrFail, $http, $ctx): void {
     $timed = timed($http, static fn () => $http->request('GET', '/'));
     $res = $timed['response'];
     $ctx->timings['home'] = $timed['ms'];
@@ -1001,7 +1003,15 @@ $runCase('TC-CHK-003', static function () use ($assertOrFail, $http): void {
     );
 });
 
-$runCase('TC-CHK-004', static function () use ($assertOrFail, $http): void {
+$runCase('TC-CHK-004', static function () use ($assertOrFail, $http, $recordSkip): void {
+    $checkout = $http->request('GET', '/checkout');
+    $requiresDestination = (bool) data_get(propsOf($checkout), 'shippingCapabilities.requiresDestination', true);
+    if (! $requiresDestination) {
+        $recordSkip('TC-CHK-004', 'requiresDestination=false (Shopper zone shipping)');
+
+        return;
+    }
+
     $address = $http->request('POST', '/checkout/shipping-address', [
         'form' => [
             'first_name' => 'QA',
@@ -1040,51 +1050,57 @@ $runCase('TC-CHK-005', static function () use (
         return;
     }
 
-    $dest = $http->request('GET', '/checkout/destinations', [
-        'query' => ['q' => $destQuery, 'limit' => 5],
-    ]);
-    if (! $dest->successful()) {
-        $assertOrFail('TC-CHK-005', false, 'destination search OK', 'HTTP '.$dest->status(), $dest, 'checkout');
+    $capabilities = (array) data_get(propsOf($checkout), 'shippingCapabilities', []);
+    $destinationSearch = (bool) ($capabilities['destinationSearch'] ?? true);
 
-        return;
-    }
-    $destData = $dest->json('data') ?? [];
-    if (! is_array($destData) || $destData === []) {
-        $assertOrFail('TC-CHK-005', false, 'destination results', 'empty for q='.$destQuery, $dest, 'checkout');
+    $form = [
+        'first_name' => 'Deploy',
+        'last_name' => 'QaE2E',
+        'street_address' => 'Jl. Melawai Raya No. 1',
+        'street_address_plus' => '',
+        'postal_code' => '45153',
+        'city' => 'Cirebon',
+        'state' => 'Jawa Barat',
+        'phone_number' => '081234567890',
+    ];
 
-        return;
-    }
-    $ctx->destination = $destData[0];
-    $destination = $ctx->destination;
-    $postalCode = (string) (
-        $destination['postal_code']
-        ?? $destination['zip_code']
-        ?? $destination['postcode']
-        ?? ''
-    );
-    if ($postalCode === '' && preg_match('/\b(\d{5})\b/', (string) ($destination['label'] ?? ''), $mPostal)) {
-        $postalCode = $mPostal[1];
-    }
-    if ($postalCode === '') {
-        $postalCode = '12220';
-    }
-    $city = (string) ($destination['city_name'] ?? $destination['city'] ?? 'Jakarta Selatan');
-    $state = (string) ($destination['province_name'] ?? $destination['province'] ?? 'DKI Jakarta');
+    if ($destinationSearch) {
+        $dest = $http->request('GET', '/checkout/destinations', [
+            'query' => ['q' => $destQuery, 'limit' => 5],
+        ]);
+        if (! $dest->successful()) {
+            $assertOrFail('TC-CHK-005', false, 'destination search OK', 'HTTP '.$dest->status(), $dest, 'checkout');
 
-    $address = $http->request('POST', '/checkout/shipping-address', [
-        'form' => [
-            'first_name' => 'Deploy',
-            'last_name' => 'QaE2E',
-            'street_address' => 'Jl. Melawai Raya No. 1',
-            'street_address_plus' => '',
-            'postal_code' => $postalCode,
-            'city' => $city,
-            'state' => $state,
-            'phone_number' => '081234567890',
-            'rajaongkir_destination_id' => (string) $destination['id'],
-            'rajaongkir_destination_label' => (string) $destination['label'],
-        ],
-    ]);
+            return;
+        }
+        $destData = $dest->json('data') ?? [];
+        if (! is_array($destData) || $destData === []) {
+            $assertOrFail('TC-CHK-005', false, 'destination results', 'empty for q='.$destQuery, $dest, 'checkout');
+
+            return;
+        }
+        $ctx->destination = $destData[0];
+        $destination = $ctx->destination;
+        $postalCode = (string) (
+            $destination['postal_code']
+            ?? $destination['zip_code']
+            ?? $destination['postcode']
+            ?? ''
+        );
+        if ($postalCode === '' && preg_match('/\b(\d{5})\b/', (string) ($destination['label'] ?? ''), $mPostal)) {
+            $postalCode = $mPostal[1];
+        }
+        if ($postalCode === '') {
+            $postalCode = '12220';
+        }
+        $form['postal_code'] = $postalCode;
+        $form['city'] = (string) ($destination['city_name'] ?? $destination['city'] ?? 'Jakarta Selatan');
+        $form['state'] = (string) ($destination['province_name'] ?? $destination['province'] ?? 'DKI Jakarta');
+        $form['rajaongkir_destination_id'] = (string) $destination['id'];
+        $form['rajaongkir_destination_label'] = (string) $destination['label'];
+    }
+
+    $address = $http->request('POST', '/checkout/shipping-address', ['form' => $form]);
     if (! in_array($address->status(), [200, 302, 303], true)) {
         $assertOrFail('TC-CHK-005', false, 'shipping address saved', 'HTTP '.$address->status(), $address, 'checkout');
 
@@ -1147,7 +1163,7 @@ $runCase('TC-CHK-007', static function () use ($assertOrFail, &$checkoutStep2Pro
     );
 });
 
-$runCase('TC-CHK-008', static function () use ($assertOrFail, $http, $ctx, &$checkoutStep2Props): void {
+$runCase('TC-CHK-008', static function () use ($assertOrFail, $http, &$checkoutStep2Props): void {
     if (! $GLOBALS['placeOrder']) {
         return;
     }

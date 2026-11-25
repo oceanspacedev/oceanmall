@@ -96,7 +96,7 @@ test.describe('TC-UI-CART — Cart & checkout (browser)', () => {
             await saved.click().catch(() => undefined);
         }
 
-        const dest = page.getByPlaceholder(/cari|kecamatan|destinasi|jakarta/i).first();
+        const dest = page.getByPlaceholder(/cari|kecamatan|destinasi|jakarta|kedawung/i).first();
 
         if (await dest.isVisible().catch(() => false)) {
             await dest.fill('Jakarta Selatan');
@@ -105,6 +105,28 @@ test.describe('TC-UI-CART — Cart & checkout (browser)', () => {
             }).first();
             await expect(suggestion).toBeVisible({ timeout: 20_000 });
             await suggestion.click();
+        } else {
+            const defaults: Array<[string, string]> = [
+                ['#first_name', 'QA'],
+                ['#last_name', 'Customer'],
+                ['#street_address', 'Jl. Melawai Raya No. 1'],
+                ['#phone_number', '081234567890'],
+                ['#state', 'Jawa Barat'],
+                ['#city', 'Cirebon'],
+                ['#postal_code', '45153'],
+            ];
+
+            for (const [selector, value] of defaults) {
+                const input = page.locator(selector);
+
+                if (await input.isVisible().catch(() => false)) {
+                    const current = await input.inputValue().catch(() => '');
+
+                    if (!current.trim()) {
+                        await input.fill(value);
+                    }
+                }
+            }
         }
 
         const street = page.getByLabel(/alamat|jalan|street/i).first();

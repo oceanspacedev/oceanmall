@@ -337,8 +337,11 @@ export default function OrdersScreen() {
 function OrderCard({ order, onOpen }: { order: OrderSummary; onOpen: () => void }) {
   const stage = orderStage(order);
   const more = Math.max(0, (order.line_count ?? 1) - 1);
-  const cta =
-    stage.key === 'unpaid'
+  const isManualUnpaid = stage.key === 'unpaid' && order.payment_driver === 'manual';
+  const primaryCta = stage.key === 'unpaid' && !isManualUnpaid;
+  const cta = isManualUnpaid
+    ? 'Lihat detail'
+    : stage.key === 'unpaid'
       ? 'Bayar sekarang'
       : awaitsReceiptConfirmation(order)
         ? 'Konfirmasi penerimaan'
@@ -406,15 +409,15 @@ function OrderCard({ order, onOpen }: { order: OrderSummary; onOpen: () => void 
         </View>
         <Button
           size="sm"
-          variant={stage.key === 'unpaid' ? 'default' : 'outline'}
+          variant={primaryCta ? 'default' : 'outline'}
           onPress={onOpen}
           importantForAccessibility="no-hide-descendants"
-          className={cn('min-h-11 rounded-sm px-4', stage.key !== 'unpaid' && 'border-om-navy')}>
+          className={cn('min-h-11 rounded-sm px-4', !primaryCta && 'border-om-navy')}>
           {/* Capped like the tab strip, so a large system font cannot push it off the card. */}
           <Text
             numberOfLines={1}
             maxFontSizeMultiplier={1.2}
-            className={cn('text-[12px] font-bold', stage.key !== 'unpaid' && 'text-om-navy')}>
+            className={cn('text-[12px] font-bold', !primaryCta && 'text-om-navy')}>
             {cta}
           </Text>
         </Button>

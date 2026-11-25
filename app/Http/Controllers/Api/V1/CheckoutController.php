@@ -21,6 +21,7 @@ use App\Enums\OrderNotificationType;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Payment\PaymentActions;
+use App\Payment\PaymentMethodCatalog;
 use App\Shipping\AddressDestination;
 use App\Shipping\SelectedRate;
 use App\Shipping\ShippingCapabilities;
@@ -277,7 +278,7 @@ final class CheckoutController extends Controller
         // the order exists (e.g. QRIS above its maximum).
         $payable = (int) (resolve(CartManager::class)->calculate($cart)->total ?? 0)
             + (int) data_get($checkout, 'shipping_option.0.amount', data_get($checkout, 'shipping_option.0.price', 0));
-        if ($message = $this->amountOutOfRange($selected, $payable)) {
+        if ($message = PaymentMethodCatalog::amountOutOfRange($selected, $payable)) {
             return response()->json(['message' => $message], 422);
         }
 
@@ -299,7 +300,10 @@ final class CheckoutController extends Controller
         $this->checkoutState->forget($user);
 
         try {
-            resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
+            $notificationType = ($selected['driver'] ?? 'manual') === 'manual'
+                ? OrderNotificationType::OrderPlaced
+                : OrderNotificationType::AwaitingPayment;
+            resolve(NotifyOrderCustomer::class)->handle($order, $notificationType);
         } catch (Throwable $e) {
             report($e);
         }
@@ -357,23 +361,6 @@ final class CheckoutController extends Controller
     /**
      * @param  array<string, mixed>  $method
      */
-    private function amountOutOfRange(array $method, int $amount): ?string
-    {
-        $min = $method['min_amount'] ?? null;
-        $max = $method['max_amount'] ?? null;
-        $title = (string) ($method['title'] ?? 'Metode ini');
-
-        if (is_int($min) && $min > 0 && $amount < $min) {
-            return "{$title} hanya untuk total minimal Rp".number_format($min, 0, ',', '.').'. Pilih metode lain.';
-        }
-
-        if (is_int($max) && $max > 0 && $amount > $max) {
-            return "{$title} hanya untuk total maksimal Rp".number_format($max, 0, ',', '.').'. Pilih metode lain.';
-        }
-
-        return null;
-    }
-
     /**
      * @param  array<string, mixed>  $address
      * @return list<array<string, mixed>>

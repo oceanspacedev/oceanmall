@@ -49,7 +49,15 @@ final class KomerceQrislyWebhookController extends Controller
             || in_array($paymentStatus, ['paid', 'success', 'succeeded'], true);
 
         if ($historyId !== '' && $isSuccessEvent) {
-            $markOrderPaid->handle($historyId, 'qrisly');
+            $verdict = $markOrderPaid->handle($historyId, 'qrisly');
+
+            // A payment of ours that could not be read back (provider
+            // unreachable) is delivered again. Everything else is
+            // acknowledged as before: the endpoint is unsigned, so "the
+            // provider says unpaid" is an answer, not an error.
+            if ($verdict === 'lookup_failed') {
+                return response()->json(['status' => $verdict], 503)->header('Retry-After', '30');
+            }
         }
 
         return response()->json($ack);

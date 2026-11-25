@@ -8,6 +8,7 @@ use App\Addons\Store\OceanMallStoreAddon;
 use App\Http\Responses\CpanelStaffLoginResponse;
 use App\Listeners\CancelShipmentsOnOrderCancelled;
 use App\Listeners\FulfillShipmentsOnOrderPaid;
+use App\Listeners\ReleaseDiscountOnOrderCancelled;
 use App\Listeners\SendOrderPaidNotification;
 use App\Livewire\Shopper\Pages\OrderDetail;
 use App\Livewire\Shopper\Pages\OrderShipments;
@@ -142,6 +143,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(OrderPaid::class, SendOrderPaidNotification::class);
         Event::listen(OrderPaid::class, FulfillShipmentsOnOrderPaid::class);
         Event::listen(OrderCancelled::class, CancelShipmentsOnOrderCancelled::class);
+        Event::listen(OrderCancelled::class, ReleaseDiscountOnOrderCancelled::class);
     }
 
     /**

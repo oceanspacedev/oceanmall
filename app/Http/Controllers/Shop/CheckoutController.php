@@ -22,6 +22,7 @@ use App\Enums\OrderNotificationType;
 use App\Http\Controllers\Controller;
 use App\Payment\Contracts\ConfirmsBeforeOrder;
 use App\Payment\PaymentActions;
+use App\Payment\PaymentMethodCatalog;
 use App\Shipping\AddressDestination;
 use App\Shipping\SelectedRate;
 use App\Shipping\ShippingCapabilities;
@@ -595,6 +596,23 @@ final class CheckoutController extends Controller
             return back()->withErrors(['payment' => __('Gunakan formulir pembayaran di halaman ini untuk menyelesaikan pesanan.')]);
         }
 
+        // Refuse a method the gateway would refuse for this total BEFORE the
+        // order exists (QRIS above its maximum, a VA below its minimum), as
+        // the app's checkout does.
+        // Only for a real checkout: an empty cart or an expired session is
+        // answered by CreateOrder with its own message, not "minimum amount".
+        $cart = resolve(CartSessionManager::class)->current();
+        $shippingOption = data_get(session()->get(CheckoutSession::KEY), 'shipping_option.0');
+
+        if ($cart !== null && $cart->lines->isNotEmpty() && is_array($shippingOption)) {
+            $payable = (int) resolve(CartManager::class)->calculate($cart)->total
+                + (int) data_get($shippingOption, 'price', 0);
+
+            if ($message = PaymentMethodCatalog::amountOutOfRange($selectedMethod, $payable)) {
+                return back()->withErrors(['payment' => $message]);
+            }
+        }
+
         session()->forget(CheckoutSession::PAYMENT);
         session()->push(CheckoutSession::PAYMENT, $selectedMethod);
 
@@ -605,8 +623,13 @@ final class CheckoutController extends Controller
 
             // A notification that cannot be stored or mailed never stops the
             // checkout: the cart is still cleared and the payment initiated.
+            // A manual / COD order has nothing to pay online: it is "placed",
+            // not "awaiting payment".
             try {
-                resolve(NotifyOrderCustomer::class)->handle($order, OrderNotificationType::AwaitingPayment);
+                $notificationType = ($selectedMethod['driver'] ?? 'manual') === 'manual'
+                    ? OrderNotificationType::OrderPlaced
+                    : OrderNotificationType::AwaitingPayment;
+                resolve(NotifyOrderCustomer::class)->handle($order, $notificationType);
             } catch (Throwable $e) {
                 report($e);
             }

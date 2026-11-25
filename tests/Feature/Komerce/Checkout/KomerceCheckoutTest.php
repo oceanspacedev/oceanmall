@@ -15,6 +15,7 @@ use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
 use App\Jobs\FulfillOrderShipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Exceptions;
@@ -453,6 +454,95 @@ final class KomerceCheckoutTest extends TestCase
             ->firstOrFail();
         $this->assertSame(TransactionStatus::Success, $transaction->status);
         $this->assertSame(TransactionType::Capture, $transaction->type);
+    }
+
+    public function test_web_place_order_refuses_a_method_below_its_minimum_before_the_order_exists(): void
+    {
+        $this->komerceFakeConfig();
+        $user = User::factory()->create();
+        [$country, , $paymentMethod] = $this->seedCountryZoneAndPaymentMethod();
+        $this->fakeKomercePaymentHttp();
+
+        $created = false;
+        $this->app->instance(CreateOrder::class, new class($created)
+        {
+            public function __construct(private bool &$created) {}
+
+            public function handle(): never
+            {
+                $this->created = true;
+
+                throw new RuntimeException('The order must not be created.');
+            }
+        });
+
+        // A Rp5.000 cart with free shipping: below the channel's Rp10.000 minimum.
+        $product = Product::factory()->standard()->create(['published_at' => now()->subDay()]);
+        $cart = Cart::query()->create(['currency_code' => 'IDR', 'customer_id' => $user->id]);
+        CartLine::query()->create([
+            'cart_id' => $cart->id,
+            'purchasable_type' => $product->getMorphClass(),
+            'purchasable_id' => $product->id,
+            'quantity' => 1,
+            'unit_price_amount' => 5000,
+        ]);
+        $session = $this->makeCheckoutSession($country->id, $paymentMethod->id);
+        $session['shipping_option'][0]['price'] = 0;
+
+        $this->actingAs($user)
+            ->withSession(['checkout' => $session, config('shopper.cart.session.key', 'shopper_cart') => $cart->id])
+            ->from(route('shop.checkout.index'))
+            ->post(route('shop.checkout.place-order'), ['payment_method_id' => $paymentMethod->id])
+            ->assertRedirect(route('shop.checkout.index'))
+            ->assertSessionHasErrors('payment');
+
+        $this->assertFalse($created);
+        $this->assertStringContainsString('minimal Rp10.000', (string) session('errors')->first('payment'));
+    }
+
+    public function test_a_paid_callback_that_cannot_be_verified_is_answered_with_an_error_so_it_is_retried(): void
+    {
+        $this->komerceFakeConfig();
+        $user = User::factory()->create();
+        [, , $paymentMethod] = $this->seedCountryZoneAndPaymentMethod();
+
+        $order = Order::factory()->create([
+            'number' => 'ORD-TEST-RETRY',
+            'price_amount' => 175000,
+            'currency_code' => 'IDR',
+            'customer_id' => $user->id,
+            'payment_method_id' => $paymentMethod->id,
+            'payment_status' => PaymentStatus::Pending,
+            'status' => OrderStatus::New,
+        ]);
+        PaymentTransaction::query()->create([
+            'order_id' => $order->id,
+            'reference' => 'KOMPAY-RETRY-1',
+            'driver' => 'komerce',
+            'type' => TransactionType::Initiate,
+            'amount' => 175000,
+            'currency_code' => 'IDR',
+            'status' => TransactionStatus::Pending,
+        ]);
+
+        $status = 'https://payment.example.test/user/api/v1/user/payment/status/KOMPAY-RETRY-1';
+        $callback = ['payment_id' => 'KOMPAY-RETRY-1', 'order_id' => 'ORD-TEST-RETRY', 'status' => 'PAID', 'amount' => 175000];
+
+        // The status API is down: the callback must come again.
+        $this->fakeKomercePaymentHttp([$status => Http::response(['message' => 'down'], 500)]);
+        $this->postSignedKomercePaymentWebhook($callback)->assertStatus(503)->assertJson(['status' => 'lookup_failed']);
+        $this->assertSame(PaymentStatus::Pending, $order->fresh()->payment_status);
+
+        // The status API still answers "pending" (and that answer is cached).
+        Http::swap(new Factory);
+        $this->fakeKomercePaymentHttp([$status => Http::response(['success' => true, 'data' => ['payment_id' => 'KOMPAY-RETRY-1', 'status' => 'PENDING', 'amount' => 175000]])]);
+        $this->postSignedKomercePaymentWebhook($callback)->assertStatus(503)->assertJson(['status' => 'not_paid']);
+
+        // The retry right after reads the status fresh, not the cached "pending".
+        Http::swap(new Factory);
+        $this->fakeKomercePaymentHttp([$status => Http::response(['success' => true, 'data' => ['payment_id' => 'KOMPAY-RETRY-1', 'status' => 'PAID', 'amount' => 175000]])]);
+        $this->postSignedKomercePaymentWebhook($callback)->assertOk()->assertJson(['status' => 'handled']);
+        $this->assertSame(PaymentStatus::Paid, $order->fresh()->payment_status);
     }
 
     public function test_fetch_payment_methods_excludes_stripe_when_disabled(): void

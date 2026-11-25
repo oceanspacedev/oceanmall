@@ -57,7 +57,8 @@ final class FetchPaymentMethods
             'id' => $method->id,
             'title' => $method->title,
             'slug' => $method->slug,
-            'driver' => $method->driver,
+            // A method without a driver is Shopper's manual one.
+            'driver' => filled($method->driver) ? trim((string) $method->driver) : 'manual',
             'description' => $method->description,
             'logo' => is_string($match['logo_url'] ?? null) && $match['logo_url'] !== ''
                 ? (string) $match['logo_url']

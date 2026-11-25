@@ -493,7 +493,7 @@ export function offlinePaymentNote(source: PaymentSource): string | null {
 }
 
 export type ShippingRate = {
-  service_code: string;
+  service_code: string | number;
   service_name: string;
   amount: number;
   currency?: string;
@@ -599,7 +599,7 @@ export type CheckoutPayload = {
     rajaongkir_destination_label?: string;
   } | null;
   shipping_option: {
-    service_code?: string;
+    service_code?: string | number;
     service_name?: string;
     amount?: number;
     carrier_name?: string | null;
@@ -624,6 +624,7 @@ export type OrderSummary = {
   line_count?: number;
   first_item?: { name: string; quantity: number; thumbnail?: string | null } | null;
   payment_method?: string | null;
+  payment_driver?: string | null;
 };
 
 export type AppNotification = {
@@ -662,6 +663,7 @@ export type OrderDetail = OrderSummary & {
     service?: string | null;
     cost?: number | null;
     carrier_logo?: string | null;
+    can_track?: boolean;
     tracking_history?: {
       description?: string;
       datetime?: string | null;

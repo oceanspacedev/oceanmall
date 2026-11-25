@@ -17,10 +17,18 @@ export const ORDER_TABS: { key: OrderTab | 'all'; label: string }[] = [
   { key: 'cancelled', label: 'Dibatalkan' },
 ];
 
-type StageInput = Pick<OrderSummary, 'status' | 'payment_status' | 'shipping_status'> & {
+type StageInput = Pick<
+  OrderSummary,
+  'status' | 'payment_status' | 'shipping_status' | 'payment_driver'
+> & {
   /** Present on the detail payload; the list payload has none. */
   shipments?: { status?: string | null; awb?: string | null; tracking_number?: string | null }[];
+  payment_action?: { kind?: string | null } | null;
 };
+
+function isManualUnpaid(order: StageInput): boolean {
+  return order.payment_driver === 'manual' || order.payment_action?.kind === 'none';
+}
 
 export type OrderStage = {
   key: OrderTab;
@@ -43,9 +51,14 @@ export function isCancelled(order: Pick<OrderSummary, 'status' | 'payment_status
 
 /** The package has arrived but the customer has not confirmed it yet. */
 export function awaitsReceiptConfirmation(
-  order: Pick<OrderSummary, 'status' | 'shipping_status'>
+  order: Pick<OrderSummary, 'status' | 'shipping_status' | 'payment_status'>
 ): boolean {
-  return order.shipping_status === 'delivered' && order.status !== 'completed';
+  // The server only accepts the confirmation of a paid order.
+  return (
+    order.shipping_status === 'delivered' &&
+    order.status !== 'completed' &&
+    order.payment_status === 'paid'
+  );
 }
 
 /**
@@ -67,14 +80,6 @@ export function orderStage(order: StageInput): OrderStage {
       label: 'Selesai',
       tone: 'success',
       hint: 'Pesanan sudah diterima. Terima kasih!',
-    };
-  }
-  if (order.payment_status !== 'paid') {
-    return {
-      key: 'unpaid',
-      label: 'Belum bayar',
-      tone: 'warning',
-      hint: 'Selesaikan pembayaran sebelum batas waktu.',
     };
   }
   if (order.shipping_status && order.shipping_status !== 'unfulfilled') {
@@ -102,6 +107,16 @@ export function orderStage(order: StageInput): OrderStage {
       hint: waitingForPickup
         ? 'Pesanan sudah terdaftar di kurir, menunggu penjemputan.'
         : 'Paket sedang dalam perjalanan.',
+    };
+  }
+  if (order.payment_status !== 'paid') {
+    return {
+      key: 'unpaid',
+      label: 'Belum bayar',
+      tone: 'warning',
+      hint: isManualUnpaid(order)
+        ? 'Pesananmu dicatat. Pembayaran dikonfirmasi oleh toko.'
+        : 'Selesaikan pembayaran sebelum batas waktu.',
     };
   }
 
@@ -149,6 +164,8 @@ export function orderSteps(order: StageInput): OrderStep[] {
   for (let index = flags.length - 2; index >= 0; index -= 1) {
     flags[index] = flags[index] || flags[index + 1];
   }
+  // Shipping never implies payment: a COD order ships before it is paid.
+  flags[1] = order.payment_status === 'paid' || completed;
 
   const labels: [OrderStepKey, string][] = [
     ['ordered', 'Dipesan'],

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Events\Orders\OrderCompleted;
 use Shopper\Core\Models\Order;
 
 final readonly class ConfirmOrderReceived
@@ -43,25 +44,45 @@ final readonly class ConfirmOrderReceived
             ]);
         }
 
-        $hasAirwayBill = $shipments->contains(function (OrderShipment $shipment): bool {
-            return (is_string($shipment->awb) && trim($shipment->awb) !== '')
-                || (is_string($shipment->tracking_number) && trim($shipment->tracking_number) !== '');
-        });
+        // A cancelled parcel is never coming and is never marked delivered.
+        $live = $shipments->reject(static fn (OrderShipment $shipment): bool => $shipment->status === NormalizeShipmentStatus::CANCELLED)->values();
 
-        if (! $hasAirwayBill) {
+        // Shipped: it carries an airway bill (staff or the provider entered it).
+        $shipped = static fn (OrderShipment $shipment): bool => (is_string($shipment->awb) && trim($shipment->awb) !== '')
+            || (is_string($shipment->tracking_number) && trim($shipment->tracking_number) !== '');
+
+        if ($live->isEmpty() || ! $live->contains($shipped)) {
             throw ValidationException::withMessages([
                 'received' => __('Shipments must have an airway bill before you can confirm receipt.'),
             ]);
         }
 
-        return DB::transaction(function () use ($order, $shipments): Order {
-            foreach ($shipments as $shipment) {
+        // The order is received when EVERY parcel arrived: one that has not
+        // even shipped yet (a second warehouse) cannot be confirmed with it.
+        if (! $live->every($shipped)) {
+            throw ValidationException::withMessages([
+                'received' => __('Some packages of this order have not been shipped yet. You can confirm receipt once all of them have arrived.'),
+            ]);
+        }
+
+        return DB::transaction(function () use ($order, $live): Order {
+            foreach ($live as $shipment) {
                 $shipment->forceFill(['status' => NormalizeShipmentStatus::DELIVERED])->save();
             }
 
-            $order->forceFill(['status' => OrderStatus::Completed])->save();
+            // Every live parcel is delivered now: the sync moves the order to
+            // delivered / completed and fires OrderCompleted.
+            $order = $this->syncOrderShipping->handle($order->refresh());
 
-            return $this->syncOrderShipping->handle($order->refresh());
+            // The customer said so: the order is completed also where the
+            // sync does not do it on its own (a cancelled parcel next to the
+            // delivered ones, an order staff had archived).
+            if ($order->status !== OrderStatus::Completed) {
+                $order->forceFill(['status' => OrderStatus::Completed])->save();
+                event(new OrderCompleted($order));
+            }
+
+            return $order;
         });
     }
 }

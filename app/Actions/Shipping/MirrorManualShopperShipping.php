@@ -134,11 +134,15 @@ final class MirrorManualShopperShipping
         if ($open->count() > 1 && $row->carrier_id) {
             $sameCarrier = $open->filter(static fn (OrderShipment $shipment): bool => (int) $shipment->getAttribute('carrier_id') === (int) $row->carrier_id);
 
+            // Several open parcels of this very courier (a split order): each
+            // label / AWB staff enter fills the next one, in order, so every
+            // parcel ends up with its airway bill.
             if ($sameCarrier->isNotEmpty()) {
-                $open = $sameCarrier;
+                return $sameCarrier->sortBy('id')->first();
             }
         }
 
+        // Still several candidates and nothing tells them apart: left alone.
         return $open->count() === 1 ? $open->first() : null;
     }
 

@@ -43,7 +43,7 @@ import {
   parseApiDate,
   statusLabel,
 } from '@/lib/format';
-import { canReviewOrder, orderStage, orderSteps } from '@/lib/order-status';
+import { canReviewOrder, isCancelled, orderStage, orderSteps } from '@/lib/order-status';
 import { getSecureItem, setSecureItem } from '@/lib/storage';
 import { COLORS } from '@/lib/theme';
 import { toast } from '@/lib/toast';
@@ -253,7 +253,13 @@ export default function OrderScreen() {
   }, [justPaid]);
 
   const stage = order ? orderStage(order) : null;
-  const unpaid = stage?.key === 'unpaid';
+  // From the payment itself, not the stage: an unpaid order that already shipped (COD, or an AWB
+  // typed before the transfer arrived) still has to be payable.
+  const unpaid = order
+    ? !isCancelled(order) && order.status !== 'completed' && order.payment_status !== 'paid'
+    : false;
+  const offline = order ? isOfflinePayment(order) : false;
+  const needsOnlinePayment = unpaid && !offline;
   const paymentExpiry = parseApiDate(order?.payment?.expiry_date)?.getTime();
   const paymentExpired = paymentExpiry !== undefined && paymentExpiry < now;
 
@@ -267,7 +273,7 @@ export default function OrderScreen() {
       const res = await api<{ data: OrderDetail }>(`/orders/${number}`);
       applyOrder(res.data);
     }, [number, applyOrder]),
-    unpaid && !paymentExpired
+    needsOnlinePayment && !paymentExpired
   );
 
   async function run(action: string, task: () => Promise<void>) {
@@ -498,14 +504,23 @@ export default function OrderScreen() {
   }
 
   const style = STAGE_STYLE[stage.key] ?? STAGE_STYLE.processing;
-  const hasAwb = order.shipments.some((shipment) =>
-    Boolean(shipment.awb || shipment.tracking_number)
-  );
-  const canConfirm = order.payment_status === 'paid' && hasAwb && order.status !== 'completed';
+  // Every parcel that still travels must have shipped (a cancelled one is not waited for).
+  const liveShipments = order.shipments.filter((shipment) => shipment.status !== 'cancelled');
+  const hasAwb =
+    liveShipments.length > 0 &&
+    liveShipments.every((shipment) => Boolean(shipment.awb || shipment.tracking_number));
+  const canConfirm =
+    order.payment_status === 'paid' &&
+    hasAwb &&
+    order.status !== 'completed' &&
+    order.status !== 'cancelled';
   const reviewable = canReviewOrder(order);
   const firstSlug = order.items.find((item) => item.slug)?.slug;
   const showStickyBar =
-    unpaid || canConfirm || (stage.key === 'completed' && Boolean(firstSlug)) || Boolean(error);
+    needsOnlinePayment ||
+    canConfirm ||
+    (stage.key === 'completed' && Boolean(firstSlug)) ||
+    Boolean(error);
 
   return (
     <Screen title="Detail pesanan" surface>
@@ -569,14 +584,14 @@ export default function OrderScreen() {
         </Section>
 
         {/* Payment */}
-        {unpaid && isOfflinePayment(order) ? (
+        {order.payment_status !== 'paid' && !isCancelled(order) && offline ? (
           <Section title="Pembayaran" icon={CreditCard}>
             <Text className="text-[13px] text-muted-foreground">
               {offlinePaymentNote(order) ??
                 'Pembayaran tidak dilakukan di aplikasi. Kami konfirmasi setelah pembayaran diterima.'}
             </Text>
           </Section>
-        ) : unpaid ? (
+        ) : needsOnlinePayment ? (
           <Section title="Instruksi pembayaran" icon={CreditCard}>
             <PaymentPanel
               payment={order.payment}
@@ -692,7 +707,7 @@ export default function OrderScreen() {
                     </View>
                   ) : null}
 
-                  {awb ? (
+                  {awb && shipment.can_track !== false ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -855,7 +870,7 @@ export default function OrderScreen() {
       {showStickyBar ? (
         <StickyBar>
           {error ? <ErrorBanner message={error} className="mx-0 mb-2.5 mt-0" /> : null}
-          {unpaid ? (
+          {needsOnlinePayment ? (
             <Button
               loading={busyAction === 'sync'}
               disabled={busy}

@@ -34,7 +34,7 @@ const FAQS: Faq[] = [
     key: 'bayar',
     question: 'Bagaimana cara membayar pesanan?',
     answer:
-      'Pilih metode pembayaran saat checkout: virtual account bank atau QRIS. Setelah pesanan dibuat, nomor virtual account atau kode QR muncul di detail pesanan. Bayar sebelum batas waktu yang tertera di sana; pesanan yang belum dibayar sampai batas waktu itu dibatalkan otomatis. Status pesanan ikut berubah setelah pembayaran diterima. Kalau belum berubah, tarik layar detail pesanan ke bawah untuk memuat ulang.',
+      'Pilih metode pembayaran yang tersedia saat checkout, misalnya virtual account bank, QRIS, atau bayar di tempat (COD). Untuk pembayaran non-tunai, nomor virtual account atau kode QR muncul di detail pesanan. Bayar sebelum batas waktu yang tertera di sana; pesanan yang belum dibayar sampai batas waktu itu dibatalkan otomatis. Status pesanan ikut berubah setelah pembayaran diterima. Kalau belum berubah, tarik layar detail pesanan ke bawah untuk memuat ulang.',
   },
   {
     key: 'kirim',

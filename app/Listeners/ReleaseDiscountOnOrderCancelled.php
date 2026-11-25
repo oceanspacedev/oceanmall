@@ -48,37 +48,37 @@ final class ReleaseDiscountOnOrderCancelled
 
     private static function release(int|string $orderId): void
     {
-            $order = Order::query()->whereKey($orderId)->lockForUpdate()->first();
+        $order = Order::query()->whereKey($orderId)->lockForUpdate()->first();
 
-            // Money was taken (also when it was refunded since): the coupon
-            // was redeemed.
-            if (! $order instanceof Order
-                || $order->discount_id === null
-                || in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::PartiallyRefunded, PaymentStatus::Refunded], true)) {
-                return;
-            }
+        // Money was taken (also when it was refunded since): the coupon
+        // was redeemed.
+        if (! $order instanceof Order
+            || $order->discount_id === null
+            || in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::PartiallyRefunded, PaymentStatus::Refunded], true)) {
+            return;
+        }
 
-            $metadata = self::metadata($order);
+        $metadata = self::metadata($order);
 
-            if (filled($metadata['discount_released_at'] ?? null)) {
-                return;
-            }
+        if (filled($metadata['discount_released_at'] ?? null)) {
+            return;
+        }
 
-            $discountId = $order->discount_id;
+        $discountId = $order->discount_id;
 
-            Discount::query()
-                ->whereKey($discountId)
-                ->where('total_use', '>', 0)
-                ->decrement('total_use');
+        Discount::query()
+            ->whereKey($discountId)
+            ->where('total_use', '>', 0)
+            ->decrement('total_use');
 
-            // Shopper's Order does not cast metadata: it is stored as JSON text.
-            $metadata['discount_released_at'] = now()->toIso8601String();
-            $metadata['released_discount_id'] = $discountId;
+        // Shopper's Order does not cast metadata: it is stored as JSON text.
+        $metadata['discount_released_at'] = now()->toIso8601String();
+        $metadata['released_discount_id'] = $discountId;
 
-            $order->forceFill([
-                'discount_id' => null,
-                'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
-            ])->save();
+        $order->forceFill([
+            'discount_id' => null,
+            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+        ])->save();
     }
 
     /**

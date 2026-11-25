@@ -253,7 +253,11 @@ export default function OrderScreen() {
   }, [justPaid]);
 
   const stage = order ? orderStage(order) : null;
-  const unpaid = stage?.key === 'unpaid';
+  // From the payment itself, not the stage: an unpaid order that already shipped (COD, or an AWB
+  // typed before the transfer arrived) still has to be payable.
+  const unpaid = order
+    ? !isCancelled(order) && order.status !== 'completed' && order.payment_status !== 'paid'
+    : false;
   const offline = order ? isOfflinePayment(order) : false;
   const needsOnlinePayment = unpaid && !offline;
   const paymentExpiry = parseApiDate(order?.payment?.expiry_date)?.getTime();

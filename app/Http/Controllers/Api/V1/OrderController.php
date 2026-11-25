@@ -79,7 +79,7 @@ final class OrderController extends Controller
                 ->where('shipping_status', ShippingStatus::Unfulfilled),
             'shipped' => $query->whereNotIn('payment_status', $closedPayment)
                 ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Completed])
-                ->whereIn('shipping_status', [ShippingStatus::Shipped, ShippingStatus::PartiallyShipped, ShippingStatus::PartiallyDelivered, ShippingStatus::Delivered]),
+                ->where('shipping_status', '!=', ShippingStatus::Unfulfilled),
             'completed' => $query->where('status', OrderStatus::Completed),
             'cancelled' => $query->where(fn (Builder $q) => $q->where('status', OrderStatus::Cancelled)->orWhereIn('payment_status', $closedPayment)),
             default => $query,
@@ -274,7 +274,8 @@ final class OrderController extends Controller
                 'thumbnail' => $presenter->purchasableThumbnail($first->product),
             ] : null,
             'payment_method' => $order->paymentMethod?->title,
-            'payment_driver' => $order->paymentMethod?->driver,
+            // A method without a driver is Shopper's manual one.
+            'payment_driver' => filled($driver = $order->paymentMethod?->driver) ? trim((string) $driver) : 'manual',
         ];
     }
 

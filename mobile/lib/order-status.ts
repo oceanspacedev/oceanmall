@@ -51,9 +51,14 @@ export function isCancelled(order: Pick<OrderSummary, 'status' | 'payment_status
 
 /** The package has arrived but the customer has not confirmed it yet. */
 export function awaitsReceiptConfirmation(
-  order: Pick<OrderSummary, 'status' | 'shipping_status'>
+  order: Pick<OrderSummary, 'status' | 'shipping_status' | 'payment_status'>
 ): boolean {
-  return order.shipping_status === 'delivered' && order.status !== 'completed';
+  // The server only accepts the confirmation of a paid order.
+  return (
+    order.shipping_status === 'delivered' &&
+    order.status !== 'completed' &&
+    order.payment_status === 'paid'
+  );
 }
 
 /**
@@ -159,6 +164,8 @@ export function orderSteps(order: StageInput): OrderStep[] {
   for (let index = flags.length - 2; index >= 0; index -= 1) {
     flags[index] = flags[index] || flags[index + 1];
   }
+  // Shipping never implies payment: a COD order ships before it is paid.
+  flags[1] = order.payment_status === 'paid' || completed;
 
   const labels: [OrderStepKey, string][] = [
     ['ordered', 'Dipesan'],

@@ -73,7 +73,7 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   needs every non-cancelled parcel shipped. Order mails (`OrderStatusMail`) and the verification mail
   (`QueuedVerifyEmail`) are QUEUED: a worker must run everywhere; `OrderStatusNotification` is the
   in-app (database) notification only.
-- **Test suite is green as of 2026-11-25 (1032 tests; older note: 538 on 2026-11-18).** Tests use kebab-case Inertia page names
+- **Test suite is green as of 2026-11-25 (1045 tests; older note: 538 on 2026-11-18).** Tests use kebab-case Inertia page names
   (`settings/security`, `auth/confirm-password`), `first_name`/`last_name` profile fields, and
   `@example.com` addresses. The `email:rfc,dns` rule is skipped under `runningUnitTests()` because
   the DNS validator rejects reserved domains and needs network access.

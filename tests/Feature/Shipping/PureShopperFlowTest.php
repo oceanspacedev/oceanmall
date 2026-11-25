@@ -66,7 +66,7 @@ final class PureShopperFlowTest extends TestCase
         ]);
 
         $this->withoutVite();
-        $this->actingAs($webUser)->withSession([
+        $this->actingAs($webUser, 'web')->withSession([
             config('shopper.cart.session.key', 'shopper_cart') => $cart->id,
             'zone_country_code' => 'ID',
         ]);
@@ -117,7 +117,7 @@ final class PureShopperFlowTest extends TestCase
             ->assertJsonPath('data.payment_action.kind', 'none')
             ->assertJsonPath('data.shipments.0.can_track', false);
 
-        $this->actingAs($webUser)
+        $this->actingAs($webUser, 'web')
             ->get(route('account.orders.show', $webOrder))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page

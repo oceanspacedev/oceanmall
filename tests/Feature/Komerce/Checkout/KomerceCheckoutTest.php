@@ -476,12 +476,21 @@ final class KomerceCheckoutTest extends TestCase
             }
         });
 
-        // No cart and free shipping: Rp0, below the channel's Rp10.000 minimum.
+        // A Rp5.000 cart with free shipping: below the channel's Rp10.000 minimum.
+        $product = Product::factory()->standard()->create(['published_at' => now()->subDay()]);
+        $cart = Cart::query()->create(['currency_code' => 'IDR', 'customer_id' => $user->id]);
+        CartLine::query()->create([
+            'cart_id' => $cart->id,
+            'purchasable_type' => $product->getMorphClass(),
+            'purchasable_id' => $product->id,
+            'quantity' => 1,
+            'unit_price_amount' => 5000,
+        ]);
         $session = $this->makeCheckoutSession($country->id, $paymentMethod->id);
         $session['shipping_option'][0]['price'] = 0;
 
         $this->actingAs($user)
-            ->withSession(['checkout' => $session])
+            ->withSession(['checkout' => $session, config('shopper.cart.session.key', 'shopper_cart') => $cart->id])
             ->from(route('shop.checkout.index'))
             ->post(route('shop.checkout.place-order'), ['payment_method_id' => $paymentMethod->id])
             ->assertRedirect(route('shop.checkout.index'))

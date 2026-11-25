@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
-use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderCompleted;
 use Shopper\Core\Models\Order;
 
@@ -48,15 +47,9 @@ final readonly class ConfirmOrderReceived
         // A cancelled parcel is never coming and is never marked delivered.
         $live = $shipments->reject(static fn (OrderShipment $shipment): bool => $shipment->status === NormalizeShipmentStatus::CANCELLED)->values();
 
-        // Shipped: it carries an airway bill, or its status says it left the
-        // warehouse. When staff marked the whole order shipped by hand
-        // (Shopper's own label / AWB entry is copied to one parcel only),
-        // every parcel counts as shipped.
-        $orderShipped = in_array($order->shipping_status, [ShippingStatus::Shipped, ShippingStatus::PartiallyDelivered, ShippingStatus::Delivered], true);
-        $shipped = static fn (OrderShipment $shipment): bool => $orderShipped
-            || (is_string($shipment->awb) && trim($shipment->awb) !== '')
-            || (is_string($shipment->tracking_number) && trim($shipment->tracking_number) !== '')
-            || in_array($shipment->status, [NormalizeShipmentStatus::PICKED_UP, NormalizeShipmentStatus::IN_TRANSIT, NormalizeShipmentStatus::DELIVERED], true);
+        // Shipped: it carries an airway bill (staff or the provider entered it).
+        $shipped = static fn (OrderShipment $shipment): bool => (is_string($shipment->awb) && trim($shipment->awb) !== '')
+            || (is_string($shipment->tracking_number) && trim($shipment->tracking_number) !== '');
 
         if ($live->isEmpty() || ! $live->contains($shipped)) {
             throw ValidationException::withMessages([

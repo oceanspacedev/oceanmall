@@ -47,6 +47,7 @@
     "Reset your password": "Setel ulang kata sandi Anda",
     "results": "hasil",
     "Selected option is no longer available.": "Opsi pengiriman yang dipilih sudah tidak tersedia.",
+    "Selected payment method is no longer available.": "Metode pembayaran yang dipilih sudah tidak tersedia.",
     "Server Error": "Terjadi Kesalahan Server",
     "Service Unavailable": "Layanan Tidak Tersedia",
     "Shipments must have an airway bill before you can confirm receipt.": "Nomor resi harus tersedia sebelum pesanan bisa dikonfirmasi diterima.",

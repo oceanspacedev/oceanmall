@@ -280,6 +280,8 @@ final class CustomerApiTest extends TestCase
 
     public function test_place_order_creates_komerce_payment_instructions(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.payment_api_key', 'test-payment-key');
         config()->set('komerce.shipping_cost_api_key', 'test-cost-key');
         config()->set('komerce.rajaongkir.cost_base_url', 'https://shipping.example.test');

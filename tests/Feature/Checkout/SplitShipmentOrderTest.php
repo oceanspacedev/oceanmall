@@ -25,6 +25,8 @@ final class SplitShipmentOrderTest extends TestCase
 
     public function test_create_order_persists_split_shipments_from_allocation_plan(): void
     {
+        $this->requireModules('Komerce');
+
         $this->assertTrue(Schema::hasTable('order_shipments'));
         $this->assertTrue(Schema::hasTable('order_shipment_lines'));
 

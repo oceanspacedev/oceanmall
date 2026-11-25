@@ -64,6 +64,8 @@ final class ShopperRateFallbackTest extends TestCase
 
     public function test_by_default_a_provider_without_rates_offers_no_flat_zone_rate(): void
     {
+        $this->requireModules('Komerce');
+
         Http::preventStrayRequests();
         Http::fake();
         Inventory::factory()->create(['country_id' => $this->country->id, 'is_default' => true, 'rajaongkir_origin_id' => '501']);
@@ -79,6 +81,8 @@ final class ShopperRateFallbackTest extends TestCase
 
     public function test_by_default_a_missing_warehouse_origin_offers_no_flat_zone_rate(): void
     {
+        $this->requireModules('Komerce');
+
         Http::fake();
         Inventory::factory()->create(['country_id' => $this->country->id, 'is_default' => true]);
 
@@ -109,6 +113,8 @@ final class ShopperRateFallbackTest extends TestCase
 
     public function test_exhausted_quota_falls_back_to_shopper_zone_options(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('shopper.shipping.fallback_to_zone_options', true);
         Http::preventStrayRequests();
         Http::fake();
@@ -141,6 +147,8 @@ final class ShopperRateFallbackTest extends TestCase
 
     public function test_provider_rates_win_when_the_provider_answers(): void
     {
+        $this->requireModules('Komerce');
+
         Http::fake([
             'https://shipping.example.test/api/v1/calculate/domestic-cost' => Http::response([
                 'meta' => ['code' => 200, 'message' => 'Success'],

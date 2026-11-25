@@ -105,6 +105,66 @@ final class ModuleBoundaryTest extends TestCase
     }
 
     /**
+     * Removing a module = its provider line, app/Integrations/<Name> and its
+     * test folders tests/{Feature,Unit}/<Name>. Every other test must survive
+     * that: it never loads a module's test helpers (a missing trait is a fatal
+     * error for the whole run), and a test that touches a module (its classes
+     * or its `<name>.*` config) skips itself with requireModules().
+     */
+    public function test_generic_tests_survive_removing_a_module(): void
+    {
+        $modules = $this->modules();
+
+        if ($modules === []) {
+            $this->markTestSkipped('No provider module installed (pure Shopper store).');
+        }
+
+        $moduleFolders = [];
+
+        foreach ($modules as $module) {
+            $moduleFolders[] = "/tests/Feature/{$module}/";
+            $moduleFolders[] = "/tests/Unit/{$module}/";
+        }
+
+        $leaks = [];
+
+        foreach (Finder::create()->files()->name('*.php')->in(base_path('tests')) as $file) {
+            $path = str_replace('\\', '/', $file->getRealPath());
+
+            if (str_contains($path, '/tests/Feature/Modules/') || str_ends_with($path, '/tests/TestCase.php')) {
+                continue;
+            }
+
+            foreach ($moduleFolders as $folder) {
+                if (str_contains($path, $folder)) {
+                    continue 2;
+                }
+            }
+
+            $contents = $file->getContents();
+            $relative = 'tests/'.str_replace('\\', '/', $file->getRelativePathname());
+
+            foreach ($modules as $module) {
+                if (preg_match("/Tests\\\\(Feature|Unit)\\\\{$module}\\\\/", $contents) === 1) {
+                    $leaks[] = "{$relative} uses test helpers of the {$module} module";
+                }
+
+                // Module classes, or the module's config (`<name>.*` keys set via
+                // config()->set(), config() or a config([...]) array key).
+                $key = "['\"]".strtolower($module).'\.[a-z_.]+[\'"]';
+                $touches = str_contains($contents, "App\\Integrations\\{$module}\\")
+                    || preg_match("/config\\((\\)->set\\()?\\s*{$key}|{$key}\\s*=>/", $contents) === 1;
+
+                if ($touches && ! str_contains($contents, "requireModules('{$module}'") && ! str_contains($contents, "'{$module}')")) {
+                    $leaks[] = "{$relative} touches the {$module} module without requireModules('{$module}')";
+                }
+            }
+        }
+
+        $this->assertSame([], $leaks);
+    }
+
+    /**
      * @return list<string>
      */
     private function modules(): array

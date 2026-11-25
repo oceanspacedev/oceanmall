@@ -47,6 +47,8 @@ final class IdrAmountIntegrityTest extends TestCase
 
     public function test_order_total_is_subtotal_plus_shipping_and_matches_komerce_charge(): void
     {
+        $this->requireModules('Komerce');
+
         [$order, $shipment] = $this->placeOrder(couponCode: null);
 
         // 2 x Rp125.000 + Rp18.000 ongkir.
@@ -58,6 +60,8 @@ final class IdrAmountIntegrityTest extends TestCase
 
     public function test_order_total_with_coupon_matches_komerce_charge(): void
     {
+        $this->requireModules('Komerce');
+
         Discount::query()->create([
             'code' => 'OCEAN10',
             'is_active' => true,

@@ -150,6 +150,8 @@ final class GatewayNeutralityTest extends TestCase
 
     public function test_delivery_webhook_is_processed_when_the_key_is_set_but_the_plan_probe_says_no(): void
     {
+        $this->requireModules('Komerce');
+
         Http::preventStrayRequests();
         Http::fake();
         config()->set('komerce.shipping_delivery_api_key', 'delivery-key');

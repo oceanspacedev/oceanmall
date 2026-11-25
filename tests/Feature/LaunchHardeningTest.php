@@ -113,6 +113,8 @@ final class LaunchHardeningTest extends TestCase
 
     public function test_missing_komerce_base_url_fails_instead_of_falling_back_to_sandbox(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.payment_api_key', 'live-key');
         config()->set('komerce.payment_base_url', null);
         Http::fake();

@@ -31,7 +31,7 @@ use Shopper\Core\Models\OrderShipping;
 use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Enum\TransactionType;
 use Shopper\Payment\Models\PaymentTransaction;
-use Tests\Support\SignsKomercePaymentCallbacks;
+use Tests\Feature\Komerce\Concerns\SignsKomercePaymentCallbacks;
 use Tests\TestCase;
 use Throwable;
 

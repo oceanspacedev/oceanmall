@@ -66,6 +66,8 @@ final class OrderNotificationTest extends TestCase
 
     public function test_cancel_unpaid_notifies_customer(): void
     {
+        $this->requireModules('Komerce');
+
         Notification::fake();
 
         $customer = User::factory()->create();

@@ -53,6 +53,8 @@ final class DisabledModeHygieneTest extends TestCase
     #[DataProvider('disabledWebhooks')]
     public function test_every_disabled_webhook_gets_the_same_acknowledgement(string $method, string $uri): void
     {
+        $this->requireModules('Komerce');
+
         Http::preventStrayRequests();
         Http::fake();
         // Even with a signing secret, nothing is verified or processed while the product is off.
@@ -77,6 +79,8 @@ final class DisabledModeHygieneTest extends TestCase
 
     public function test_expiry_cancels_pending_komerce_orders_locally_after_the_grace_period_once_the_key_is_removed(): void
     {
+        $this->requireModules('Komerce');
+
         Http::preventStrayRequests();
         Http::fake();
 
@@ -156,6 +160,8 @@ final class DisabledModeHygieneTest extends TestCase
 
     public function test_seed_with_payment_key_enables_komerce_methods_and_keeps_cod_off(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.payment_api_key', 'test-payment-key');
 
         $this->seed(PaymentMethodSeeder::class);
@@ -167,6 +173,8 @@ final class DisabledModeHygieneTest extends TestCase
 
     public function test_reseeding_keeps_staff_enabled_flags(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.payment_api_key', 'test-payment-key');
         $this->seed(PaymentMethodSeeder::class);
 
@@ -207,6 +215,8 @@ final class DisabledModeHygieneTest extends TestCase
 
     public function test_provider_logo_source_is_consulted_only_while_the_provider_is_configured(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'test-cost-key');
 
         $logo = resolve(CarrierLogos::class)->forCode('gosend');
@@ -219,6 +229,8 @@ final class DisabledModeHygieneTest extends TestCase
 
     public function test_capability_state_is_read_from_the_cache_once_per_request(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'test-cost-key');
         $capabilities = resolve(KomerceCapabilities::class);
 

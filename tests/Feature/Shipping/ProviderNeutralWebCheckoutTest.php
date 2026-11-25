@@ -64,6 +64,8 @@ final class ProviderNeutralWebCheckoutTest extends TestCase
 
     public function test_cost_key_turns_on_destination_search_and_requirement(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'test-key');
         Http::fake(['*' => Http::response(['meta' => ['code' => 200], 'data' => []])]);
         [$user, , $cart] = $this->customerWithCart();
@@ -81,6 +83,8 @@ final class ProviderNeutralWebCheckoutTest extends TestCase
 
     public function test_saved_address_from_another_provider_is_not_applied_as_a_complete_destination(): void
     {
+        $this->requireModules('Komerce', 'Biteship');
+
         config()->set('komerce.shipping_cost_api_key', 'test-key');
         Http::fake(['*' => Http::response(['meta' => ['code' => 200], 'data' => []])]);
         [$user, $country, $cart] = $this->customerWithCart();
@@ -117,6 +121,8 @@ final class ProviderNeutralWebCheckoutTest extends TestCase
 
     public function test_a_checkout_session_saved_with_legacy_keys_prefills_the_neutral_destination(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'test-key');
         Http::fake(['*' => Http::response(['meta' => ['code' => 200], 'data' => []])]);
         [$user, $country, $cart] = $this->customerWithCart();

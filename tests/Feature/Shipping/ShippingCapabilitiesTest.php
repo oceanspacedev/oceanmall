@@ -56,6 +56,8 @@ final class ShippingCapabilitiesTest extends TestCase
 
     public function test_rajaongkir_cost_key_enables_destination_search_and_requirement(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'cost-key');
         $capabilities = resolve(ShippingCapabilities::class);
 
@@ -69,6 +71,8 @@ final class ShippingCapabilitiesTest extends TestCase
 
     public function test_delivery_key_alone_needs_coordinates_but_cannot_require_a_destination(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'delivery-key');
         $capabilities = resolve(ShippingCapabilities::class);
 
@@ -98,6 +102,8 @@ final class ShippingCapabilitiesTest extends TestCase
 
     public function test_the_store_setting_picks_the_primary_destination_driver(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'cost-key');
         Shipping::extend('fake-areas', static fn (): Driver => new FakeAreaDriver);
         config()->set('shopper.shipping.drivers.fake-areas.enabled', true);
@@ -122,6 +128,8 @@ final class ShippingCapabilitiesTest extends TestCase
 
     public function test_existing_drivers_implement_their_capability_contracts(): void
     {
+        $this->requireModules('Komerce');
+
         $rajaOngkir = Shipping::driver('rajaongkir');
         $this->assertInstanceOf(RajaOngkirDriver::class, $rajaOngkir);
         $this->assertInstanceOf(ResolvesDestinations::class, $rajaOngkir);
@@ -145,6 +153,8 @@ final class ShippingCapabilitiesTest extends TestCase
 
     public function test_rajaongkir_destination_search_is_cached_and_refuses_without_key(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'cost-key');
         config()->set('komerce.rajaongkir.cost_base_url', 'https://shipping.example.test');
         Http::fake([
@@ -169,6 +179,8 @@ final class ShippingCapabilitiesTest extends TestCase
 
     public function test_rajaongkir_sync_carriers_reports_unconfigured_without_calling_the_provider(): void
     {
+        $this->requireModules('Komerce');
+
         Http::fake();
 
         $result = Shipping::driver('rajaongkir')->syncCarriers();

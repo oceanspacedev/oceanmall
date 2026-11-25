@@ -102,6 +102,8 @@ final class ProviderNeutralOpsTest extends TestCase
 
     public function test_komerce_bucket_is_mirrored_to_the_neutral_keys(): void
     {
+        $this->requireModules('Komerce');
+
         $order = Order::factory()->create(['currency_code' => 'IDR']);
         $shipment = $this->shipment($order, 'rajaongkir');
 
@@ -247,6 +249,8 @@ final class ProviderNeutralOpsTest extends TestCase
 
     public function test_rajaongkir_origin_ids_stay_numeric_through_the_driver_rules(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'test-cost-key');
         Http::fake(['*' => Http::response(['data' => []])]);
         $this->area->configured = false;
@@ -371,6 +375,8 @@ final class ProviderNeutralOpsTest extends TestCase
 
     public function test_jobs_queued_under_the_previous_class_name_still_unserialize(): void
     {
+        $this->requireModules('Komerce');
+
         $legacy = 'App\Jobs\CreateRajaOngkirDeliveryForShipment';
 
         $this->assertTrue(class_exists($legacy));

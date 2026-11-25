@@ -29,6 +29,8 @@ final class FulfillmentRoutingTest extends TestCase
 
     public function test_shipments_are_routed_by_their_own_driver(): void
     {
+        $this->requireModules('Komerce');
+
         $capabilities = resolve(ShippingCapabilities::class);
         $order = Order::factory()->create(['currency_code' => 'IDR']);
 
@@ -51,6 +53,8 @@ final class FulfillmentRoutingTest extends TestCase
 
     public function test_order_fulfiller_comes_from_its_shipments(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
         $capabilities = resolve(ShippingCapabilities::class);
 

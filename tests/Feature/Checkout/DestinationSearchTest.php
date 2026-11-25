@@ -18,6 +18,8 @@ final class DestinationSearchTest extends TestCase
 
     public function test_authenticated_user_can_search_destinations_when_komerce_enabled(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'test-komerce-key');
         config()->set('komerce.enabled', true);
         config()->set('komerce.rajaongkir.cost_base_url', 'https://shipping.example.test');
@@ -65,6 +67,8 @@ final class DestinationSearchTest extends TestCase
 
     public function test_shipping_address_requires_destination_when_komerce_enabled(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'test-key');
         config()->set('komerce.enabled', true);
 

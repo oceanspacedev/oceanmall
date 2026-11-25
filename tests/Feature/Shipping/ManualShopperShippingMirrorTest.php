@@ -215,6 +215,8 @@ final class ManualShopperShippingMirrorTest extends TestCase
 
     public function test_provider_fulfilled_shipments_are_left_to_their_provider(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'delivery-key');
         [, $order, $shipment] = $this->paidManualOrder('komerce');
 

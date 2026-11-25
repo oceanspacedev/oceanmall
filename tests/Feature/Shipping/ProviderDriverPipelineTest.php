@@ -23,6 +23,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
@@ -70,6 +71,8 @@ final class ProviderDriverPipelineTest extends TestCase
 
     public function test_quote_chains_follow_driver_delegation_not_generic_code(): void
     {
+        $this->requireModules('Komerce');
+
         $this->acme->configured = false;
         $capabilities = resolve(ShippingCapabilities::class);
 
@@ -92,6 +95,8 @@ final class ProviderDriverPipelineTest extends TestCase
 
     public function test_a_second_provider_quotes_its_own_carriers_next_to_rajaongkir(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'cost-key');
         config()->set('komerce.rajaongkir.cost_base_url', 'https://cost.example.test');
         config()->set('komerce.couriers', []);
@@ -164,6 +169,8 @@ final class ProviderDriverPipelineTest extends TestCase
 
     public function test_komerce_delivery_without_a_service_falls_back_to_shipping_cost(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_cost_api_key', 'cost-key');
         config()->set('komerce.shipping_delivery_api_key', 'delivery-key');
         config()->set('komerce.rajaongkir.cost_base_url', 'https://cost.example.test');
@@ -263,18 +270,24 @@ final class ProviderDriverPipelineTest extends TestCase
         Http::preventStrayRequests();
         Http::fake();
 
+        // orders:expire-unpaid sweeps while any installed payment driver can
+        // expire payments (also keyless: it still cancels its old orders) and
+        // reports that there is none in a store without provider modules.
+        $expire = '/Expired 0 order\(s\)|No payment driver expires payments/';
+
         foreach ([
-            'shipping:fulfill-paid' => 'paid shipments are left to staff',
-            'shipping:refresh-tracking' => 'skipping tracking refresh',
-            'shipping:sync-carriers' => 'nothing to do',
-            'orders:expire-unpaid' => 'Expired 0 order(s)',
+            'shipping:fulfill-paid' => '/paid shipments are left to staff/',
+            'shipping:refresh-tracking' => '/skipping tracking refresh/',
+            'shipping:sync-carriers' => '/nothing to do/',
+            'orders:expire-unpaid' => $expire,
             // The old Komerce names stay working for ops scripts.
-            'komerce:fulfill-paid-orders' => 'paid shipments are left to staff',
-            'komerce:refresh-shipment-tracking' => 'skipping tracking refresh',
-            'komerce:sync-carriers' => 'nothing to do',
-            'komerce:expire-unpaid-orders' => 'Expired 0 order(s)',
+            'komerce:fulfill-paid-orders' => '/paid shipments are left to staff/',
+            'komerce:refresh-shipment-tracking' => '/skipping tracking refresh/',
+            'komerce:sync-carriers' => '/nothing to do/',
+            'komerce:expire-unpaid-orders' => $expire,
         ] as $command => $output) {
-            $this->artisan($command)->expectsOutputToContain($output)->assertSuccessful();
+            $this->assertSame(0, Artisan::call($command), "{$command} succeeds");
+            $this->assertMatchesRegularExpression($output, Artisan::output(), $command);
         }
 
         Http::assertNothingSent();
@@ -282,6 +295,8 @@ final class ProviderDriverPipelineTest extends TestCase
 
     public function test_schedules_only_run_when_a_configured_driver_has_the_capability(): void
     {
+        $this->requireModules('Komerce');
+
         $this->acme->configured = false;
 
         foreach (['shipping:fulfill-paid', 'shipping:refresh-tracking', 'shipping:sync-carriers', 'orders:expire-unpaid', 'komerce:capabilities'] as $command) {

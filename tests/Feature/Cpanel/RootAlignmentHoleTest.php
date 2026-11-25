@@ -60,6 +60,8 @@ final class RootAlignmentHoleTest extends TestCase
 
     public function test_cpanel_order_detail_uses_oceanmall_bridge_not_vendor_shopper_page(): void
     {
+        $this->requireModules('Komerce');
+
         $this->assertSame(OrderDetail::class, config('shopper.components.order.pages.order-detail'));
         $this->assertNotSame(ShopperVendorOrderDetail::class, config('shopper.components.order.pages.order-detail'));
 
@@ -116,6 +118,8 @@ final class RootAlignmentHoleTest extends TestCase
 
     public function test_archive_action_is_disabled_when_komerce_is_on(): void
     {
+        $this->requireModules('Komerce');
+
         $this->enableKomerce();
         $admin = $this->admin();
         $order = Order::factory()->create([
@@ -134,6 +138,8 @@ final class RootAlignmentHoleTest extends TestCase
 
     public function test_unsigned_payment_webhook_cannot_mark_paid(): void
     {
+        $this->requireModules('Komerce');
+
         $this->enableKomerce();
         $order = Order::factory()->create([
             'number' => 'ORD-HOLE-PAY',
@@ -179,6 +185,8 @@ final class RootAlignmentHoleTest extends TestCase
 
     public function test_override_and_print_and_push_are_blocked_at_the_wrong_komerce_step(): void
     {
+        $this->requireModules('Komerce');
+
         $this->enableKomerce();
         $admin = $this->admin();
         $from = Inventory::factory()->create(['is_default' => true]);

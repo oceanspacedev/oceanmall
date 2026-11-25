@@ -149,6 +149,8 @@ final class ReusableShippingAddressTest extends TestCase
 
     public function test_checkout_auto_applies_default_saved_address_with_district(): void
     {
+        $this->requireModules('Komerce');
+
         [$user, $country, $cart] = $this->customerWithCart();
 
         Address::query()->create([
@@ -234,6 +236,8 @@ final class ReusableShippingAddressTest extends TestCase
 
     public function test_missing_address_fields_report_indonesian_attribute_names(): void
     {
+        $this->requireModules('Komerce');
+
         [$user, , $cart] = $this->customerWithCart();
         app()->setLocale('id');
 

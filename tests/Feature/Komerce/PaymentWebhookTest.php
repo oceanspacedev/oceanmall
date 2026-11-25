@@ -14,7 +14,7 @@ use Shopper\Core\Models\Order;
 use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Enum\TransactionType;
 use Shopper\Payment\Models\PaymentTransaction;
-use Tests\Support\SignsKomercePaymentCallbacks;
+use Tests\Feature\Komerce\Concerns\SignsKomercePaymentCallbacks;
 use Tests\TestCase;
 
 final class PaymentWebhookTest extends TestCase

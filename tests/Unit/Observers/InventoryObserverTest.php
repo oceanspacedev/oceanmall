@@ -17,6 +17,8 @@ final class InventoryObserverTest extends TestCase
 
     public function test_inventory_observer_automatically_resolves_rajaongkir_origin_id(): void
     {
+        $this->requireModules('Komerce');
+
         $this->enableCost();
         $this->fakeDestinations([
             [

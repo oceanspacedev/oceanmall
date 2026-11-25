@@ -11,7 +11,7 @@ use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
-use Tests\Support\SignsKomercePaymentCallbacks;
+use Tests\Feature\Komerce\Concerns\SignsKomercePaymentCallbacks;
 use Tests\TestCase;
 
 final class DeliveryWebhookTest extends TestCase

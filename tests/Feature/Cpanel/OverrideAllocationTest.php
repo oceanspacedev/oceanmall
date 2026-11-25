@@ -80,6 +80,61 @@ final class OverrideAllocationTest extends TestCase
         $this->assertSame(4, $fixture['product']->fresh()->stockInventory($fixture['toInventory']->id));
     }
 
+    public function test_recalculation_never_moves_a_shipment_to_another_provider_module(): void
+    {
+        $this->requireModules('Komerce', 'Biteship');
+
+        $fixture = $this->shipmentFixture(['driver' => 'rajaongkir']);
+        // Both providers quote together; Biteship's identical JNE REG is cheaper
+        // and listed first. The RajaOngkir row carries a namespaced option key.
+        $rates = $this->fakeRates([
+            $fixture['fromInventory']->id => [
+                [...$this->rate('jne', 'REG', 5000), 'driver' => 'biteship'],
+                [...$this->rate('jne', 'rajaongkir|REG', 11000), 'provider_service_code' => 'REG', 'driver' => 'rajaongkir'],
+            ],
+            $fixture['toInventory']->id => [$this->rate('jnt', 'EZ', 15000)],
+        ]);
+        $this->app->instance(FetchDeliveryRates::class, $rates);
+        $fixture['product']->decreaseStock($fixture['fromInventory']->id, 2);
+
+        resolve(OverrideAllocation::class)->handle($fixture['order'], [[
+            'shipment_line_id' => $fixture['sourceLine']->id,
+            'purchasable_type' => $fixture['product']->getMorphClass(),
+            'purchasable_id' => $fixture['product']->id,
+            'qty' => 1,
+            'from_inventory_id' => $fixture['fromInventory']->id,
+            'to_inventory_id' => $fixture['toInventory']->id,
+        ]], $fixture['actor']);
+
+        $source = $fixture['sourceShipment']->refresh();
+        $this->assertSame('rajaongkir', $source->driver);
+        $this->assertSame('REG', $source->service_code);
+        $this->assertSame(11000, $source->cost);
+    }
+
+    public function test_a_manual_shipment_is_still_re_quoted_by_the_stores_provider(): void
+    {
+        $fixture = $this->shipmentFixture(['driver' => 'manual']);
+        $rates = $this->fakeRates([
+            $fixture['fromInventory']->id => [[...$this->rate('jne', 'YES', 11000), 'driver' => 'acme']],
+            $fixture['toInventory']->id => [$this->rate('jnt', 'EZ', 15000)],
+        ]);
+        $this->app->instance(FetchDeliveryRates::class, $rates);
+        $fixture['product']->decreaseStock($fixture['fromInventory']->id, 2);
+
+        resolve(OverrideAllocation::class)->handle($fixture['order'], [[
+            'shipment_line_id' => $fixture['sourceLine']->id,
+            'purchasable_type' => $fixture['product']->getMorphClass(),
+            'purchasable_id' => $fixture['product']->id,
+            'qty' => 1,
+            'from_inventory_id' => $fixture['fromInventory']->id,
+            'to_inventory_id' => $fixture['toInventory']->id,
+        ]], $fixture['actor']);
+
+        $this->assertSame('acme', $fixture['sourceShipment']->refresh()->driver);
+        $this->assertSame(11000, $fixture['sourceShipment']->cost);
+    }
+
     public function test_rejects_shipments_already_registered_with_komerce(): void
     {
         $fixture = $this->shipmentFixture([

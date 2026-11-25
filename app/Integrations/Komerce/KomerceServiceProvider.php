@@ -204,7 +204,7 @@ final class KomerceServiceProvider extends ServiceProvider
         $this->app->afterResolving(CarrierLogos::class, static function (CarrierLogos $logos): void {
             $logos->extend(static fn (string $slug): ?string => Komerce::shippingEnabled()
                 ? KomerceCourierAssets::logoUrl($slug)
-                : null);
+                : null, remote: true);
         });
 
         $this->app->afterResolving(PaymentLogos::class, static function (PaymentLogos $logos): void {

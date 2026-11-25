@@ -188,6 +188,29 @@ final class ShippingCapabilities
     }
 
     /**
+     * The provider a shipping driver code belongs to, whether or not it is
+     * configured: the driver it hands fulfilment (DelegatesFulfillment) or
+     * quotes (DelegatesQuotes) to, else itself. 'rajaongkir' and 'komerce'
+     * are one provider; 'biteship' is another. Empty / 'manual' is 'manual'.
+     */
+    public function providerFamily(?string $code): string
+    {
+        $code = is_string($code) ? trim($code) : '';
+
+        if ($code === '' || $code === 'manual') {
+            return 'manual';
+        }
+
+        $driver = $this->resolve($code);
+
+        return match (true) {
+            $driver instanceof DelegatesFulfillment => $driver->fulfillmentDriver(),
+            $driver instanceof DelegatesQuotes => $driver->preferredQuoteDriver(),
+            default => $code,
+        };
+    }
+
+    /**
      * The driver that owns a shipment (order_shipments.driver), whether or not
      * it is configured right now; null for unknown / unregistered codes.
      */
@@ -398,8 +421,11 @@ final class ShippingCapabilities
      * - the provider that registered the shipment (FulfillsShipments) when it
      *   holds a provider reference;
      * - otherwise the shipment's own driver, when configured;
-     * - otherwise the first configured driver that TracksShipments (an AWB
-     *   staff typed in by hand can still be tracked through a provider).
+     * - a provider's shipment whose own driver cannot track: another driver
+     *   of the same provider (providerFamily), never another module;
+     * - a manual / driver-less shipment: the first configured driver that
+     *   TracksShipments (an AWB staff typed in by hand can still be tracked
+     *   through a provider).
      */
     public function trackerFor(OrderShipment $shipment): ?ShippingDriver
     {
@@ -413,8 +439,24 @@ final class ShippingCapabilities
 
         $own = $this->forShipment($shipment);
 
-        if ($own !== null && $own->code() !== 'manual' && $this->configured($own) && $own->supportsTracking()) {
-            return $own;
+        if ($own !== null && $own->code() !== 'manual') {
+            if ($this->configured($own) && $own->supportsTracking()) {
+                return $own;
+            }
+
+            // An installed provider owns this parcel: only a driver of that
+            // same provider may track it ('komerce' through 'rajaongkir' Cost
+            // tracking), never another module, even while its own is off.
+            $family = $this->providerFamily($own->code());
+            $sameProvider = $this->supporting(TracksShipments::class)
+                ->first(fn (ShippingDriver $driver): bool => $this->providerFamily($driver->code()) === $family);
+
+            // A parcel the provider registered (its order number in
+            // external_reference) stays with that provider; a bare AWB can
+            // still be tracked by any provider, like a hand-typed one.
+            if ($sameProvider !== null || filled($shipment->external_reference)) {
+                return $sameProvider;
+            }
         }
 
         return $this->first(TracksShipments::class);

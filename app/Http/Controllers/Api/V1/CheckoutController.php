@@ -84,7 +84,10 @@ final class CheckoutController extends Controller
                         ? AddressDestination::forDriver($address, $destinationDriver)
                         : $address, freeTextFallback: $destinationDriver === null)
                     : null,
-                'shipping_option' => $state['shipping_option'][0] ?? null,
+                // Echoed as the key it was picked by (one of shipping_rates).
+                'shipping_option' => is_array($state['shipping_option'][0] ?? null)
+                    ? [...$state['shipping_option'][0], 'service_code' => SelectedRate::optionKeyOf($state['shipping_option'][0])]
+                    : null,
                 'shipping_rates' => $rates,
                 'shipping_capabilities' => $capabilities->toApi(),
                 'payment_methods' => $methods,
@@ -193,9 +196,7 @@ final class CheckoutController extends Controller
 
         $cart = $this->customerCart->current($user);
         ['plan' => $plan, 'by_shipment' => $ratesByShipment, 'rates' => $rates] = $this->quoteCart($cart, $address);
-        $selected = collect($rates)->first(
-            fn (array $option): bool => (string) $option['service_code'] === (string) $data['service_code'],
-        );
+        $selected = SelectedRate::pick($rates, $data['service_code']);
 
         if (! is_array($selected) || ! $plan instanceof AllocationPlan) {
             return response()->json(['message' => 'Opsi pengiriman tidak tersedia.'], 422);
@@ -211,9 +212,7 @@ final class CheckoutController extends Controller
 
         if (count($plan->shipments) > 1) {
             foreach ($plan->shipments as $shipment) {
-                $row = collect($ratesByShipment[$shipment->inventory_id] ?? [])->first(
-                    fn (array $option): bool => (string) $option['service_code'] === (string) $data['service_code'],
-                );
+                $row = SelectedRate::pick($ratesByShipment[$shipment->inventory_id] ?? [], $data['service_code']);
 
                 if (! is_array($row)) {
                     return response()->json(['message' => 'Opsi pengiriman tidak tersedia.'], 422);
@@ -423,9 +422,7 @@ final class CheckoutController extends Controller
                     $amount = 0;
 
                     foreach ($byShipment as $packageRates) {
-                        $match = collect($packageRates)->first(
-                            static fn (array $option): bool => (string) $option['service_code'] === (string) $rate['service_code'],
-                        );
+                        $match = SelectedRate::pick($packageRates, $rate['service_code']);
 
                         if (! is_array($match)) {
                             return null;

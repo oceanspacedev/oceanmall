@@ -7,6 +7,7 @@ namespace App\Livewire\Shopper\SlideOvers;
 use App\Actions\Shipping\IssueOrderFulfillment;
 use App\Models\OrderShipment;
 use App\Shipping\ShippingCapabilities;
+use App\Support\EnabledCarriers;
 use Filament\Notifications\Notification;
 use RuntimeException;
 use Shopper\Core\Models\Carrier;
@@ -31,16 +32,28 @@ final class CreateShippingLabel extends BaseCreateShippingLabel
 
         $carrierId = $this->order->shippingOption?->carrier_id;
 
+        // The shipment's own carrier first; else the carrier of that courier
+        // owned by the shipment's driver. Several provider modules can each
+        // own a "JNE" carrier, and staff cannot tell them apart in the select.
         if (! $carrierId && $shipment) {
-            $carrierCode = strtolower((string) ($shipment->carrier_code ?: $shipment->carrier_name));
+            $carrierId = $shipment->carrier_id ?: null;
+        }
+
+        if (! $carrierId && $shipment) {
+            $carrierCode = strtolower(trim((string) ($shipment->carrier_code ?: $shipment->carrier_name)));
+            $driver = is_string($shipment->driver) ? trim($shipment->driver) : '';
+
             $carrierId = Carrier::query()
-                ->where('slug', $carrierCode)
-                ->orWhere('name', 'like', "%{$carrierCode}%")
-                ->value('id');
+                ->when($driver !== '', static fn ($query) => $query->where('driver', $driver))
+                ->get()
+                ->first(static fn (Carrier $carrier): bool => $carrierCode !== ''
+                    && (EnabledCarriers::courierCode($carrier) === $carrierCode || strtolower((string) $carrier->slug) === $carrierCode))
+                ?->id;
         }
 
         if (! $carrierId) {
-            $carrierId = Carrier::query()->where('is_enabled', true)->value('id');
+            $carrierId = Carrier::query()->where('is_enabled', true)->where('driver', 'manual')->value('id')
+                ?? Carrier::query()->where('is_enabled', true)->value('id');
         }
 
         $awb = $shipment?->awb ?? $shipment?->tracking_number;

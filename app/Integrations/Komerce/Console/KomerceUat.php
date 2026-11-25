@@ -7,6 +7,7 @@ namespace App\Integrations\Komerce\Console;
 use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Shipping\RajaOngkirDriver;
 use App\Integrations\Komerce\Support\KomerceCapabilities;
+use App\Integrations\Komerce\Support\KomerceShipments;
 use App\Models\OrderShipment;
 use App\Shipping\InventoryOrigins;
 use Illuminate\Console\Command;
@@ -100,7 +101,9 @@ final class KomerceUat extends Command
         $paidWithAwb = 0;
         $pendingPayments = 0;
         if (Schema::hasTable('order_shipments') && Schema::hasTable('sh_orders')) {
-            $paidWithAwb = OrderShipment::query()
+            // Komerce's own data only: other active modules (Biteship,
+            // KiriminAja, Xendit, Midtrans) are no Komerce pay-to-AWB evidence.
+            $paidWithAwb = KomerceShipments::scope(OrderShipment::query())
                 ->whereHas('order', static function ($query): void {
                     $query->where('payment_status', PaymentStatus::Paid);
                 })
@@ -110,6 +113,9 @@ final class KomerceUat extends Command
                 ->count();
             $pendingPayments = Order::query()
                 ->where('payment_status', PaymentStatus::Pending)
+                ->whereHas('paymentTransactions', static function ($query): void {
+                    $query->where('driver', 'komerce');
+                })
                 ->count();
         }
 

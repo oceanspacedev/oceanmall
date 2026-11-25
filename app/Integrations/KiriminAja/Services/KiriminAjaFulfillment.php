@@ -233,6 +233,13 @@ final readonly class KiriminAjaFulfillment
             $attributes['tracking_number'] = $awb;
         }
 
+        // A driver-less (legacy) row registered here becomes KiriminAja's, as
+        // Biteship and Komerce stamp theirs: its callbacks look it up by
+        // driver, and other modules must not take it for a legacy row of theirs.
+        if (! filled($shipment->getAttribute('driver'))) {
+            $attributes['driver'] = KiriminAjaDriver::CODE;
+        }
+
         $shipment->forceFill($attributes)->save();
 
         $order = $shipment->order()->first();

@@ -7,6 +7,7 @@ namespace App\Integrations\KiriminAja\Services;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\SyncOrderShippingFromShipments;
 use App\Integrations\KiriminAja\Exceptions\KiriminAjaException;
+use App\Integrations\KiriminAja\Shipping\KiriminAjaDriver;
 use App\Integrations\KiriminAja\Support\KiriminAjaStatus;
 use App\Integrations\KiriminAja\Support\KiriminAjaTrackingMemo;
 use App\Models\OrderShipment;
@@ -134,9 +135,23 @@ final readonly class KiriminAjaTracker
     {
         $attempted = data_get($shipment->metadata, 'kiriminaja.order_id');
 
-        return ShipmentMetadata::externalReference($shipment)
+        return self::reference($shipment)
             ?? self::awb($shipment)
             ?? (is_string($attempted) && trim($attempted) !== '' ? trim($attempted) : null);
+    }
+
+    /**
+     * The provider order number, only when it is KiriminAja's: as the
+     * fallback tracker of a shipment another active module registered
+     * (Biteship, Komerce), external_reference is that provider's id, so
+     * only the AWB is ours to look up.
+     */
+    public static function reference(OrderShipment $shipment): ?string
+    {
+        $owned = $shipment->driver === KiriminAjaDriver::CODE
+            || filled(data_get($shipment->metadata, 'kiriminaja.order_id'));
+
+        return $owned ? ShipmentMetadata::externalReference($shipment) : null;
     }
 
     public static function awb(OrderShipment $shipment): ?string
@@ -155,7 +170,7 @@ final readonly class KiriminAjaTracker
      */
     private function assertSameParcel(OrderShipment $shipment, array $response): void
     {
-        $reference = ShipmentMetadata::externalReference($shipment);
+        $reference = self::reference($shipment);
         $orderId = data_get($response, 'details.order_id');
 
         if ($reference !== null && is_scalar($orderId) && trim((string) $orderId) !== ''
@@ -278,6 +293,10 @@ final readonly class KiriminAjaTracker
         if (ShipmentMetadata::externalReference($shipment) === null && is_string($sent) && is_scalar($found)
             && strcasecmp(trim((string) $found), $sent) === 0) {
             $attributes['external_reference'] = $sent;
+
+            if (! filled($shipment->getAttribute('driver'))) {
+                $attributes['driver'] = KiriminAjaDriver::CODE;
+            }
         }
 
         // The AWB comes from the authenticated API answer only.

@@ -9,6 +9,7 @@ use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Models\Discount;
 use Shopper\Core\Models\Order;
+use Throwable;
 
 /**
  * An order that was cancelled without ever being paid gives its coupon use
@@ -36,12 +37,24 @@ final class ReleaseDiscountOnOrderCancelled
             return;
         }
 
-        DB::transaction(static function () use ($orderId): void {
+        // A problem here is reported, never thrown: the order is already
+        // cancelled and the listeners after this one still have to run.
+        try {
+            DB::transaction(static fn () => self::release($orderId));
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    private static function release(int|string $orderId): void
+    {
             $order = Order::query()->whereKey($orderId)->lockForUpdate()->first();
 
+            // Money was taken (also when it was refunded since): the coupon
+            // was redeemed.
             if (! $order instanceof Order
                 || $order->discount_id === null
-                || $order->payment_status === PaymentStatus::Paid) {
+                || in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::PartiallyRefunded, PaymentStatus::Refunded], true)) {
                 return;
             }
 
@@ -66,7 +79,6 @@ final class ReleaseDiscountOnOrderCancelled
                 'discount_id' => null,
                 'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
             ])->save();
-        });
     }
 
     /**

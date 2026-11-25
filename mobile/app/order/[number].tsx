@@ -503,7 +503,11 @@ export default function OrderScreen() {
   const hasAwb =
     liveShipments.length > 0 &&
     liveShipments.every((shipment) => Boolean(shipment.awb || shipment.tracking_number));
-  const canConfirm = order.payment_status === 'paid' && hasAwb && order.status !== 'completed';
+  const canConfirm =
+    order.payment_status === 'paid' &&
+    hasAwb &&
+    order.status !== 'completed' &&
+    order.status !== 'cancelled';
   const reviewable = canReviewOrder(order);
   const firstSlug = order.items.find((item) => item.slug)?.slug;
   const showStickyBar =

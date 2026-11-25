@@ -599,12 +599,18 @@ final class CheckoutController extends Controller
         // Refuse a method the gateway would refuse for this total BEFORE the
         // order exists (QRIS above its maximum, a VA below its minimum), as
         // the app's checkout does.
+        // Only for a real checkout: an empty cart or an expired session is
+        // answered by CreateOrder with its own message, not "minimum amount".
         $cart = resolve(CartSessionManager::class)->current();
-        $payable = (int) ($cart ? resolve(CartManager::class)->calculate($cart)->total : 0)
-            + (int) data_get(session()->get(CheckoutSession::KEY), 'shipping_option.0.price', 0);
+        $shippingOption = data_get(session()->get(CheckoutSession::KEY), 'shipping_option.0');
 
-        if ($message = PaymentMethodCatalog::amountOutOfRange($selectedMethod, $payable)) {
-            return back()->withErrors(['payment' => $message]);
+        if ($cart !== null && $cart->lines->isNotEmpty() && is_array($shippingOption)) {
+            $payable = (int) resolve(CartManager::class)->calculate($cart)->total
+                + (int) data_get($shippingOption, 'price', 0);
+
+            if ($message = PaymentMethodCatalog::amountOutOfRange($selectedMethod, $payable)) {
+                return back()->withErrors(['payment' => $message]);
+            }
         }
 
         session()->forget(CheckoutSession::PAYMENT);

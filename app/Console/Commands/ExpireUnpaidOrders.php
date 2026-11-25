@@ -115,6 +115,14 @@ final class ExpireUnpaidOrders extends Command
                 }
 
                 try {
+                    // The list was read a moment ago: a "pay again" that
+                    // went through since gave the order a payment.
+                    if ($order->paymentTransactions()->exists()) {
+                        $skipped++;
+
+                        continue;
+                    }
+
                     $cancel->handle($order, throughPaymentProvider: false);
                     $expired++;
                 } catch (Throwable $e) {

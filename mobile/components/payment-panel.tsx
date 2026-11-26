@@ -12,7 +12,7 @@ import { Text } from '@/components/ui/text';
 import type { PaymentInstructions } from '@/lib/api';
 import { openPaymentPage } from '@/lib/browser';
 import { useCountdown } from '@/lib/countdown';
-import { formatDateTime, formatIdr, paymentTypeLabel } from '@/lib/format';
+import { formatDateTime, formatMoney, paymentTypeLabel } from '@/lib/format';
 import { guideFor, qrisGuide, type PaymentGuide } from '@/lib/payment-guides';
 import { toast } from '@/lib/toast';
 import { Clock, ExternalLink } from 'lucide-react-native';
@@ -37,11 +37,15 @@ export function PaymentPanel({
   onExpire,
   onClosed,
   compact = false,
+  canRetry = true,
+  currency = 'IDR',
 }: {
   payment?: PaymentInstructions | null;
   onExpire?: () => void;
   onClosed?: () => void;
   compact?: boolean;
+  canRetry?: boolean;
+  currency?: string;
 }) {
   // Hooks first: the early return below must not change how many run.
   const countdown = useCountdown(compact ? null : payment?.expiry_date, onExpire);
@@ -50,7 +54,9 @@ export function PaymentPanel({
   if (!payment) {
     return (
       <Text className="text-[13px] text-muted-foreground">
-        Instruksi pembayaran belum tersedia. Tekan &quot;Buat pembayaran baru&quot;.
+        {canRetry
+          ? 'Instruksi pembayaran belum tersedia. Tekan "Buat pembayaran baru".'
+          : 'Instruksi pembayaran tidak tersedia untuk pesanan ini.'}
       </Text>
     );
   }
@@ -139,7 +145,7 @@ export function PaymentPanel({
           <View>
             <Text className="text-[12px] text-muted-foreground">Total pembayaran</Text>
             <Text className="mt-0.5 text-[18px] font-extrabold text-om-navy">
-              {formatIdr(payment.amount)}
+              {formatMoney(payment.amount, currency)}
             </Text>
           </View>
           <CopyButton value={String(payment.amount)} label="Salin nominal" />

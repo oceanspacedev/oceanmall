@@ -4,18 +4,29 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Account;
 
+use App\Actions\Account\CancelCustomerOrder;
+use App\Actions\Account\SubmitReturnRequest;
+use App\Actions\Account\UploadPaymentProof;
 use App\Http\Controllers\Controller;
+use App\Models\OrderPaymentProof;
+use App\Models\OrderReturnRequest;
 use App\Models\OrderShipment;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Payment\PaymentActions;
 use App\Shipping\ShipmentTimeline;
 use App\Shipping\ShippingCapabilities;
 use App\Support\CarrierLogos;
+use App\Support\OrderPaymentType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Shopper\Core\Enum\OrderRefundStatus;
 use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Order;
+use Shopper\Core\Models\OrderRefund;
 
 final class OrderController extends Controller
 {
@@ -25,16 +36,48 @@ final class OrderController extends Controller
 
         $query = Order::query()
             ->where('customer_id', auth()->id())
-            ->with(['items.product.media', 'shippingAddress']);
+            ->with(['items.product', 'shippingAddress']);
 
         $query = match ($tab) {
-            'not-shipped' => $query->where('shipping_status', ShippingStatus::Unfulfilled),
-            'cancelled' => $query->where('status', OrderStatus::Cancelled),
+            'unpaid', 'not-shipped' => $query
+                ->whereIn('payment_status', [PaymentStatus::Pending, PaymentStatus::Authorized])
+                ->where('shipping_status', ShippingStatus::Unfulfilled)
+                ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Archived, OrderStatus::Completed])
+                ->whereDoesntHave('paymentMethod', static fn ($pm) => $pm->where('slug', 'cod')),
+            'processing' => $query
+                ->where(static function ($q): void {
+                    $q->where('payment_status', PaymentStatus::Paid)
+                        ->orWhereHas('paymentMethod', static fn ($pm) => $pm->where('slug', 'cod'));
+                })
+                ->whereIn('status', [OrderStatus::New, OrderStatus::Processing])
+                ->where('shipping_status', ShippingStatus::Unfulfilled),
+            'shipped' => $query
+                ->whereNotIn('payment_status', [PaymentStatus::Voided, PaymentStatus::Refunded])
+                ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Completed, OrderStatus::Archived])
+                ->whereNotIn('shipping_status', [ShippingStatus::Unfulfilled, ShippingStatus::Returned, ShippingStatus::PartiallyReturned]),
+            'completed' => $query->where('status', OrderStatus::Completed)
+                ->whereNotIn('payment_status', [PaymentStatus::Voided, PaymentStatus::Refunded]),
+            'cancelled' => $query->where(static fn ($q) => $q
+                ->where('status', OrderStatus::Cancelled)
+                ->orWhereIn('payment_status', [PaymentStatus::Voided, PaymentStatus::Refunded])),
             default => $query,
         };
 
+        $orders = $query
+            ->latest()
+            ->paginate(10)
+            ->withQueryString()
+            ->through(static function (Order $order): Order {
+                $order->items->loadMorph('product', [
+                    ProductVariant::class => ['media', 'product.media'],
+                    Product::class => ['media'],
+                ]);
+
+                return $order->makeHidden(['metadata', 'notes']);
+            });
+
         return Inertia::render('account/orders', [
-            'orders' => $query->latest()->paginate(10)->withQueryString(),
+            'orders' => $orders,
             'filters' => ['tab' => $tab],
         ]);
     }
@@ -44,10 +87,17 @@ final class OrderController extends Controller
         abort_unless($order->customer_id === auth()->id(), 403);
 
         $order->load([
-            'items.product.media',
+            'items.product',
+            'items.taxLines',
             'shippingAddress',
             'billingAddress',
             'shippingOption.carrier',
+            'paymentMethod',
+        ]);
+
+        $order->items->loadMorph('product', [
+            ProductVariant::class => ['media', 'product.media'],
+            Product::class => ['media'],
         ]);
 
         $order->shippingAddress?->append('full_name');
@@ -58,8 +108,6 @@ final class OrderController extends Controller
             ->with('inventory')
             ->orderBy('id')
             ->get();
-        // Provider history plus the events staff record in Shopper's own
-        // shipment log (manual AWB parcels).
         $timelines = ShipmentTimeline::forShipments((int) $order->id, $orderShipments);
         $shippingCapabilities = resolve(ShippingCapabilities::class);
 
@@ -83,15 +131,79 @@ final class OrderController extends Controller
                 ];
             });
 
+        $grossSubtotal = (int) $order->items->sum(
+            static fn ($item): int => (int) $item->unit_price_amount * (int) $item->quantity,
+        );
+        $discountTotal = (int) $order->items->sum(static fn ($item): int => (int) $item->discount_amount);
+        $liveShipments = $orderShipments->where('status', '!=', 'cancelled');
+        $shippingTotal = $liveShipments->isNotEmpty()
+            ? (int) $liveShipments->sum('cost')
+            : ($orderShipments->isNotEmpty() ? (int) $orderShipments->sum('cost') : (int) ($order->shippingOption?->price ?? 0));
+        $taxTotal = (int) ($order->tax_amount ?? 0);
+        $taxInclusive = ($grossSubtotal - $discountTotal + $shippingTotal) === (int) $order->price_amount;
+
         $payments = resolve(PaymentActions::class);
+        $proofs = OrderPaymentProof::query()
+            ->where('order_id', $order->id)
+            ->latest('id')
+            ->get()
+            ->map(static fn (OrderPaymentProof $proof): array => [
+                'id' => $proof->id,
+                'status' => $proof->status,
+                'original_name' => $proof->original_name,
+                'sender_name' => $proof->sender_name,
+                'sender_bank' => $proof->sender_bank,
+                'transfer_amount' => $proof->transfer_amount,
+                'verification_notes' => $proof->verification_notes,
+                'created_at' => optional($proof->created_at)?->toIso8601String(),
+                'file_url' => route('account.orders.payment-proofs.show', ['order' => $order->id, 'proof' => $proof->id]),
+            ])
+            ->values()
+            ->all();
+
+        $returns = OrderReturnRequest::query()
+            ->where('order_id', $order->id)
+            ->latest('id')
+            ->get()
+            ->map(static fn (OrderReturnRequest $r): array => [
+                'id' => $r->id,
+                'status' => $r->status,
+                'reason' => $r->reason,
+                'description' => $r->description,
+                'items' => $r->items,
+                'resolution_notes' => $r->resolution_notes,
+                'created_at' => optional($r->created_at)?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+
+        $refundedTotal = (int) OrderRefund::query()
+            ->where('order_id', $order->id)
+            ->whereIn('status', [OrderRefundStatus::Refunded->value, OrderRefundStatus::Partial_Refund->value])
+            ->sum('amount');
+
+        $order->makeHidden(['metadata', 'notes']);
 
         return Inertia::render('account/order-show', [
             'order' => $order,
             'shipments' => $shipments,
-            // Neutral action from the order's own payment driver (null when
-            // nothing is pending or the payment setup failed).
             'paymentAction' => $payments->forOrder($order),
             'canRetryPayment' => $payments->canRetry($order),
+            'canCancel' => resolve(CancelCustomerOrder::class)->canCancel($order),
+            'canRequestReturn' => resolve(SubmitReturnRequest::class)->canRequest($order),
+            'canUploadPaymentProof' => resolve(UploadPaymentProof::class)->canUpload($order),
+            'isCod' => OrderPaymentType::isCod($order),
+            'paymentProofs' => $proofs,
+            'returnRequests' => $returns,
+            'refundedTotal' => $refundedTotal,
+            'summary' => [
+                'subtotal' => $grossSubtotal,
+                'discount' => $discountTotal,
+                'tax' => $taxTotal,
+                'tax_inclusive' => $taxInclusive,
+                'shipping' => $shippingTotal,
+                'total' => (int) $order->price_amount,
+            ],
         ]);
     }
 }

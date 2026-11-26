@@ -15,7 +15,9 @@ return [
     |
     */
 
-    'middleware' => [],
+    'middleware' => [
+        \App\Http\Middleware\EnsureStaffHasTwoFactor::class,
+    ],
 
     /*
     |--------------------------------------------------------------------------

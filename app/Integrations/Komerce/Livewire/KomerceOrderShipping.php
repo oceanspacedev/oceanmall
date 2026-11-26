@@ -8,13 +8,16 @@ use App\Actions\Orders\SyncOrderPayment;
 use App\Actions\Shipping\EnsureOrderShipments;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\RefreshShipmentTracking;
+use App\Actions\Shipping\ReshipOrderShipment;
 use App\Actions\Shipping\SyncOrderShippingFromShipments;
 use App\Integrations\Komerce\Actions\Shipping\ReconcileKomerceShipment;
 use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Shipping\RajaOngkirDriver;
 use App\Models\OrderShipment;
 use App\Payment\PaymentActions;
+use App\Shipping\ShipmentFulfillment;
 use App\Shipping\ShippingCapabilities;
+use App\Support\OrderPaymentType;
 use App\Support\OrderShipmentOpsPresenter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -23,6 +26,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
+use Throwable;
 
 final class KomerceOrderShipping extends Component
 {
@@ -43,11 +47,11 @@ final class KomerceOrderShipping extends Component
 
     public function processDeliveryOrder(?int $shipmentId = null): void
     {
-        Gate::authorize('print-shipment-label', $this->order);
+        Gate::authorize('manage-order-fulfillment', $this->order);
         $this->overrideError = null;
         $this->successMessage = null;
 
-        if ($this->order->payment_status !== PaymentStatus::Paid) {
+        if (! OrderPaymentType::canFulfill($this->order)) {
             $this->overrideError = 'Lunasi pesanan dulu sebelum mendaftarkan pickup dan resi Komerce.';
 
             return;
@@ -84,7 +88,18 @@ final class KomerceOrderShipping extends Component
             }
 
             try {
-                $fulfiller->fulfillShipment($shipment);
+                $outcome = ShipmentFulfillment::run((int) $shipment->id, static function (OrderShipment $locked) use ($fulfiller): bool {
+                    $fulfiller->fulfillShipment($locked);
+
+                    return true;
+                });
+
+                if ($outcome === ShipmentFulfillment::BUSY) {
+                    $lastError = 'Booking pengiriman sedang diproses. Muat ulang sebentar lagi.';
+
+                    continue;
+                }
+
                 $shipment->refresh();
                 if (filled($shipment->awb) || filled($shipment->tracking_number)) {
                     $issuedCount++;
@@ -125,7 +140,7 @@ final class KomerceOrderShipping extends Component
 
     public function refreshTracking(?int $shipmentId = null): void
     {
-        Gate::authorize('print-shipment-label', $this->order);
+        Gate::authorize('manage-order-fulfillment', $this->order);
         $this->overrideError = null;
         $this->successMessage = null;
 
@@ -205,7 +220,7 @@ final class KomerceOrderShipping extends Component
 
     public function markPaidAndProcessDelivery(): void
     {
-        Gate::authorize('print-shipment-label', $this->order);
+        Gate::authorize('manage-order-fulfillment', $this->order);
         $this->overrideError = null;
         $this->successMessage = null;
 
@@ -396,6 +411,26 @@ final class KomerceOrderShipping extends Component
         abort_unless(app()->environment(['local', 'testing']), 403);
     }
 
+    public function reshipShipment(int $shipmentId): void
+    {
+        Gate::authorize('manage-order-fulfillment', $this->order);
+        $this->overrideError = null;
+        $this->successMessage = null;
+
+        $shipment = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->findOrFail($shipmentId);
+
+        try {
+            $newShipment = resolve(ReshipOrderShipment::class)->handle($shipment, auth()->user());
+            $this->order->refresh();
+            $this->dispatch('order.updated');
+            $this->successMessage = "Pengiriman ulang #{$newShipment->id} siap diproses.";
+        } catch (Throwable $e) {
+            $this->overrideError = $e->getMessage();
+        }
+    }
+
     public function render(): View
     {
         $this->ensureShipmentsExist();
@@ -424,11 +459,12 @@ final class KomerceOrderShipping extends Component
             'inventories' => $inventories,
             'canSimulateCourier' => app()->environment(['local', 'testing']),
             'komerceEnabled' => Komerce::shippingDeliveryEnabled(),
+            'canTrackShipping' => Komerce::shippingEnabled(),
             'canPrintAnyLabel' => $printableCount > 0,
             'printableShipmentCount' => $printableCount,
             'hasUnprocessedShipment' => $hasUnprocessed,
             'needsPickup' => $needsPickup,
-            'orderIsPaid' => $this->order->payment_status === PaymentStatus::Paid,
+            'orderIsPaid' => OrderPaymentType::canFulfill($this->order),
             'hasTrackableShipment' => $hasTrackable,
             'overridableShipments' => $overridable,
             // Only an order paid through a provider that reconciles can be

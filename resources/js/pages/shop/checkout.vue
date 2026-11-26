@@ -1494,7 +1494,10 @@ const steps = [
                             class="mt-4 flex flex-col gap-3 text-sm text-muted-foreground"
                         >
                             <div class="border-b border-border pb-3">
-                                <CouponField :coupon-code="couponCode" />
+                                <CouponField
+                                    :coupon-code="couponCode"
+                                    :discount-total="cartContext?.discountTotal"
+                                />
                             </div>
 
                             <dl class="flex flex-col gap-3">

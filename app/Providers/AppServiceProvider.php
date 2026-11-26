@@ -5,14 +5,29 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Addons\Store\OceanMallStoreAddon;
+use App\Http\Middleware\DispatchShopperForStaffOnly;
+use App\Http\Middleware\EnsureStaffHasTwoFactor;
 use App\Http\Responses\CpanelStaffLoginResponse;
 use App\Listeners\CancelShipmentsOnOrderCancelled;
 use App\Listeners\FulfillShipmentsOnOrderPaid;
+use App\Listeners\RecordOrderPaidFinancials;
 use App\Listeners\ReleaseDiscountOnOrderCancelled;
 use App\Listeners\SendOrderPaidNotification;
+use App\Livewire\Shopper\Pages\Dashboard as ShopperDashboardPage;
 use App\Livewire\Shopper\Pages\OrderDetail;
+use App\Livewire\Shopper\Pages\OrderIndex as ShopperOrderIndexPage;
 use App\Livewire\Shopper\Pages\OrderShipments;
+use App\Livewire\Shopper\Pages\Settings\Carriers as ShopperCarriersPage;
+use App\Livewire\Shopper\Pages\Settings\General as ShopperGeneralSettingsPage;
+use App\Livewire\Shopper\Pages\Settings\PaymentMethods as ShopperPaymentMethodsPage;
+use App\Livewire\Shopper\Pages\Settings\TeamIndex as ShopperTeamIndexPage;
+use App\Livewire\Shopper\Pages\Settings\TeamRoles as ShopperTeamRolesPage;
+use App\Livewire\Shopper\SlideOvers\ReviewDetail;
+use App\Models\OrderNote;
+use App\Models\OrderPaymentProof;
+use App\Models\OrderReturnRequest;
 use App\Models\OrderShipment;
+use App\Models\PaymentDispute;
 use App\Models\User;
 use App\Observers\InventoryObserver;
 use App\Observers\OrderShipmentObserver;
@@ -23,9 +38,12 @@ use App\Stock\AllocationPlanStockAllocator;
 use App\Support\CarrierLogos;
 use App\Support\CheckoutAllocationContext;
 use App\Support\PaymentLogos;
+use App\Support\ProviderQuotaRegistry;
 use Carbon\CarbonImmutable;
 use Closure;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Shopper\Cart\CartSessionManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
@@ -36,15 +54,21 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
+use Livewire\Livewire;
 use Shopper\Contracts\LoginResponse as ShopperLoginResponse;
 use Shopper\Core\Contracts\StockAllocator;
 use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Events\Orders\OrderPaid;
+use Shopper\Core\Events\Orders\OrderShipmentDelivered;
+use Shopper\Core\Events\Orders\OrderShipped;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
+use Shopper\Core\Models\OrderRefund;
 use Shopper\Core\Models\OrderShipping;
 use Shopper\Core\Models\PaymentMethod;
+use Shopper\Http\Middleware\Dashboard as ShopperDashboardMiddleware;
+use Shopper\Http\Middleware\DispatchShopper;
 use Shopper\Payment\Facades\Payment;
 use Shopper\ShopperPanel;
 use Shopper\Stripe\StripeDriver;
@@ -58,7 +82,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(CheckoutAllocationContext::class);
         $this->app->scoped(ShippingQuoteContext::class);
+        $this->app->singleton(ProviderQuotaRegistry::class);
         $this->app->bind(StockAllocator::class, AllocationPlanStockAllocator::class);
+        $this->app->bind(DispatchShopper::class, DispatchShopperForStaffOnly::class);
 
         $this->registerShopperAddons();
 
@@ -78,6 +104,38 @@ class AppServiceProvider extends ServiceProvider
                 'shopper.components.order.pages.order-detail',
                 OrderDetail::class,
             );
+            config()->set(
+                'shopper.components.review.components.slide-overs.review-detail',
+                ReviewDetail::class,
+            );
+            config()->set(
+                'shopper.components.setting.pages.team-index',
+                ShopperTeamIndexPage::class,
+            );
+            config()->set(
+                'shopper.components.setting.pages.team-roles',
+                ShopperTeamRolesPage::class,
+            );
+            config()->set(
+                'shopper.components.setting.pages.payment-methods',
+                ShopperPaymentMethodsPage::class,
+            );
+            config()->set(
+                'shopper.components.setting.pages.carriers',
+                ShopperCarriersPage::class,
+            );
+            config()->set(
+                'shopper.components.setting.pages.general',
+                ShopperGeneralSettingsPage::class,
+            );
+            config()->set(
+                'shopper.components.order.pages.order-index',
+                ShopperOrderIndexPage::class,
+            );
+            config()->set(
+                'shopper.components.dashboard.pages.dashboard',
+                ShopperDashboardPage::class,
+            );
         });
     }
 
@@ -90,6 +148,12 @@ class AppServiceProvider extends ServiceProvider
         Inventory::observe(InventoryObserver::class);
         OrderShipping::observe(ShopperOrderShippingObserver::class);
 
+        Order::resolveRelationUsing('refunds', static fn (Order $order) => $order->hasMany(OrderRefund::class, 'order_id'));
+        Order::resolveRelationUsing('returnRequests', static fn (Order $order) => $order->hasMany(OrderReturnRequest::class, 'order_id'));
+        Order::resolveRelationUsing('paymentProofs', static fn (Order $order) => $order->hasMany(OrderPaymentProof::class, 'order_id'));
+        Order::resolveRelationUsing('orderNotes', static fn (Order $order) => $order->hasMany(OrderNote::class, 'order_id'));
+        Order::resolveRelationUsing('paymentDisputes', static fn (Order $order) => $order->hasMany(PaymentDispute::class, 'order_id'));
+
         $this->configureDefaults();
         $this->configureRateLimits();
         $this->configureAuthorization();
@@ -97,6 +161,13 @@ class AppServiceProvider extends ServiceProvider
         $this->configureShopperStaffLogin();
         $this->configureOrderEvents();
         $this->configurePaymentDrivers();
+
+        if (class_exists(Livewire::class)) {
+            Livewire::addPersistentMiddleware([
+                ShopperDashboardMiddleware::class,
+                EnsureStaffHasTwoFactor::class,
+            ]);
+        }
     }
 
     /**
@@ -140,10 +211,39 @@ class AppServiceProvider extends ServiceProvider
             $event->user->tokens()->delete();
         });
 
+        Event::listen(OrderPaid::class, RecordOrderPaidFinancials::class);
         Event::listen(OrderPaid::class, SendOrderPaidNotification::class);
         Event::listen(OrderPaid::class, FulfillShipmentsOnOrderPaid::class);
+        Event::listen(OrderShipped::class, static function (OrderShipped $event): void {
+            resolve(\App\Actions\Notify\NotifyOrderCustomer::class)->handle(
+                $event->order,
+                \App\Enums\OrderNotificationType::Shipped,
+            );
+        });
+        Event::listen(OrderShipmentDelivered::class, static function (OrderShipmentDelivered $event): void {
+            resolve(\App\Actions\Notify\NotifyOrderCustomer::class)->handle(
+                $event->order,
+                \App\Enums\OrderNotificationType::Delivered,
+            );
+        });
         Event::listen(OrderCancelled::class, CancelShipmentsOnOrderCancelled::class);
         Event::listen(OrderCancelled::class, ReleaseDiscountOnOrderCancelled::class);
+
+        Event::listen(Login::class, static function (Login $event): void {
+            if ($event->guard !== 'web' || ! $event->user instanceof User || ! request()->hasSession()) {
+                return;
+            }
+
+            $cartKey = (string) config('shopper.cart.session.key', 'shopper_cart');
+            $cartId = request()->session()->get($cartKey);
+
+            if (! $cartId) {
+                return;
+            }
+
+            $sessionCart = \Shopper\Cart\Models\Cart::query()->find($cartId);
+            resolve(\App\Support\CustomerCart::class)->mergeSessionCart($event->user, $sessionCart);
+        });
     }
 
     /**
@@ -212,6 +312,7 @@ class AppServiceProvider extends ServiceProvider
             'mobile-sync-payment' => [12, $byUserOrIp],
             'mobile-review' => [10, $byUserOrIp],
             'mobile-review-report' => [10, $byUserOrIp],
+            'mobile-verify-resend' => [6, $byUserOrIp],
         ];
 
         foreach ($limits as $name => [$perMinute, $key]) {
@@ -249,13 +350,56 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::define(
             'override-allocation',
-            static fn (User $user, ?Order $order = null): bool => $user->isAdmin() || $user->isManager() || $user->hasPermissionTo('browse_orders'),
+            static fn (User $user, mixed $order = null): bool => $user->isAdmin()
+                || self::hasPermission($user, 'orders.override_allocation'),
+        );
+
+        Gate::define(
+            'manage-order-fulfillment',
+            static fn (User $user, mixed $order = null): bool => $user->isAdmin()
+                || self::hasPermission($user, 'orders.fulfill'),
+        );
+
+        Gate::define(
+            'finance-dashboard',
+            static fn (User $user): bool => $user->isAdmin()
+                || self::hasPermission($user, 'finance.view_dashboard'),
+        );
+
+        Gate::define(
+            'orders-mark-paid',
+            static fn (User $user, mixed $order = null): bool => $user->isAdmin()
+                || self::hasPermission($user, 'orders.mark_paid'),
+        );
+
+        Gate::define(
+            'orders-cancel',
+            static fn (User $user, mixed $order = null): bool => $user->isAdmin()
+                || self::hasPermission($user, 'orders.cancel'),
+        );
+
+        Gate::define(
+            'orders-refund',
+            static fn (User $user, mixed $order = null): bool => $user->isAdmin()
+                || self::hasPermission($user, 'orders.refund'),
         );
 
         Gate::define(
             'print-shipment-label',
-            static fn (User $user, ?Order $order = null): bool => $user->isAdmin() || $user->isManager() || $user->hasPermissionTo('browse_orders'),
+            static fn (User $user, mixed $order = null): bool => $user->isAdmin()
+                || self::hasPermission($user, 'orders.fulfill')
+                || self::hasPermission($user, 'read_orders')
+                || self::hasPermission($user, 'browse_orders'),
         );
+    }
+
+    private static function hasPermission(User $user, string $permission): bool
+    {
+        try {
+            return $user->hasPermissionTo($permission);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     protected function configureShopperStaffLogin(): void

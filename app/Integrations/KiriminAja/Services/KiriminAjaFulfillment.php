@@ -120,7 +120,7 @@ final readonly class KiriminAjaFulfillment
             throw new RuntimeException('Shipment is missing its order.');
         }
 
-        if (! self::paid($order)) {
+        if (! \App\Support\OrderPaymentType::canFulfill($order)) {
             throw new RuntimeException('KiriminAja only ships paid (non-COD) orders; this order is not paid yet.');
         }
 
@@ -310,7 +310,11 @@ final readonly class KiriminAjaFulfillment
             'service' => $rate['service'],
             'service_type' => $rate['service_type'],
             'insurance_amount' => $rate['insurance'],
-            'cod' => 0,
+            'cod' => \App\Support\OrderPaymentType::isCod($order)
+                ? (OrderShipment::query()->where('order_id', $order->id)->count() === 1
+                    ? (int) $order->price_amount
+                    : (\App\Support\ShipmentItemValue::forOrder($order, $shipment->lines) + (int) $shipment->cost))
+                : 0,
             'package_type_id' => (int) config('kiriminaja.pickup.package_type_id', 7),
             'item_name' => self::limit($lines[0]['name'].(count($lines) > 1 ? ' +'.(count($lines) - 1).' item' : ''), 255),
             'drop' => (bool) config('kiriminaja.pickup.drop_off', false),

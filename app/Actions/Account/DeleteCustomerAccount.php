@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace App\Actions\Account;
 
+use App\Http\Middleware\EnsureCpanelIsStaffOnly;
 use App\Models\User;
 use App\Support\CustomerCheckoutState;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Shopper\Cart\Models\Cart;
+use Shopper\Cart\Models\CartAddress;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Models\Order;
 use Shopper\Core\Models\Review;
 
 /**
@@ -29,8 +35,36 @@ final readonly class DeleteCustomerAccount
 {
     public function __construct(private CustomerCheckoutState $checkoutState) {}
 
+    public function assertDeletable(User $user): void
+    {
+        if (EnsureCpanelIsStaffOnly::userIsStaff($user)) {
+            throw ValidationException::withMessages([
+                'account' => 'Akun staf tidak dapat dihapus melalui halaman pelanggan.',
+            ]);
+        }
+
+        $hasActiveOrders = Order::query()
+            ->where('customer_id', $user->getKey())
+            ->where(static function ($query): void {
+                $query->whereNotIn('status', [
+                    OrderStatus::Completed->value,
+                    OrderStatus::Cancelled->value,
+                    OrderStatus::Archived->value,
+                ])->orWhere('payment_status', PaymentStatus::Authorized->value);
+            })
+            ->exists();
+
+        if ($hasActiveOrders) {
+            throw ValidationException::withMessages([
+                'account' => 'Akun tidak dapat dihapus saat masih ada pesanan aktif.',
+            ]);
+        }
+    }
+
     public function handle(User $user): void
     {
+        $this->assertDeletable($user);
+
         $email = (string) $user->email;
 
         DB::transaction(function () use ($user, $email): void {
@@ -41,6 +75,13 @@ final readonly class DeleteCustomerAccount
             Review::query()
                 ->where('author_type', $user->getMorphClass())
                 ->where('author_id', $user->getKey())
+                ->delete();
+
+            CartAddress::query()
+                ->whereIn(
+                    'cart_id',
+                    Cart::query()->where('customer_id', $user->getKey())->select('id'),
+                )
                 ->delete();
 
             Cart::query()

@@ -330,8 +330,11 @@ final class ApiCardDriver extends Driver implements ConfirmsBeforeOrder
         return null;
     }
 
-    public function confirmedStatus(string $reference): ?PaymentStatus
-    {
+    public function confirmedStatus(
+        string $reference,
+        ?int $expectedAmount = null,
+        ?string $expectedCurrency = null,
+    ): ?PaymentStatus {
         return null;
     }
 

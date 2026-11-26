@@ -184,6 +184,14 @@ final class WarehouseOpsE2ETest extends TestCase
                 'meta' => ['code' => 200, 'status' => 'success'],
                 'data' => ['path' => '/storage/label/RO-WH-1.pdf'],
             ]),
+            'https://delivery.example.test/order/api/v1/orders/detail*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [
+                    'order_no' => 'RO-WH-1',
+                    'airway_bill' => 'JNE-WH-1',
+                    'last_status' => 'DELIVERED',
+                ],
+            ]),
             'https://delivery.example.test/order/api/v1/orders/history-airway-bill*' => Http::response([
                 'meta' => ['code' => 200, 'status' => 'success', 'message' => 'Success Fetch Airway Bill History'],
                 'data' => [

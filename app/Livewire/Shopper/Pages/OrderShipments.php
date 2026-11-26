@@ -6,11 +6,12 @@ namespace App\Livewire\Shopper\Pages;
 
 use App\Actions\Shipping\RefreshShipmentTracking;
 use App\Models\OrderShipment;
-use App\Shipping\Contracts\PrintsLabels;
 use App\Shipping\ShippingCapabilities;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 use Mckenziearts\Icons\Untitledui\Enums\Untitledui;
 use Shopper\Core\Models\OrderShipping;
 use Shopper\Livewire\Pages\Order\Shipments as ShopperShipments;
@@ -53,7 +54,7 @@ final class OrderShipments extends ShopperShipments
                 ->icon(Untitledui::Printer)
                 ->color('primary')
                 ->authorize('edit_orders')
-                ->visible(fn (OrderShipping $record): bool => $this->fulfillerFor($record) instanceof PrintsLabels)
+                ->visible(fn (OrderShipping $record): bool => filled($record->tracking_number) || $this->orderShipmentFor($record) !== null)
                 ->url(function (OrderShipping $record): ?string {
                     $shipment = $this->orderShipmentFor($record);
 
@@ -71,10 +72,10 @@ final class OrderShipments extends ShopperShipments
                 ->icon(Untitledui::RefreshCcw02)
                 ->color('gray')
                 ->authorize('edit_orders')
-                ->visible(fn (OrderShipping $record): bool => filled($record->tracking_number) && $this->fulfillerFor($record) !== null)
+                ->visible(fn (OrderShipping $record): bool => filled($record->tracking_number) && $this->trackerFor($record) !== null)
                 ->action(function (OrderShipping $record): void {
                     $shipment = $this->orderShipmentFor($record);
-                    $provider = $this->fulfillerFor($record)?->name() ?? 'penyedia pengiriman';
+                    $provider = $this->trackerFor($record)?->name() ?? 'penyedia pengiriman';
 
                     if ($shipment === null) {
                         Notification::make()
@@ -105,7 +106,37 @@ final class OrderShipments extends ShopperShipments
                         ->send();
                 }),
             ...$shopperActions,
+        ])->toolbarActions([
+            BulkAction::make('bulkPrintLabels')
+                ->label('Cetak Label Terpilih')
+                ->icon(Untitledui::Printer)
+                ->action(function (Collection $records): void {
+                    $orderIds = $records->pluck('order_id')->filter()->unique()->implode(',');
+
+                    if ($orderIds !== '') {
+                        $this->redirect(route('shopper.orders.warehouse.bulk-labels', ['orders' => $orderIds]));
+                    }
+                }),
+            BulkAction::make('bulkPickList')
+                ->label('Cetak Pick List')
+                ->icon(Untitledui::ClipboardCheck)
+                ->action(function (Collection $records): void {
+                    $orderIds = $records->pluck('order_id')->filter()->unique()->implode(',');
+
+                    if ($orderIds !== '') {
+                        $this->redirect(route('shopper.orders.warehouse.pick-list', ['orders' => $orderIds]));
+                    }
+                }),
         ]);
+    }
+
+    private function trackerFor(OrderShipping $record): ?ShippingDriver
+    {
+        $shipment = $this->orderShipmentFor($record);
+
+        return $shipment !== null
+            ? resolve(ShippingCapabilities::class)->trackerFor($shipment)
+            : null;
     }
 
     private function fulfillerFor(OrderShipping $record): ?ShippingDriver

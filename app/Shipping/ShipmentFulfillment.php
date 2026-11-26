@@ -63,6 +63,7 @@ final class ShipmentFulfillment
     private const CLOSED_SHIPMENT_STATUSES = [
         NormalizeShipmentStatus::CANCELLED,
         NormalizeShipmentStatus::DELIVERED,
+        NormalizeShipmentStatus::RETURNED,
     ];
 
     /** Order statuses whose shipments are never booked automatically. */

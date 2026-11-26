@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
+use App\Livewire\Shopper\SlideOvers\ReviewDetail;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
+use Livewire\Livewire;
 use Shopper\Core\Models\Review;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 final class ReviewReportApiTest extends TestCase
@@ -95,5 +98,40 @@ final class ReviewReportApiTest extends TestCase
 
         $this->getJson('/api/v1/catalog/products/tanpa-nama-belakang')
             ->assertJsonPath('data.reviews.items.0.author_name', 'Wulan');
+    }
+
+    public function test_same_reporter_cannot_rehide_review_after_moderator_reapproves_and_cpanel_shows_reports(): void
+    {
+        $this->configureShopperCpanel();
+
+        Permission::query()->firstOrCreate(['name' => 'browse_reviews', 'guard_name' => 'web']);
+        Permission::query()->firstOrCreate(['name' => 'edit_reviews', 'guard_name' => 'web']);
+
+        $moderator = User::factory()->create();
+        $moderator->givePermissionTo(['browse_reviews', 'edit_reviews']);
+
+        $product = Product::factory()->standard()->create(['published_at' => now()->subDay()]);
+        $review = $this->publishedReview(User::factory()->create(), $product);
+        $reporter = User::factory()->create(['first_name' => 'Andi', 'last_name' => 'Wijaya']);
+
+        Sanctum::actingAs($reporter);
+        $this->postJson("/api/v1/catalog/reviews/{$review->id}/report", ['reason' => 'Spam iklan'])
+            ->assertOk();
+        $this->assertFalse((bool) $review->fresh()->approved);
+
+        $review->refresh()->forceFill(['approved' => true])->save();
+        $this->assertTrue((bool) $review->fresh()->approved);
+
+        Sanctum::actingAs($reporter);
+        $this->postJson("/api/v1/catalog/reviews/{$review->id}/report", ['reason' => 'Spam iklan'])
+            ->assertOk();
+
+        $this->assertTrue((bool) $review->fresh()->approved);
+        $this->assertSame(1, DB::table('review_reports')->where('review_id', $review->id)->count());
+
+        Livewire::actingAs($moderator)
+            ->test(ReviewDetail::class, ['review' => $review->fresh()])
+            ->assertSee('Spam iklan')
+            ->assertSee('Andi Wijaya');
     }
 }

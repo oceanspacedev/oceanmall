@@ -20,7 +20,7 @@ final class CategoryController extends Controller
                 ->scopes('enabled')
                 ->whereNull('parent_id')
                 ->with('media')
-                ->withCount(['products' => fn ($q) => $q->whereNull(shopper_table('products').'.deleted_at')])
+                ->withCount(['products' => fn ($q) => $q->scopes('publish')])
                 ->orderBy('position')
                 ->get(),
         ]);
@@ -28,6 +28,8 @@ final class CategoryController extends Controller
 
     public function show(Request $request, Category $category): Response
     {
+        abort_unless((bool) $category->is_enabled, 404);
+
         $sort = (string) $request->string('sort', 'latest');
 
         $query = Product::query()

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Actions\Payment;
 
 use App\Actions\Notify\NotifyOrderCustomer;
+use App\Actions\Orders\CancelOrderWithProviders;
 use App\Actions\Stock\ReleaseOrderShipmentStock;
 use App\Enums\OrderNotificationType;
 use App\Integrations\Komerce\Komerce;
@@ -25,6 +26,7 @@ final readonly class CancelUnpaidKomerceOrder
         private ReleaseOrderShipmentStock $releaseStock,
         private NotifyOrderCustomer $notifyOrderCustomer,
         private SyncKomercePaymentStatus $syncPaymentStatus,
+        private CancelOrderWithProviders $cancelWithProviders,
     ) {}
 
     /**
@@ -41,9 +43,9 @@ final readonly class CancelUnpaidKomerceOrder
             return $order;
         }
 
-        // A VA transfer can land minutes before expiry while its webhook is
-        // still in flight: settle it instead of cancelling a paid order.
-        if (Komerce::paymentEnabled()) {
+        // A VA/QRIS transfer can land minutes before expiry while its webhook
+        // is still in flight: settle it instead of cancelling a paid order.
+        if (Komerce::paymentEnabled() || Komerce::qrislyEnabled()) {
             $verdict = $this->syncPaymentStatus->reconcile($order);
 
             if ($verdict === 'lookup_failed') {
@@ -56,35 +58,44 @@ final readonly class CancelUnpaidKomerceOrder
             }
         }
 
-        return DB::transaction(function () use ($order, $reason): Order {
-            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+        $this->cancelRemotePayment($order, $reason);
 
-            if ($order->payment_status === PaymentStatus::Paid || $order->status === OrderStatus::Cancelled) {
-                return $order;
+        $cancelled = DB::transaction(function () use ($order): ?Order {
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
+
+            if ($locked->payment_status === PaymentStatus::Paid || $locked->status === OrderStatus::Cancelled) {
+                return null;
             }
 
-            $this->cancelRemotePayment($order, $reason);
-
-            $order->forceFill([
+            $locked->forceFill([
                 'status' => OrderStatus::Cancelled,
+                'cancelled_at' => now(),
                 'payment_status' => PaymentStatus::Voided,
             ])->save();
 
             PaymentTransaction::query()
-                ->where('order_id', $order->id)
+                ->where('order_id', $locked->id)
                 ->where('driver', 'komerce')
                 ->where('status', TransactionStatus::Pending)
                 ->update(['status' => TransactionStatus::Failed]);
 
-            $this->releaseStock->handle($order->refresh());
+            $refreshed = $locked->refresh();
 
-            $order = $order->refresh();
-            $this->notifyOrderCustomer->handle($order, OrderNotificationType::Cancelled);
+            if (! $this->cancelWithProviders->hasShipped($refreshed)) {
+                $this->releaseStock->handle($refreshed);
+            }
 
-            event(new OrderCancelled($order));
-
-            return $order;
+            return $refreshed;
         });
+
+        if (! $cancelled instanceof Order) {
+            return $order->refresh();
+        }
+
+        $this->notifyOrderCustomer->handle($cancelled, OrderNotificationType::Cancelled);
+        event(new OrderCancelled($cancelled));
+
+        return $cancelled;
     }
 
     private function cancelRemotePayment(Order $order, string $reason): void
@@ -101,6 +112,7 @@ final readonly class CancelUnpaidKomerceOrder
             ?? PaymentTransaction::query()
                 ->where('order_id', $order->id)
                 ->where('driver', 'komerce')
+                ->latest('id')
                 ->value('reference');
 
         if (! is_string($paymentId) || trim($paymentId) === '') {

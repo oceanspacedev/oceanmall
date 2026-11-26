@@ -204,8 +204,8 @@ final class CpanelCancelReleaseStockTest extends TestCase
 
     public function test_cancel_after_manual_label_without_tracking_picked_up_keeps_stock(): void
     {
-        // "Kurir Toko" parcel handed over without a tracking number: nothing
-        // is mirrored onto the warehouse shipment (no AWB, still pending).
+        // "Kurir Toko" parcel handed over without a tracking number still mirrors
+        // status onto the sole warehouse shipment, and must keep stock reserved.
         $order = $this->order('manual', PaymentStatus::Pending, OrderStatus::Processing);
         $this->label($order, ShipmentStatus::PickedUp);
 
@@ -215,7 +215,7 @@ final class CpanelCancelReleaseStockTest extends TestCase
 
         $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
         $this->assertSame(8, $this->stock(), 'a parcel already with the courier must not go back to stock');
-        $this->assertSame('pending', OrderShipment::query()->where('order_id', $order->id)->value('status'));
+        $this->assertSame('picked_up', OrderShipment::query()->where('order_id', $order->id)->value('status'));
     }
 
     public function test_cancel_after_pending_label_with_unmirrored_tracking_keeps_stock(): void

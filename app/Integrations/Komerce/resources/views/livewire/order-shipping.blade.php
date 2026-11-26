@@ -65,7 +65,7 @@
                         </x-filament::button>
                     @endif
 
-                    @if ($hasTrackableShipment && $komerceEnabled)
+                    @if ($hasTrackableShipment && ($canTrackShipping ?? false))
                         <x-filament::button
                             type="button"
                             wire:click="refreshTracking"
@@ -315,9 +315,15 @@
                                     @endforeach
                                 </div>
 
+                                @if (! empty($shipment['fulfillment_error']))
+                                    <div class="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-xs text-rose-700 dark:text-rose-200 border border-rose-200 dark:border-rose-800">
+                                        <span class="font-semibold">Kendala Fulfillment:</span> {{ $shipment['fulfillment_error'] }}
+                                    </div>
+                                @endif
+
                                 {{-- Tombol Aksi Pengiriman --}}
                                 <div class="flex items-center gap-2 pt-1 flex-wrap">
-                                    @if ($shipment['can_print_label'] && $komerceEnabled)
+                                    @if ($shipment['can_print_label'] && ($komerceEnabled || ($shipment['awb'] || $shipment['tracking_number'])))
                                         <x-filament::button
                                             tag="a"
                                             href="{{ route('shopper.orders.fulfillment.print-label', ['order' => $order, 'shipment' => $shipment['id']]) }}"
@@ -330,7 +336,7 @@
                                         </x-filament::button>
                                     @endif
 
-                                    @if (($shipment['awb'] || $shipment['tracking_number']) && $komerceEnabled)
+                                    @if (($shipment['awb'] || $shipment['tracking_number']) && ($canTrackShipping ?? false))
                                         <x-filament::button
                                             type="button"
                                             wire:click="refreshTracking({{ $shipment['id'] }})"
@@ -341,6 +347,19 @@
                                         >
                                             <span wire:loading.remove wire:target="refreshTracking({{ $shipment['id'] }})">Lacak Paket</span>
                                             <span wire:loading wire:target="refreshTracking({{ $shipment['id'] }})">Melacak…</span>
+                                        </x-filament::button>
+                                    @endif
+
+                                    @if ($shipment['can_reship'] ?? false)
+                                        <x-filament::button
+                                            type="button"
+                                            wire:click="reshipShipment({{ $shipment['id'] }})"
+                                            wire:loading.attr="disabled"
+                                            icon="heroicon-o-arrow-uturn-right"
+                                            size="sm"
+                                            color="warning"
+                                        >
+                                            Kirim Ulang
                                         </x-filament::button>
                                     @endif
 

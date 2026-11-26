@@ -102,6 +102,7 @@ final class XenditDriver extends Driver implements ExpiresPayments, ProvidesPaym
             $currency,
             isset($context['channel_code']) ? (string) $context['channel_code'] : null,
             $attempt,
+            is_string($context['return_url'] ?? null) ? trim($context['return_url']) : null,
         );
     }
 

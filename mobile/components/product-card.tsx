@@ -5,7 +5,7 @@ import { Icon } from '@/components/ui/icon';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import type { Product } from '@/lib/api';
-import { discountPercent, formatCount, formatIdr, mediaUrl } from '@/lib/format';
+import { discountPercent, formatCount, formatMoney, mediaUrl } from '@/lib/format';
 import { COLORS } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { Link } from 'expo-router';
@@ -26,7 +26,8 @@ function formatRating(value: number): string {
  * lines, the meta line is always present, and the text block stretches to the row.
  */
 function ProductCardImpl({ product, compact = false }: { product: Product; compact?: boolean }) {
-  const off = discountPercent(product.price, product.compare_price);
+  const unpriced = product.price == null || product.price <= 0;
+  const off = unpriced ? 0 : discountPercent(product.price, product.compare_price);
   const uri = mediaUrl(product.thumbnail ?? product.images?.[0]?.url);
 
   const rating =
@@ -38,8 +39,8 @@ function ProductCardImpl({ product, compact = false }: { product: Product; compa
 
   const label = [
     product.name,
-    formatIdr(product.price),
-    off ? `diskon ${off}% dari ${formatIdr(product.compare_price)}` : null,
+    unpriced ? 'Harga belum tersedia' : formatMoney(product.price, product.currency),
+    off ? `diskon ${off}% dari ${formatMoney(product.compare_price, product.currency)}` : null,
     rating ? `rating ${rating}` : null,
     sold ? `${sold} terjual` : null,
     brand,
@@ -76,7 +77,7 @@ function ProductCardImpl({ product, compact = false }: { product: Product; compa
               style={{ minHeight: 32 }}>
               {product.name}
             </Text>
-            <SalePrice price={product.price} compare={product.compare_price} />
+            <SalePrice price={product.price} compare={product.compare_price} currency={product.currency} />
           </View>
           <View className="min-h-[14px] flex-row items-center gap-1.5">
             {rating || sold ? (

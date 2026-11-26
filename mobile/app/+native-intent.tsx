@@ -30,6 +30,7 @@ const PAGE_ROUTES = new Map([
   ['account', '/account'],
   ['orders', '/orders'],
   ['notifications', '/notifications'],
+  ['reset-password', '/reset-password'],
 ]);
 
 // Web account paths that have an app equivalent.

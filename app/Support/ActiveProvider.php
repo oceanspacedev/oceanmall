@@ -102,7 +102,18 @@ final class ActiveProvider
      */
     public static function setting(string $section): ?string
     {
-        $value = config("shopper.{$section}.provider");
+        $value = null;
+
+        try {
+            $dbValue = shopper_setting("active_{$section}_provider", false);
+            if ($dbValue !== null && trim((string) $dbValue) !== '') {
+                $value = $dbValue;
+            }
+        } catch (Throwable) {
+            // Fall back cleanly before sh_settings exists (fresh install/migrations).
+        }
+
+        $value ??= config("shopper.{$section}.provider");
 
         // PAYMENT_PROVIDER=false reaches config as a boolean.
         if ($value === false) {

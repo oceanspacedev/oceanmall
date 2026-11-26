@@ -12,7 +12,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { api, errorMessage, type OrderSummary } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatDate, formatIdr, mediaUrl } from '@/lib/format';
+import { formatDate, formatMoney, mediaUrl } from '@/lib/format';
 import {
   awaitsReceiptConfirmation,
   ORDER_TABS,
@@ -354,7 +354,7 @@ function OrderCard({ order, onOpen }: { order: OrderSummary; onOpen: () => void 
     order.first_item
       ? `${order.first_item.name}${more > 0 ? `, dan ${more} produk lainnya` : ''}`
       : null,
-    `total ${formatIdr(order.amount)}`,
+    `total ${formatMoney(order.amount, order.currency)}`,
   ]
     .filter((part) => Boolean(part))
     .join(', ');
@@ -404,7 +404,7 @@ function OrderCard({ order, onOpen }: { order: OrderSummary; onOpen: () => void 
             adjustsFontSizeToFit
             minimumFontScale={0.8}
             className="text-[15px] font-extrabold text-foreground">
-            {formatIdr(order.amount)}
+            {formatMoney(order.amount, order.currency)}
           </Text>
         </View>
         <Button

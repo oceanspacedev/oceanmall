@@ -22,6 +22,7 @@ use App\Integrations\Komerce\Support\KomerceTrackingContext;
 use App\Models\OrderShipment;
 use App\Support\CarrierLogos;
 use App\Support\PaymentLogos;
+use App\Support\ProviderQuotaRegistry;
 use Database\Seeders\CarrierSeeder;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Console\Scheduling\Schedule;
@@ -211,6 +212,26 @@ final class KomerceServiceProvider extends ServiceProvider
             $logos->extend(static fn (PaymentMethod $method): ?string => $method->driver === KomerceDriver::CODE
                 ? preg_replace('/^komerce-(va-)?/', '', strtolower((string) $method->slug))
                 : null);
+        });
+
+        $this->app->afterResolving(ProviderQuotaRegistry::class, static function (ProviderQuotaRegistry $registry): void {
+            $registry->extend('komerce_shipping_cost', static function (): ?array {
+                if (! Komerce::shippingEnabled()) {
+                    return null;
+                }
+
+                $capabilities = resolve(KomerceCapabilities::class);
+
+                return [
+                    'provider' => 'komerce',
+                    'label' => 'Kuota Cek Ongkir Harian',
+                    'used' => $capabilities->requestsToday('shipping_cost'),
+                    'limit' => $capabilities->dailyQuota('shipping_cost'),
+                    'exhausted' => $capabilities->quotaExhausted('shipping_cost'),
+                    'exhausted_until' => $capabilities->quotaExhaustedUntil('shipping_cost')?->toIso8601String(),
+                    'plan' => $capabilities->plan(),
+                ];
+            });
         });
     }
 }

@@ -6,6 +6,8 @@ namespace App\Actions\Warehouse;
 
 use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Shipping\InventoryOrigins;
 use App\Shipping\ShippingCapabilities;
 use Illuminate\Database\Eloquent\Collection;
@@ -13,6 +15,8 @@ use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Models\Cart;
+use Shopper\Core\Enum\ProductType;
+use Shopper\Core\Models\Contracts\Stockable;
 use Shopper\Core\Models\Inventory;
 
 final readonly class SuggestAllocation
@@ -63,6 +67,15 @@ final readonly class SuggestAllocation
                 }
             }
 
+            if ($remaining > 0 && $this->canAllocateWithoutAvailableStock($purchasable)) {
+                $fallbackInventory = $inventories->sortByDesc('is_default')->first();
+
+                if ($fallbackInventory instanceof Inventory) {
+                    $allocated += $this->addShipmentLine($shipments, $shipmentOrder, $fallbackInventory->id, $purchasable, $remaining);
+                    $remaining = 0;
+                }
+            }
+
             if ($remaining > 0) {
                 throw new InsufficientStockException($purchasable, $allocated, (int) $line->quantity);
             }
@@ -74,6 +87,28 @@ final readonly class SuggestAllocation
                 $shipmentOrder,
             ),
         );
+    }
+
+    private function canAllocateWithoutAvailableStock(Model $purchasable): bool
+    {
+        if ((bool) $purchasable->getAttribute('allow_backorder')) {
+            return true;
+        }
+
+        if ($purchasable instanceof ProductVariant) {
+            $purchasable->loadMissing('product');
+            $parent = $purchasable->product;
+
+            if ($parent instanceof Product && ((bool) $parent->allow_backorder || $parent->type === ProductType::Virtual)) {
+                return true;
+            }
+        }
+
+        if ($purchasable instanceof Product && $purchasable->type === ProductType::Virtual) {
+            return true;
+        }
+
+        return $purchasable instanceof Stockable && ! $purchasable->tracksInventory();
     }
 
     /**

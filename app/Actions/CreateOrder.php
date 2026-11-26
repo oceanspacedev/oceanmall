@@ -10,7 +10,11 @@ use App\Actions\Warehouse\SuggestAllocation;
 use App\CheckoutSession;
 use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
+use App\Models\DiscountRedemption;
 use App\Models\OrderShipment;
+use App\Models\Price;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Shipping\AddressDestination;
 use App\Shipping\Contracts\NormalizesSelectedRates;
 use App\Shipping\ShippingCapabilities;
@@ -20,11 +24,16 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Shopper\Cart\Actions\CreateOrderFromCartAction;
+use Shopper\Cart\CartManager;
 use Shopper\Cart\Exceptions\DiscountLimitReachedException;
 use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Models\Cart;
+use Shopper\Cart\Models\CartLineAdjustment;
+use Shopper\Core\Enum\ProductType;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
+use Shopper\Core\Models\Currency;
+use Shopper\Core\Models\Discount;
 use Shopper\Core\Models\Order;
 use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Enum\TransactionType;
@@ -68,6 +77,9 @@ final class CreateOrder
         try {
             return DB::transaction(function () use ($cart, $checkout): Order {
                 try {
+                    $this->validateAndRefreshCartLines($cart);
+                    $this->sanitizeCouponBeforeOrder($cart);
+
                     $allocationPlan = $this->resolveAllocationPlan($cart, $checkout);
 
                     // The plan (and the rates picked for it) was made for the
@@ -129,6 +141,14 @@ final class CreateOrder
                 $this->storeShippingAddressMetadata($order, $checkout);
                 $this->storePaymentMetadata($order, $checkout);
                 $this->storePaymentReference($order, $checkout);
+                $this->snapshotItemCosts($order);
+
+                if ($order->discount_id !== null) {
+                    $customerEmail = $order->customer?->email ?? Auth::user()?->email ?? data_get($checkout, 'shipping_address.email');
+                    if (is_string($customerEmail) && trim($customerEmail) !== '') {
+                        DiscountRedemption::record((int) $order->discount_id, (int) $order->id, $customerEmail);
+                    }
+                }
 
                 return $order;
             });
@@ -153,6 +173,51 @@ final class CreateOrder
         }
 
         return null;
+    }
+
+    private function snapshotItemCosts(Order $order): void
+    {
+        $currencyId = Currency::query()
+            ->where('code', $order->currency_code ?: shopper_currency())
+            ->value('id');
+
+        if (! $currencyId) {
+            return;
+        }
+
+        $items = $order->items()->get();
+
+        foreach ($items as $item) {
+            if ($item->unit_cost_amount !== null) {
+                continue;
+            }
+
+            $costAmount = Price::query()
+                ->where('currency_id', $currencyId)
+                ->where('priceable_type', $item->product_type)
+                ->where('priceable_id', $item->product_id)
+                ->value('cost_amount');
+
+            if ($costAmount === null && $item->product_type === (new ProductVariant)->getMorphClass()) {
+                $parentProductId = ProductVariant::query()
+                    ->whereKey($item->product_id)
+                    ->value('product_id');
+
+                if ($parentProductId) {
+                    $costAmount = Price::query()
+                        ->where('currency_id', $currencyId)
+                        ->where('priceable_type', (new Product)->getMorphClass())
+                        ->where('priceable_id', $parentProductId)
+                        ->value('cost_amount');
+                }
+            }
+
+            if (is_numeric($costAmount)) {
+                DB::table(shopper_table('order_items'))
+                    ->where('id', $item->id)
+                    ->update(['unit_cost_amount' => max(0, (int) $costAmount)]);
+            }
+        }
     }
 
     private function storeShippingAddressMetadata(Order $order, mixed $checkout): void
@@ -229,6 +294,13 @@ final class CreateOrder
         $selectedPayment = (array) data_get($checkout, 'payment.0', []);
         $channelCode = data_get($selectedPayment, 'channel_code');
         $paymentType = data_get($selectedPayment, 'payment_type');
+        $slug = strtolower(trim((string) data_get($selectedPayment, 'slug', '')));
+
+        if (! $paymentType && $slug === 'cod') {
+            $paymentType = 'cod';
+        } elseif (! $paymentType && ($slug === 'bank-transfer' || str_contains($slug, 'transfer'))) {
+            $paymentType = 'bank_transfer';
+        }
 
         if (! $channelCode && ! $paymentType) {
             return;
@@ -518,5 +590,101 @@ final class CreateOrder
         $driver = $order->paymentMethod?->driver ?? data_get($checkout, 'payment.0.driver');
 
         return is_string($driver) && trim($driver) !== '' ? trim($driver) : 'manual';
+    }
+
+    private function validateAndRefreshCartLines(Cart $cart): void
+    {
+        $cart->load(['lines.purchasable']);
+
+        foreach ($cart->lines as $line) {
+            $purchasable = $line->purchasable;
+
+            if (! $purchasable instanceof Model) {
+                abort(422, __('Some products in your cart are no longer available. Please update your cart.'));
+            }
+
+            if (method_exists($purchasable, 'trashed') && $purchasable->trashed()) {
+                abort(422, __('Some products in your cart are no longer available. Please update your cart.'));
+            }
+
+            $product = $purchasable instanceof ProductVariant
+                ? $purchasable->product
+                : $purchasable;
+
+            if (! $product instanceof Product) {
+                abort(422, __('Some products in your cart are no longer available. Please update your cart.'));
+            }
+
+            if (method_exists($product, 'trashed') && $product->trashed()) {
+                abort(422, __('Some products in your cart are no longer available. Please update your cart.'));
+            }
+
+            if ($product->type === ProductType::External) {
+                abort(422, __('Produk eksternal tidak dapat dibeli melalui checkout.'));
+            }
+
+            if (! $product->is_visible || ($product->published_at !== null && $product->published_at->isFuture())) {
+                abort(422, __('Some products in your cart are no longer published. Please update your cart.'));
+            }
+
+            $livePrice = method_exists($purchasable, 'getPrice')
+                ? $purchasable->getPrice($cart->currency_code)
+                : null;
+
+            if ($livePrice !== null) {
+                if ((int) $livePrice->amount <= 0) {
+                    abort(422, __('Harga produk tidak valid.'));
+                }
+
+                if ((int) $livePrice->amount !== (int) $line->unit_price_amount) {
+                    $line->update(['unit_price_amount' => (int) $livePrice->amount]);
+                }
+            } elseif ((int) $line->unit_price_amount <= 0) {
+                abort(422, __('Harga produk belum tersedia.'));
+            }
+        }
+
+        $cart->refresh();
+    }
+
+    private function sanitizeCouponBeforeOrder(Cart $cart): void
+    {
+        $lineIds = $cart->lines()->select('id');
+
+        if (blank($cart->coupon_code)) {
+            CartLineAdjustment::query()->whereIn('cart_line_id', $lineIds)->delete();
+
+            return;
+        }
+
+        $discount = Discount::query()
+            ->whereRaw('lower(code) = ?', [mb_strtolower(trim((string) $cart->coupon_code))])
+            ->first();
+
+        if ($discount instanceof Discount) {
+            if ($discount->code !== $cart->coupon_code) {
+                $cart->forceFill(['coupon_code' => $discount->code])->save();
+                $cart->refresh();
+            }
+
+            $customerEmail = $cart->customer?->email ?? Auth::user()?->email;
+            if ($discount->usage_limit_per_user && is_string($customerEmail) && DiscountRedemption::hasActiveRedemption($discount->id, $customerEmail)) {
+                throw new DiscountLimitReachedException;
+            }
+        }
+
+        $preview = resolve(CartManager::class)->calculate($cart);
+
+        if ($preview->discountTotal > 0) {
+            return;
+        }
+
+        if ($discount instanceof Discount && $discount->hasReachedLimit()) {
+            throw new DiscountLimitReachedException;
+        }
+
+        CartLineAdjustment::query()->whereIn('cart_line_id', $lineIds)->delete();
+        $cart->forceFill(['coupon_code' => null])->save();
+        $cart->refresh();
     }
 }

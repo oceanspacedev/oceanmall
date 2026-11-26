@@ -101,6 +101,21 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('checkout/success/{order}', CheckoutSuccessController::class)->name('shop.checkout.success');
 });
 
+Route::get('payment/return/mobile/{order:number}', static function (\Shopper\Core\Models\Order $order) {
+    $deepLink = 'oceanmall://order/'.rawurlencode((string) $order->number);
+
+    return response(
+        '<!doctype html><html><head><meta charset="utf-8"><title>Kembali ke OceanMall</title>'
+        .'<meta http-equiv="refresh" content="0;url='.e($deepLink).'"></head>'
+        .'<body style="font-family:system-ui,sans-serif;padding:24px;text-align:center;">'
+        .'<p>Mengalihkan kembali ke aplikasi OceanMall...</p>'
+        .'<p><a href="'.e($deepLink).'">Buka Pesanan '.e((string) $order->number).'</a></p>'
+        .'</body></html>',
+        200,
+        ['Content-Type' => 'text/html; charset=UTF-8'],
+    );
+})->name('payment.return.mobile');
+
 // Webhooks
 Route::post('webhooks/stripe', StripeWebhookController::class)
     ->middleware('throttle:60,1')
@@ -113,6 +128,7 @@ Route::post('webhooks/stripe', StripeWebhookController::class)
 Route::middleware(['auth', 'verified'])->prefix('account')->name('account.')->group(function (): void {
     Route::get('orders', [AccountOrderController::class, 'index'])->name('orders');
     Route::get('orders/{order}', [AccountOrderController::class, 'show'])->name('orders.show');
+    Route::get('orders/{order}/invoice', [\App\Http\Controllers\OrderInvoiceController::class, 'customer'])->name('orders.invoice');
     Route::post('orders/{order}/retry-payment', RetryOrderPaymentController::class)
         ->middleware('throttle:checkout-payment')
         ->name('orders.retry-payment');
@@ -124,6 +140,20 @@ Route::middleware(['auth', 'verified'])->prefix('account')->name('account.')->gr
         ->name('orders.shipments.track');
     Route::post('orders/{order}/confirm-received', ConfirmOrderReceivedController::class)
         ->name('orders.confirm-received');
+    Route::post('orders/{order}/cancel', [\App\Http\Controllers\Account\OrderActionController::class, 'cancel'])
+        ->middleware('throttle:10,1')
+        ->name('orders.cancel');
+    Route::post('orders/{order}/returns', [\App\Http\Controllers\Account\OrderActionController::class, 'storeReturn'])
+        ->middleware('throttle:10,1')
+        ->name('orders.returns.store');
+    Route::post('orders/{order}/payment-proof', [\App\Http\Controllers\Account\OrderActionController::class, 'uploadProof'])
+        ->middleware('throttle:10,1')
+        ->name('orders.payment-proof.store');
+    Route::get('orders/{order}/payment-proofs/{proof}', [\App\Http\Controllers\Account\OrderActionController::class, 'showProof'])
+        ->name('orders.payment-proofs.show');
+    Route::get('orders/{order}/returns/{returnRequest}/evidence/{index}', [\App\Http\Controllers\Account\OrderActionController::class, 'showReturnEvidence'])
+        ->whereNumber('index')
+        ->name('orders.returns.evidence');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead'])
@@ -148,6 +178,21 @@ Route::middleware(['auth', 'verified'])
             ->name('shopper.orders.fulfillment.print-label');
         Route::post('orders/{order}/fulfillment/override-allocation', OverrideAllocationController::class)
             ->name('shopper.orders.fulfillment.override-allocation');
+        Route::get('orders/{order}/packing-slip', [\App\Http\Controllers\Cpanel\WarehouseDocsController::class, 'packingSlip'])
+            ->name('shopper.orders.warehouse.packing-slip');
+        Route::get('orders/warehouse/pick-list', [\App\Http\Controllers\Cpanel\WarehouseDocsController::class, 'pickList'])
+            ->name('shopper.orders.warehouse.pick-list');
+        Route::get('orders/warehouse/bulk-labels', [\App\Http\Controllers\Cpanel\WarehouseDocsController::class, 'bulkLabels'])
+            ->name('shopper.orders.warehouse.bulk-labels');
+        Route::get('orders/{order}/invoice', [\App\Http\Controllers\OrderInvoiceController::class, 'staff'])
+            ->name('cpanel.orders.invoice');
+        Route::get('reports/finance/export', \App\Http\Controllers\Cpanel\FinanceExportController::class)
+            ->name('cpanel.reports.finance.export');
+        Route::get('orders/{order}/payment-proofs/{proof}', [\App\Http\Controllers\Cpanel\OrderFileController::class, 'showProof'])
+            ->name('shopper.orders.payment-proofs.show');
+        Route::get('orders/{order}/returns/{returnRequest}/evidence/{index}', [\App\Http\Controllers\Cpanel\OrderFileController::class, 'showReturnEvidence'])
+            ->whereNumber('index')
+            ->name('shopper.orders.returns.evidence');
     });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {

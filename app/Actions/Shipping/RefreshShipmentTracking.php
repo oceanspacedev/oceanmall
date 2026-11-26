@@ -54,7 +54,7 @@ final readonly class RefreshShipmentTracking
      */
     public function handleForCustomer(OrderShipment $shipment): bool
     {
-        if (in_array($shipment->status, [NormalizeShipmentStatus::DELIVERED, NormalizeShipmentStatus::CANCELLED], true)) {
+        if (NormalizeShipmentStatus::isTerminal(is_string($shipment->status) ? $shipment->status : null)) {
             return false;
         }
 
@@ -124,13 +124,14 @@ final readonly class RefreshShipmentTracking
         // delivery_failed...) or its own words (dropping_off, on_hold). An
         // unknown answer keeps the current status.
         $raw = trim($info->status) !== '' ? $info->status : $info->statusDescription;
+        $current = is_string($shipment->status) ? $shipment->status : null;
         $normalized = in_array($raw, NormalizeShipmentStatus::STABLE, true)
             ? $raw
-            : $this->normalizeStatus->handle($raw, is_string($shipment->status) ? $shipment->status : null);
+            : $this->normalizeStatus->handle($raw, $current);
 
         $attributes = ['metadata' => $metadata];
 
-        if ($normalized !== null) {
+        if ($normalized !== null && NormalizeShipmentStatus::shouldTransition($current, $normalized)) {
             $attributes['status'] = $normalized;
         }
 

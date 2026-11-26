@@ -170,8 +170,8 @@ final class StripeWebhookTest extends TestCase
             'data' => ['object' => [
                 'id' => $intentId,
                 'object' => 'payment_intent',
-                'amount' => 1000,
-                'amount_received' => 1000,
+                'amount' => 100000,
+                'amount_received' => 100000,
             ]],
         ]);
     }

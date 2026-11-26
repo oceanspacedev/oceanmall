@@ -6,8 +6,10 @@ namespace App\Actions\Cart;
 
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Support\CustomerCart;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\Models\CartLine;
+use Shopper\Core\Enum\ProductType;
 
 final readonly class AddToCart
 {
@@ -21,8 +23,27 @@ final readonly class AddToCart
             throw new \InvalidArgumentException('Pilih varian produk sebelum menambah ke keranjang.');
         }
 
-        $purchasable = $variant ?? $product;
+        if ($product->type === ProductType::External) {
+            throw new \InvalidArgumentException('Produk eksternal tidak dapat dibeli melalui keranjang.');
+        }
 
-        return $this->cartManager->add(cartSession(), $purchasable, $quantity);
+        $cart = cartSession();
+        $purchasable = $variant ?? $product;
+        $price = $purchasable->getPrice($cart->currency_code);
+
+        if (! $price || (int) $price->amount <= 0) {
+            throw new \InvalidArgumentException('Harga produk belum tersedia.');
+        }
+
+        $existing = (int) $cart->lines()
+            ->where('purchasable_type', $purchasable->getMorphClass())
+            ->where('purchasable_id', $purchasable->getKey())
+            ->value('quantity');
+
+        if ($existing + $quantity > CustomerCart::MAX_LINE_QUANTITY) {
+            throw new \InvalidArgumentException('Maksimal '.CustomerCart::MAX_LINE_QUANTITY.' per produk dalam keranjang.');
+        }
+
+        return $this->cartManager->add($cart, $purchasable, $quantity);
     }
 }

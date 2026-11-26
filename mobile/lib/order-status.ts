@@ -51,13 +51,12 @@ export function isCancelled(order: Pick<OrderSummary, 'status' | 'payment_status
 
 /** The package has arrived but the customer has not confirmed it yet. */
 export function awaitsReceiptConfirmation(
-  order: Pick<OrderSummary, 'status' | 'shipping_status' | 'payment_status'>
+  order: Pick<OrderSummary, 'status' | 'shipping_status' | 'payment_status'> & { is_cod?: boolean }
 ): boolean {
-  // The server only accepts the confirmation of a paid order.
   return (
     order.shipping_status === 'delivered' &&
     order.status !== 'completed' &&
-    order.payment_status === 'paid'
+    (order.payment_status === 'paid' || Boolean(order.is_cod))
   );
 }
 
@@ -109,7 +108,7 @@ export function orderStage(order: StageInput): OrderStage {
         : 'Paket sedang dalam perjalanan.',
     };
   }
-  if (order.payment_status !== 'paid') {
+  if (order.payment_status !== 'paid' && order.payment_status !== 'partially_refunded') {
     return {
       key: 'unpaid',
       label: 'Belum bayar',

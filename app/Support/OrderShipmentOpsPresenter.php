@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderShipment;
+use App\Shipping\Contracts\PrintsLabels;
 use App\Shipping\InventoryOrigins;
 use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 
@@ -41,9 +44,20 @@ final class OrderShipmentOpsPresenter
                 $inventory = $shipment->inventory;
                 $shipperAddress = implode(', ', array_filter([
                     $inventory?->street_address,
+                    $inventory?->street_address_plus,
                     $inventory?->city,
                     $inventory?->postal_code,
                 ], static fn (mixed $p): bool => is_scalar($p) && trim((string) $p) !== ''));
+
+                if ($shipperAddress === '') {
+                    $shipperAddress = implode(', ', array_filter([
+                        shopper_setting('street_address'),
+                        shopper_setting('city'),
+                        shopper_setting('postal_code'),
+                    ], static fn (mixed $p): bool => is_scalar($p) && trim((string) $p) !== ''));
+                }
+
+                $shipperPhone = trim((string) ($inventory?->phone_number ?? shopper_setting('phone_number') ?? '-')) ?: '-';
 
                 $shippingAddress = $order->shippingAddress;
                 $receiverName = trim(implode(' ', array_filter([
@@ -95,10 +109,23 @@ final class OrderShipmentOpsPresenter
                     default => strtoupper($carrier),
                 };
 
+                $isCodOrder = OrderPaymentType::isCod($order);
+                $codAmount = $isCodOrder
+                    ? (OrderShipment::query()->where('order_id', $order->id)->count() === 1
+                        ? (int) $order->price_amount
+                        : (ShipmentItemValue::forOrder($order, $shipment->lines) + (int) $shipment->cost))
+                    : 0;
+                $canReship = in_array(
+                    strtolower(trim((string) $shipment->status)),
+                    [NormalizeShipmentStatus::RETURNED, NormalizeShipmentStatus::DELIVERY_FAILED],
+                    true,
+                ) && empty(data_get($shipment->metadata, 'reshipped_to_shipment_id'));
+
                 return [
                     'id' => $shipment->id,
                     'inventory_id' => $shipment->inventory_id,
                     'inventory_name' => $shipment->inventory?->name,
+                    'driver' => $shipment->driver,
                     'status' => $shipment->status,
                     'status_label' => $this->statusLabel(is_string($shipment->status) ? $shipment->status : null),
                     'awb' => $shipment->awb,
@@ -113,13 +140,17 @@ final class OrderShipmentOpsPresenter
                     'currency' => $shipment->currency_code,
                     'delivery_order_no' => $deliveryOrderNo,
                     'fulfillment_error' => ShipmentMetadata::fulfillmentError($shipment),
+                    'can_track' => resolve(ShippingCapabilities::class)->trackerFor($shipment) !== null
+                        && ($this->filled($shipment->awb) || $this->filled($shipment->tracking_number) || $deliveryOrderNo !== null),
+                    'can_reship' => $canReship,
                     'can_print_label' => $canPrint,
                     'needs_pickup' => $needsPickup,
                     'print_hint' => $this->printHint($canPrint, $hasPickup, $needsPickup, $providerFulfilled),
                     'can_override' => $canOverride,
-                    'shipper_name' => $inventory?->name ?? 'Gudang Utama',
-                    'shipper_address' => $shipperAddress ?: 'Jl. Tuparev No. 109F, Cirebon',
-                    'shipper_phone' => (string) ($inventory?->phone_number ?? '-'),
+                    'cod_amount' => $codAmount,
+                    'shipper_name' => $inventory?->name ?? (shopper_setting('name') ?: config('app.name', 'OceanMall')),
+                    'shipper_address' => $shipperAddress ?: '-',
+                    'shipper_phone' => $shipperPhone,
                     'receiver_name' => $receiverName,
                     'receiver_address' => $receiverAddress ?: '-',
                     'receiver_phone' => $receiverPhone,
@@ -131,6 +162,9 @@ final class OrderShipmentOpsPresenter
                             'name' => $purchasable instanceof Model
                                 ? (string) ($purchasable->getAttribute('name') ?? class_basename($purchasable))
                                 : 'Item',
+                            'sku' => $purchasable instanceof Model
+                                ? (string) ($purchasable->getAttribute('sku') ?? '')
+                                : '',
                             'purchasable_type' => $line->purchasable_type,
                             'purchasable_id' => $line->purchasable_id,
                             'qty' => (int) $line->qty,
@@ -196,6 +230,23 @@ final class OrderShipmentOpsPresenter
 
     public function isLockedForOverride(OrderShipment $shipment): bool
     {
+        $order = $shipment->order;
+
+        if ($order instanceof Order) {
+            if (in_array($order->status, [OrderStatus::Cancelled, OrderStatus::Completed, OrderStatus::Archived], true)) {
+                return true;
+            }
+
+            $orderMeta = $order->getAttribute('metadata');
+            if (is_string($orderMeta) && trim($orderMeta) !== '') {
+                $orderMeta = json_decode($orderMeta, true);
+            }
+
+            if (is_array($orderMeta) && filled($orderMeta['stock_released_at'] ?? null)) {
+                return true;
+            }
+        }
+
         if (! in_array($shipment->status, ['pending', 'ready'], true)) {
             return true;
         }
@@ -222,11 +273,17 @@ final class OrderShipmentOpsPresenter
 
     public function canPrintLabel(OrderShipment $shipment): bool
     {
-        if ($this->deliveryOrderNo($shipment) === null) {
+        if (strtolower((string) $shipment->status) === NormalizeShipmentStatus::CANCELLED) {
             return false;
         }
 
-        return $this->filled($shipment->awb) || $this->filled($shipment->tracking_number);
+        if ($this->filled($shipment->awb) || $this->filled($shipment->tracking_number)) {
+            $printer = resolve(ShippingCapabilities::class)->forShipmentSupporting($shipment, PrintsLabels::class);
+
+            return $printer === null || $this->deliveryOrderNo($shipment) !== null;
+        }
+
+        return false;
     }
 
     public function statusLabel(?string $status): string
@@ -236,6 +293,8 @@ final class OrderShipmentOpsPresenter
             'labeled' => 'Resi terbit',
             'picked_up' => 'Sudah di-pickup',
             'in_transit' => 'Dalam pengiriman',
+            'delivery_failed' => 'Gagal kirim',
+            'returned' => 'Retur (RTS)',
             'delivered' => 'Terkirim',
             'cancelled' => 'Dibatalkan',
             default => $status ? str_replace('_', ' ', ucfirst($status)) : 'Tidak diketahui',

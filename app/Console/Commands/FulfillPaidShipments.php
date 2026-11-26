@@ -54,7 +54,13 @@ final class FulfillPaidShipments extends Command
         // fill every batch.
         $shipments = ShipmentFulfillment::scopeEligible($capabilities->whereFulfillable(OrderShipment::query()))
             ->whereHas('order', static function ($query): void {
-                $query->where('payment_status', PaymentStatus::Paid);
+                $query->where('payment_status', PaymentStatus::Paid)
+                    ->orWhere(static function ($cod): void {
+                        $cod->where('payment_status', PaymentStatus::Pending)
+                            ->whereHas('paymentMethod', static function ($method): void {
+                                $method->where('driver', 'manual')->where('slug', 'cod');
+                            });
+                    });
             })
             ->when($maxAgeDays > 0, static function ($query) use ($maxAgeDays): void {
                 // Shipments are created when the order is placed (and an

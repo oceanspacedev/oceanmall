@@ -40,7 +40,9 @@ defineProps<{
 
         <Link
             :href="logout.url()"
-            class="py-2 text-center text-[13px] font-bold text-[var(--om-navy)]"
+            method="post"
+            as="button"
+            class="cursor-pointer py-2 text-center text-[13px] font-bold text-[var(--om-navy)]"
         >
             Keluar
         </Link>

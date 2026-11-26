@@ -8,6 +8,8 @@ use App\CheckoutSession;
 use App\DTO\CountryByZoneData;
 use Illuminate\Support\Facades\Cache;
 use Shopper\Cart\CartSessionManager;
+use Shopper\Cart\Models\Cart;
+use Shopper\Cart\Models\CartLineAdjustment;
 use Shopper\Core\Models\Country;
 
 final class ZoneSessionManager
@@ -68,11 +70,8 @@ final class ZoneSessionManager
 
         $cart = resolve(CartSessionManager::class)->current();
 
-        if ($cart && $cart->zone_id !== $zone->zoneId) {
-            $cart->update([
-                'zone_id' => $zone->zoneId,
-                'currency_code' => $zone->currencyCode,
-            ]);
+        if ($cart && ($cart->zone_id !== $zone->zoneId || strtoupper((string) $cart->currency_code) !== strtoupper($zone->currencyCode))) {
+            self::syncCartToZone($cart, $zone);
         }
 
         return $zone;
@@ -120,15 +119,48 @@ final class ZoneSessionManager
         $cart = resolve(CartSessionManager::class)->current();
 
         if ($cart) {
-            $cart->update([
-                'zone_id' => $zone->zoneId,
-                'currency_code' => $zone->currencyCode,
-            ]);
+            self::syncCartToZone($cart, $zone);
         }
 
         Cache::forget("home_featured_products_{$oldCurrency}");
         Cache::forget("home_featured_products_{$zone->currencyCode}");
 
         return $zone;
+    }
+
+    private static function syncCartToZone(Cart $cart, CountryByZoneData $zone): void
+    {
+        $currencyChanged = strtoupper((string) $cart->currency_code) !== strtoupper($zone->currencyCode);
+
+        $cart->update([
+            'zone_id' => $zone->zoneId,
+            'currency_code' => $zone->currencyCode,
+            'coupon_code' => null,
+        ]);
+
+        CartLineAdjustment::query()
+            ->whereIn('cart_line_id', $cart->lines()->select('id'))
+            ->delete();
+
+        if (! $currencyChanged) {
+            return;
+        }
+
+        foreach ($cart->lines()->with('purchasable')->get() as $line) {
+            $purchasable = $line->purchasable;
+            $price = is_object($purchasable) && method_exists($purchasable, 'getPrice')
+                ? $purchasable->getPrice($zone->currencyCode)
+                : null;
+
+            if (! $price || (int) $price->amount <= 0) {
+                $line->delete();
+
+                continue;
+            }
+
+            if ((int) $line->unit_price_amount !== (int) $price->amount) {
+                $line->update(['unit_price_amount' => (int) $price->amount]);
+            }
+        }
     }
 }

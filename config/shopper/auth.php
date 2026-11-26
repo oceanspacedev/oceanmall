@@ -27,6 +27,7 @@ return [
     */
 
     '2fa_enabled' => env('SHOPPER_ENABLED_TWO_FACTOR', false),
+    'require_two_factor' => env('SHOPPER_REQUIRE_TWO_FACTOR', env('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------

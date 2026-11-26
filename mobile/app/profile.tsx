@@ -5,12 +5,16 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/lib/auth';
+import { errorMessage, resendVerificationEmail } from '@/lib/api';
+import { WEB_URL } from '@/lib/config';
 import { ripple } from '@/lib/ripple';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'expo-router';
-import { ChevronRight, KeyRound, ShieldCheck, Trash2, UserRound } from 'lucide-react-native';
+import { ChevronRight, KeyRound, MailWarning, ShieldCheck, Trash2, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Button } from '@/components/ui/button';
 import { useBottomPad } from '@/components/safe-area-view';
 
 /** Pressed feedback for a full-width row: a ripple on Android, a gray wash on iOS (not both). */
@@ -22,6 +26,20 @@ export default function ProfileScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  async function resendVerify() {
+    if (resending) return;
+    setResending(true);
+    try {
+      const res = await resendVerificationEmail();
+      toast.show({ tone: 'success', message: res.message || 'Email verifikasi dikirim ulang.' });
+    } catch (e) {
+      toast.show({ tone: 'error', message: errorMessage(e, 'Gagal mengirim ulang email verifikasi') });
+    } finally {
+      setResending(false);
+    }
+  }
 
   if (!user) {
     return (
@@ -100,7 +118,51 @@ export default function ProfileScreen() {
             </View>
             <Icon as={ChevronRight} size={16} className="text-muted-foreground" />
           </Pressable>
+          <View className="ml-16 h-px bg-border" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Autentikasi dua faktor di web"
+            onPress={() => void Linking.openURL(`${WEB_URL}/settings/security`)}
+            android_ripple={ripple.row}
+            className={cn('min-h-11 flex-row items-center gap-3 px-4 py-4', ROW_PRESSED)}>
+            <View className="size-9 items-center justify-center rounded-full bg-om-navy-soft">
+              <Icon as={ShieldCheck} size={17} className="text-om-navy" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[14px] font-medium">Verifikasi dua langkah (2FA)</Text>
+              <Text className="text-[12px] text-muted-foreground">
+                Atur aplikasi autentikator melalui browser
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={16} className="text-muted-foreground" />
+          </Pressable>
         </View>
+
+        {!user.email_verified_at ? (
+          <View className="mx-4 mt-4 rounded-sm border border-om-warning/30 bg-om-warning-soft p-3">
+            <View className="flex-row items-start gap-2">
+              <Icon as={MailWarning} size={16} className="mt-0.5 text-om-warning" />
+              <View className="flex-1">
+                <Text className="text-[13px] font-bold text-foreground">
+                  Email belum terverifikasi
+                </Text>
+                <Text className="mt-0.5 text-[12px] leading-4 text-muted-foreground">
+                  Verifikasi email diperlukan sebelum checkout, ulasan, atau pembatalan pesanan.
+                </Text>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  loading={resending}
+                  onPress={() => void resendVerify()}
+                  className="mt-2.5 self-start rounded-sm border-om-navy">
+                  <Text className="text-[12px] font-semibold text-om-navy">
+                    Kirim ulang email verifikasi
+                  </Text>
+                </Button>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         <View className="mx-4 mt-5 flex-row gap-2 rounded-sm bg-om-navy-soft p-3">
           <Icon as={ShieldCheck} size={16} className="mt-0.5 text-om-navy" />

@@ -30,7 +30,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
-import { formatIdr, mediaUrl } from '@/lib/format';
+import { formatMoney, mediaUrl, parseApiDate } from '@/lib/format';
 import { isNetworkFailure, OFFLINE_COPY, TimeoutError } from '@/lib/network';
 import { ripple } from '@/lib/ripple';
 import { COLORS } from '@/lib/theme';
@@ -64,7 +64,7 @@ import {
 } from 'react-native';
 
 /** What the checkout is waiting for. One value instead of a shared boolean, so each control shows its own progress. */
-type Busy = 'address' | 'saved' | 'rate' | 'order' | null;
+type Busy = 'address' | 'saved' | 'rate' | 'coupon' | 'order' | null;
 
 type AddressField =
   | 'first_name'
@@ -144,6 +144,8 @@ export default function CheckoutScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [street, setStreet] = useState('');
+  const [streetPlus, setStreetPlus] = useState('');
+  const [pinPoint, setPinPoint] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [province, setProvince] = useState('');
@@ -156,6 +158,7 @@ export default function CheckoutScreen() {
   const [destTouched, setDestTouched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [selectedRate, setSelectedRate] = useState<string | null>(null);
+  const [selectedRatesByShipment, setSelectedRatesByShipment] = useState<Record<string, string>>({});
   const [selectedPayment, setSelectedPayment] = useState<number | null>(null);
   const [editingAddress, setEditingAddress] = useState(false);
   const [newAddressOpen, setNewAddressOpen] = useState(false);
@@ -179,6 +182,8 @@ export default function CheckoutScreen() {
         setFirstName(address.first_name ?? '');
         setLastName(address.last_name ?? '');
         setStreet(address.street_address ?? '');
+        setStreetPlus(address.street_address_plus ?? '');
+        setPinPoint(address.pin_point ?? '');
         setPhone(address.phone_number ?? '');
         setCity(address.city ?? '');
         setProvince(address.state ?? '');
@@ -196,6 +201,15 @@ export default function CheckoutScreen() {
           ? String(data.shipping_option.service_code)
           : null
       );
+      const nextByShipment: Record<string, string> = {};
+      if (data.shipping_options_by_shipment) {
+        for (const [k, v] of Object.entries(data.shipping_options_by_shipment)) {
+          if (v != null && v !== '') {
+            nextByShipment[k] = String(v);
+          }
+        }
+      }
+      setSelectedRatesByShipment(nextByShipment);
     },
     [applyCart, user]
   );
@@ -426,9 +440,11 @@ export default function CheckoutScreen() {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           street_address: street.trim(),
+          ...(streetPlus.trim() ? { street_address_plus: streetPlus.trim() } : {}),
           ...region,
           phone_number: phone.trim(),
           ...(picked ? { destination_id: picked.id, destination_label: picked.label } : {}),
+          ...(pinPoint.trim() ? { pin_point: pinPoint.trim() } : {}),
         }),
       });
       applyCheckout(res.data);
@@ -531,13 +547,67 @@ export default function CheckoutScreen() {
     }
   }
 
+  async function chooseRateForShipment(inventoryId: number, rate: ShippingRate) {
+    if (busy !== null || !checkout?.allocation) {
+      return;
+    }
+    const code = String(rate.service_code);
+    const nextRates: Record<string, string> = {
+      ...selectedRatesByShipment,
+      [String(inventoryId)]: code,
+    };
+    setSelectedRatesByShipment(nextRates);
+    const allPicked = checkout.allocation.every((s) => Boolean(nextRates[String(s.inventory_id)]));
+    if (!allPicked) {
+      return;
+    }
+    setBusy('rate');
+    setBusyRate(`${inventoryId}:${code}`);
+    setOrderError(null);
+    try {
+      const res = await api<{ data: CheckoutPayload }>('/checkout/shipping-option', {
+        method: 'POST',
+        body: JSON.stringify({ rates: nextRates }),
+        timeoutMs: PROVIDER_TIMEOUT_MS,
+      });
+      applyCheckout(res.data);
+      setSelectedRate(
+        res.data.shipping_option?.service_code != null
+          ? String(res.data.shipping_option.service_code)
+          : 'split-shipment'
+      );
+    } catch (e) {
+      setOrderError(errorMessage(e, 'Gagal memilih kurir'));
+    } finally {
+      setBusy(null);
+      setBusyRate(null);
+    }
+  }
+
+  async function removeCoupon() {
+    if (busy !== null) {
+      return;
+    }
+    setBusy('coupon');
+    setOrderError(null);
+    try {
+      await api<{ data: Cart }>('/cart/coupon', { method: 'DELETE' });
+      await load();
+      toast.show({ message: 'Kupon dihapus', tone: 'success', bottomOffset: TOAST_OFFSET });
+    } catch (e) {
+      setOrderError(errorMessage(e, 'Gagal menghapus kupon'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   /**
    * After a place-order that timed out or lost its connection: did the server create the order
    * anyway? The server completes the cart the moment the order exists, so an empty cart plus a
    * new unpaid order is the answer. 'none' = the cart is intact (nothing was created, retry is
    * safe); 'unknown' = the check itself failed, so a blind retry might create a second order.
    */
-  async function findPlacedOrder(): Promise<
+  async function findPlacedOrder(submittedAtMs: number): Promise<
     { state: 'placed'; number: string } | { state: 'none' } | { state: 'unknown' }
   > {
     try {
@@ -546,7 +616,10 @@ export default function CheckoutScreen() {
         return { state: 'none' };
       }
       const orders = await api<{ data: OrderSummary[] }>('/orders?status=unpaid');
-      const latest = orders.data?.[0];
+      const latest = (orders.data ?? []).find((row) => {
+        const ts = parseApiDate(row.created_at)?.getTime();
+        return ts !== undefined && ts >= submittedAtMs - 60_000;
+      });
 
       return latest ? { state: 'placed', number: latest.number } : { state: 'unknown' };
     } catch {
@@ -565,6 +638,7 @@ export default function CheckoutScreen() {
     setBusy('order');
     placingRef.current = true;
     setOrderError(null);
+    const submittedAtMs = Date.now();
     try {
       const res = await api<{ data: { number: string; payment_error?: string | null } }>(
         '/checkout/place-order',
@@ -587,7 +661,7 @@ export default function CheckoutScreen() {
     } catch (e) {
       if (e instanceof TimeoutError || isNetworkFailure(e)) {
         // The order may exist even though the answer never arrived: look before offering a retry.
-        const found = await findPlacedOrder();
+        const found = await findPlacedOrder(submittedAtMs);
         if (found.state === 'placed') {
           applyCart(null);
           placingRef.current = false;
@@ -674,12 +748,21 @@ export default function CheckoutScreen() {
   const goodsTotal = checkout.cart.totals.total;
   const payable = goodsTotal + shippingAmount;
   const discount = checkout.cart.totals.discount ?? 0;
+  const tax = checkout.cart.totals.tax ?? 0;
+  const taxInclusive = checkout.cart.totals.tax_inclusive ?? true;
+  const currency = checkout.cart.currency || 'IDR';
+  const allocation = checkout.allocation ?? [];
+  const isSplitShipment = allocation.length > 1;
+  const allSplitRatesSelected =
+    !isSplitShipment ||
+    allocation.every((s) => Boolean(selectedRatesByShipment[String(s.inventory_id)]));
   const itemCount = checkout.cart.lines.reduce((sum, line) => sum + line.quantity, 0);
   const chosenMethod = checkout.payment_methods?.find((method) => method.id === selectedPayment);
   const canPlace = Boolean(
     selectedRate &&
+    allSplitRatesSelected &&
     chosenMethod &&
-    paymentLimitNote(chosenMethod, payable) === null &&
+    paymentLimitNote(chosenMethod, payable, currency) === null &&
     busy === null
   );
   const address = checkout.shipping_address;
@@ -850,6 +933,20 @@ export default function CheckoutScreen() {
                       (searchEnabled ? destinationRef : cityRef).current?.focus()
                     }
                   />
+                  <Field
+                    label="Detail alamat (opsional)"
+                    value={streetPlus}
+                    onChangeText={setStreetPlus}
+                    placeholder="Blok, nomor unit, lantai"
+                  />
+                  {capabilities.requires_coordinates ? (
+                    <Field
+                      label="Koordinat lokasi (opsional)"
+                      value={pinPoint}
+                      onChangeText={setPinPoint}
+                      placeholder="-6.200000,106.816666"
+                    />
+                  ) : null}
                   {searchEnabled ? (
                     <FieldFrame
                       label="Kecamatan atau kode pos"
@@ -1043,7 +1140,7 @@ export default function CheckoutScreen() {
                   <Text className="text-[12px] text-muted-foreground">{line.variant}</Text>
                 ) : null}
                 <Text className="mt-0.5 text-[13px] font-bold">
-                  {line.quantity} × {formatIdr(line.unit_price)}
+                  {line.quantity} × {formatMoney(line.unit_price, currency)}
                 </Text>
               </View>
             </View>
@@ -1055,6 +1152,52 @@ export default function CheckoutScreen() {
           <Section title="Pilih pengiriman" icon={Truck}>
             {ratesLoading ? (
               <CourierSkeleton />
+            ) : isSplitShipment ? (
+              <View className="gap-4">
+                <Text className="text-[12px] text-muted-foreground">
+                  Pesanan dikirim dari {allocation.length} gudang. Pilih kurir untuk tiap paket:
+                </Text>
+                {allocation.map((shipment, idx) => {
+                  const invKey = String(shipment.inventory_id);
+                  const pkgRates = checkout.shipping_rates_by_shipment?.[invKey] ?? [];
+                  const pickedCode = selectedRatesByShipment[invKey] ?? null;
+                  return (
+                    <View key={shipment.inventory_id} className="gap-1.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
+                      <Text className="text-[13px] font-bold text-foreground">
+                        Paket {idx + 1} · {shipment.inventory_name}
+                      </Text>
+                      {pkgRates.length === 0 ? (
+                        <Text className="text-[12px] text-muted-foreground">
+                          Kurir belum tersedia untuk paket ini.
+                        </Text>
+                      ) : (
+                        pkgRates.map((rate) => {
+                          const code = String(rate.service_code);
+                          return (
+                            <OptionCard
+                              key={`${invKey}:${code}`}
+                              selected={pickedCode === code}
+                              disabled={busy !== null}
+                              loading={busy === 'rate' && busyRate === `${shipment.inventory_id}:${code}`}
+                              onPress={() => void chooseRateForShipment(shipment.inventory_id, rate)}
+                              icon={<LogoImage uri={rate.carrier_logo} fallback={Truck} />}
+                              title={rate.carrier_name ?? rate.carrier_code ?? rate.service_name}
+                              subtitle={[rate.service_name, etaLabel(rate.estimated_days)]
+                                .filter(Boolean)
+                                .join(' · ')}
+                              trailing={
+                                <Text className="text-[14px] font-bold">
+                                  {formatMoney(rate.amount, currency)}
+                                </Text>
+                              }
+                            />
+                          );
+                        })
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
             ) : (checkout.shipping_rates ?? []).length === 0 ? (
               <Text className="text-[13px] text-muted-foreground">
                 {address
@@ -1081,7 +1224,7 @@ export default function CheckoutScreen() {
                       .filter(Boolean)
                       .join(' · ')}
                     trailing={
-                      <Text className="text-[14px] font-bold">{formatIdr(rate.amount)}</Text>
+                      <Text className="text-[14px] font-bold">{formatMoney(rate.amount, currency)}</Text>
                     }
                   />
                 );
@@ -1098,7 +1241,7 @@ export default function CheckoutScreen() {
             </Text>
           ) : null}
           {(checkout.payment_methods ?? []).map((method: PaymentMethodOption) => {
-            const limit = paymentLimitNote(method, payable);
+            const limit = paymentLimitNote(method, payable, currency);
             const isQris = /qris/i.test(method.title) || method.payment_type === 'qris';
             return (
               <OptionCard
@@ -1128,15 +1271,39 @@ export default function CheckoutScreen() {
 
         {/* Breakdown */}
         <Section title="Rincian pembayaran" icon={Receipt}>
+          {checkout.cart.coupon_code ? (
+            <View className="mb-1 flex-row items-center justify-between rounded-sm border border-border bg-secondary/40 px-2.5 py-1.5">
+              <Text className="flex-1 text-[12px] font-medium text-foreground" numberOfLines={1}>
+                Kupon: {checkout.cart.coupon_code}
+                {discount <= 0 ? ' (belum memenuhi syarat)' : ''}
+              </Text>
+              <Pressable
+                onPress={() => void removeCoupon()}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Hapus kupon"
+                className="ml-2 px-1.5 py-0.5">
+                <Text className="text-[12px] font-bold text-destructive">
+                  {busy === 'coupon' ? 'Menghapus…' : 'Hapus'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
           <SummaryRow
             label={`Total harga (${itemCount} barang)`}
-            value={formatIdr(checkout.cart.totals.subtotal)}
+            value={formatMoney(checkout.cart.totals.subtotal, currency)}
           />
           {discount > 0 ? (
             <SummaryRow
               label="Diskon promo"
-              value={`−${formatIdr(discount)}`}
+              value={`−${formatMoney(discount, currency)}`}
               valueClassName="text-om-success"
+            />
+          ) : null}
+          {!taxInclusive && tax > 0 ? (
+            <SummaryRow
+              label="Pajak"
+              value={formatMoney(tax, currency)}
             />
           ) : null}
           {priceLoading ? (
@@ -1144,7 +1311,7 @@ export default function CheckoutScreen() {
           ) : (
             <SummaryRow
               label="Ongkos kirim"
-              value={checkout.shipping_option ? formatIdr(shippingAmount) : 'Pilih kurir'}
+              value={checkout.shipping_option ? formatMoney(shippingAmount, currency) : 'Pilih kurir'}
               valueClassName={checkout.shipping_option ? undefined : 'text-muted-foreground'}
             />
           )}
@@ -1152,7 +1319,7 @@ export default function CheckoutScreen() {
           {priceLoading ? (
             <SummaryRowSkeleton label="Total tagihan" strong />
           ) : (
-            <SummaryRow label="Total tagihan" value={formatIdr(payable)} strong />
+            <SummaryRow label="Total tagihan" value={formatMoney(payable, currency)} strong />
           )}
         </Section>
       </ScrollView>
@@ -1166,7 +1333,7 @@ export default function CheckoutScreen() {
               <Skeleton className="mt-0.5 h-[22px] w-28" />
             ) : (
               <Text className="text-[18px] font-extrabold text-om-navy" numberOfLines={1}>
-                {formatIdr(payable)}
+                {formatMoney(payable, currency)}
               </Text>
             )}
           </View>
@@ -1260,12 +1427,16 @@ function etaLabel(value?: string | number | null): string | null {
   return /hari|day|jam/i.test(text) ? `Estimasi ${text}` : `Estimasi ${text} hari`;
 }
 
-function paymentLimitNote(method: PaymentMethodOption, amount: number): string | null {
+function paymentLimitNote(
+  method: PaymentMethodOption,
+  amount: number,
+  currency = 'IDR'
+): string | null {
   if (method.min_amount && amount < method.min_amount) {
-    return `Minimal ${formatIdr(method.min_amount)} untuk metode ini.`;
+    return `Minimal ${formatMoney(method.min_amount, currency)} untuk metode ini.`;
   }
   if (method.max_amount && amount > method.max_amount) {
-    return `Maksimal ${formatIdr(method.max_amount)} untuk metode ini.`;
+    return `Maksimal ${formatMoney(method.max_amount, currency)} untuk metode ini.`;
   }
   return null;
 }

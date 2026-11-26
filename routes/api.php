@@ -45,25 +45,41 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('auth/me', [AuthController::class, 'me']);
+        Route::post('auth/email/verification-notification', [AuthController::class, 'resendVerificationEmail'])
+            ->middleware('throttle:mobile-verify-resend');
         Route::delete('auth/me', [AuthController::class, 'destroy'])->middleware('throttle:mobile-account-delete');
         Route::patch('auth/profile', [ProfileController::class, 'update']);
         Route::put('auth/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:mobile-password-change');
 
         Route::get('checkout', [CheckoutController::class, 'show']);
         Route::get('checkout/destinations', DestinationController::class)->middleware('throttle:checkout-destinations');
-        Route::post('checkout/shipping-address', [CheckoutController::class, 'saveShippingAddress'])->middleware('throttle:checkout-quote');
-        Route::post('checkout/shipping-address/saved', [CheckoutController::class, 'applySavedAddress'])->middleware('throttle:checkout-quote');
-        Route::post('checkout/shipping-option', [CheckoutController::class, 'saveShippingOption'])->middleware('throttle:checkout-quote');
-        Route::post('checkout/place-order', [CheckoutController::class, 'placeOrder'])->middleware('throttle:mobile-place-order');
 
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{number}', [OrderController::class, 'show']);
-        Route::post('orders/{number}/retry-payment', [OrderController::class, 'retryPayment'])->middleware('throttle:checkout-payment');
-        Route::post('orders/{number}/sync-payment', [OrderController::class, 'syncPayment'])->middleware('throttle:mobile-sync-payment');
-        Route::post('orders/{number}/shipments/{shipment}/track', [OrderController::class, 'track'])
-            ->whereNumber('shipment')
-            ->middleware('throttle:shipment-track');
-        Route::post('orders/{number}/confirm-received', [OrderController::class, 'confirmReceived']);
+        Route::get('orders/{number}/payment-proofs/{proof}', [OrderController::class, 'showProof'])->whereNumber('proof');
+
+        Route::middleware('verified')->group(function (): void {
+            Route::post('checkout/shipping-address', [CheckoutController::class, 'saveShippingAddress'])->middleware('throttle:checkout-quote');
+            Route::post('checkout/shipping-address/saved', [CheckoutController::class, 'applySavedAddress'])->middleware('throttle:checkout-quote');
+            Route::post('checkout/shipping-option', [CheckoutController::class, 'saveShippingOption'])->middleware('throttle:checkout-quote');
+            Route::post('checkout/place-order', [CheckoutController::class, 'placeOrder'])->middleware('throttle:mobile-place-order');
+
+            Route::post('orders/{number}/retry-payment', [OrderController::class, 'retryPayment'])->middleware('throttle:checkout-payment');
+            Route::post('orders/{number}/sync-payment', [OrderController::class, 'syncPayment'])->middleware('throttle:mobile-sync-payment');
+            Route::post('orders/{number}/shipments/{shipment}/track', [OrderController::class, 'track'])
+                ->whereNumber('shipment')
+                ->middleware('throttle:shipment-track');
+            Route::post('orders/{number}/confirm-received', [OrderController::class, 'confirmReceived']);
+            Route::post('orders/{number}/cancel', [OrderController::class, 'cancel']);
+            Route::post('orders/{number}/returns', [OrderController::class, 'storeReturn']);
+            Route::post('orders/{number}/payment-proof', [OrderController::class, 'uploadProof']);
+
+            Route::post('catalog/products/{slug}/reviews', [CatalogController::class, 'storeReview'])
+                ->middleware('throttle:mobile-review');
+            Route::post('catalog/reviews/{review}/report', ReviewReportController::class)
+                ->middleware('throttle:mobile-review-report')
+                ->whereNumber('review');
+        });
 
         Route::get('addresses', [AddressController::class, 'index']);
         Route::post('addresses', [AddressController::class, 'store']);
@@ -76,11 +92,5 @@ Route::prefix('v1')->group(function (): void {
         Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
         Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead'])
             ->whereUuid('notification');
-
-        Route::post('catalog/products/{slug}/reviews', [CatalogController::class, 'storeReview'])
-            ->middleware('throttle:mobile-review');
-        Route::post('catalog/reviews/{review}/report', ReviewReportController::class)
-            ->middleware('throttle:mobile-review-report')
-            ->whereNumber('review');
     });
 });

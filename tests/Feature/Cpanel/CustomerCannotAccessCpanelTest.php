@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Cpanel;
 
+use App\Livewire\Shopper\OrderAllocationOverride;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Shopper\Core\Models\Order;
 use Shopper\Livewire\Pages\Auth\Login;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -155,5 +158,56 @@ final class CustomerCannotAccessCpanelTest extends TestCase
             ->assertRedirect(route('shopper.dashboard'));
 
         $this->assertAuthenticatedAs($admin);
+    }
+
+    public function test_real_browser_session_customer_is_blocked_from_cpanel_login_and_dashboard(): void
+    {
+        $this->configureShopperCpanel();
+        $customer = $this->customer();
+
+        $this->post('/login', [
+            'email' => $customer->email,
+            'password' => 'password',
+        ])->assertRedirect();
+
+        app('auth')->forgetGuards();
+
+        $this->get(route('shopper.login'))
+            ->assertRedirect(route('dashboard'));
+
+        app('auth')->forgetGuards();
+
+        $this->get(route('shopper.dashboard'))
+            ->assertRedirect(route('dashboard'));
+    }
+
+    public function test_read_only_browse_orders_staff_cannot_override_allocation(): void
+    {
+        $this->configureShopperCpanel();
+
+        Permission::query()->firstOrCreate(['name' => 'access_dashboard', 'guard_name' => 'web']);
+        Permission::query()->firstOrCreate(['name' => 'browse_orders', 'guard_name' => 'web']);
+
+        $staff = User::factory()->create();
+        $staff->givePermissionTo(['access_dashboard', 'browse_orders']);
+
+        $order = Order::factory()->create();
+
+        $this->assertTrue(Gate::forUser($staff)->denies('override-allocation', $order));
+
+        $this->actingAs($staff)
+            ->postJson(route('shopper.orders.fulfillment.override-allocation', $order), [
+                'moves' => [[
+                    'qty' => 1,
+                    'from_inventory_id' => 1,
+                    'to_inventory_id' => 2,
+                ]],
+            ])
+            ->assertRedirect(route('shopper.forbidden'));
+
+        Livewire::actingAs($staff)
+            ->test(OrderAllocationOverride::class, ['order' => $order])
+            ->call('applyOverride')
+            ->assertForbidden();
     }
 }

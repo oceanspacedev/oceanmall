@@ -40,7 +40,7 @@ final class EnsureCpanelIsStaffOnly
 
     public static function userIsStaff(mixed $user): bool
     {
-        if (! $user instanceof User) {
+        if (! $user instanceof User || $user->isSuspended()) {
             return false;
         }
 

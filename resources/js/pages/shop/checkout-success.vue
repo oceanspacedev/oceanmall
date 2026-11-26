@@ -63,11 +63,12 @@ const paymentError = computed(
 const needsPayment = computed(
     () => Boolean(props.paymentAction) && props.paymentAction?.kind !== 'none',
 );
-// Instructions / QR are confirmed by the provider: poll its status.
+// Instructions / QR / Redirect are confirmed by the provider: poll its status.
 const canCheckStatus = computed(
     () =>
         props.paymentAction?.kind === 'instructions' ||
-        props.paymentAction?.kind === 'qr',
+        props.paymentAction?.kind === 'qr' ||
+        props.paymentAction?.kind === 'redirect',
 );
 
 const paymentStatus = computed(() => {

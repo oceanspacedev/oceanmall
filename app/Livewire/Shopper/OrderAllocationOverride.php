@@ -6,6 +6,7 @@ namespace App\Livewire\Shopper;
 
 use App\Actions\Shipping\EnsureOrderShipments;
 use App\Actions\Warehouse\OverrideAllocation;
+use App\Models\AllocationOverrideLog;
 use App\Models\User;
 use App\Support\OrderShipmentOpsPresenter;
 use Illuminate\Contracts\View\View;
@@ -35,13 +36,15 @@ final class OrderAllocationOverride extends Component
 
     public ?int $to_inventory_id = null;
 
+    public string $reason = '';
+
     public ?string $overrideError = null;
 
     public ?string $successMessage = null;
 
     public function mount(Order $order): void
     {
-        Gate::authorize('override-allocation', $order);
+        Gate::authorize('print-shipment-label', $order);
 
         $this->order = $order;
         resolve(EnsureOrderShipments::class)->handle($this->order);
@@ -72,6 +75,7 @@ final class OrderAllocationOverride extends Component
             'qty' => ['required', 'integer', 'min:1'],
             'from_inventory_id' => ['required', 'integer'],
             'to_inventory_id' => ['required', 'integer', 'different:from_inventory_id'],
+            'reason' => ['nullable', 'string', 'max:255'],
         ]);
 
         $actor = auth()->user();
@@ -82,12 +86,18 @@ final class OrderAllocationOverride extends Component
         }
 
         try {
-            $overrideAllocation->handle($this->order, [[
-                'shipment_line_id' => $this->shipment_line_id,
-                'qty' => $this->qty,
-                'from_inventory_id' => $this->from_inventory_id,
-                'to_inventory_id' => $this->to_inventory_id,
-            ]], $actor);
+            $overrideAllocation->handle(
+                $this->order,
+                [[
+                    'shipment_line_id' => $this->shipment_line_id,
+                    'qty' => $this->qty,
+                    'from_inventory_id' => $this->from_inventory_id,
+                    'to_inventory_id' => $this->to_inventory_id,
+                ]],
+                $actor,
+                trim($this->reason) !== '' ? trim($this->reason) : null,
+            );
+            $this->reason = '';
             $this->successMessage = 'Stok berhasil dipindahkan ke gudang tujuan.';
         } catch (ValidationException $e) {
             $this->overrideError = collect($e->errors())->flatten()->first() ?? 'Could not move stock.';
@@ -119,8 +129,17 @@ final class OrderAllocationOverride extends Component
             'successMessage' => $this->successMessage,
             'overrideError' => $this->overrideError,
             'inventories' => $inventories,
-            // A second warehouse is needed to move stock anywhere.
-            'canOverride' => $overridable !== [] && count($inventories) > 1,
+            // A second warehouse is needed to move stock anywhere, and only
+            // staff allowed to override allocations should see the form.
+            'canOverride' => $overridable !== []
+                && count($inventories) > 1
+                && Gate::allows('override-allocation', $this->order),
+            'overrideLogs' => AllocationOverrideLog::query()
+                ->with(['actor', 'fromInventory', 'toInventory'])
+                ->where('order_id', $this->order->id)
+                ->latest('id')
+                ->limit(5)
+                ->get(),
             'lineOptions' => collect($overridable)->flatMap(
                 static fn (array $shipment): array => collect($shipment['lines'])->map(
                     static fn (array $line): array => [

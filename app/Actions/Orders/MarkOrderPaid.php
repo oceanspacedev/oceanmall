@@ -88,7 +88,10 @@ final class MarkOrderPaid
                 }
             }
 
-            $updates = ['payment_status' => PaymentStatus::Paid];
+            $updates = [
+                'payment_status' => PaymentStatus::Paid,
+                'paid_at' => $lockedOrder->paid_at ?? now(),
+            ];
 
             if ($lockedOrder->status === OrderStatus::New) {
                 $updates['status'] = OrderStatus::Processing;

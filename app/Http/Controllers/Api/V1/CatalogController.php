@@ -185,7 +185,13 @@ final class CatalogController extends Controller
 
         $payload = $this->presenter->product($product);
         $payload['description'] = $product->description;
-        $payload['variants'] = $product->variants->map(static function ($variant): array {
+        $payload['allow_backorder'] = (bool) $product->allow_backorder;
+
+        if ($product->variants->isNotEmpty()) {
+            ProductVariant::loadCurrentStock($product->variants); // @phpstan-ignore argument.type
+        }
+
+        $payload['variants'] = $product->variants->map(static function ($variant) use ($product): array {
             return [
                 'id' => $variant->id,
                 'sku' => $variant->sku,
@@ -193,6 +199,7 @@ final class CatalogController extends Controller
                 'price' => $variant->prices->first()?->amount,
                 'compare_price' => $variant->prices->first()?->compare_amount,
                 'stock' => self::availableStock($variant),
+                'allow_backorder' => (bool) ($variant->allow_backorder ?? $product->allow_backorder),
                 // The variant's own photo (null = none); the app swaps the gallery to it on pick.
                 // Not `->thumbnail`: that falls back to the cpanel placeholder image.
                 'thumbnail' => $variant->getFirstMedia(
@@ -316,7 +323,7 @@ final class CatalogController extends Controller
             'rating' => (int) $data['rating'],
             'title' => $data['title'] ?? null,
             'content' => $data['content'] ?? null,
-            'is_recommended' => (bool) ($data['is_recommended'] ?? true),
+            'is_recommended' => (bool) ($data['is_recommended'] ?? ((int) $data['rating'] >= 3)),
         ], $user);
 
         return response()->json([

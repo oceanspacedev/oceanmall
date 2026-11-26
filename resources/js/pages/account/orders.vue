@@ -23,6 +23,11 @@ type OrderItem = {
         slug?: string;
         thumbnail?: string | null;
         images?: Array<{ url: string }>;
+        product?: {
+            slug?: string;
+            thumbnail?: string | null;
+            images?: Array<{ url: string }>;
+        } | null;
     } | null;
 };
 
@@ -63,7 +68,10 @@ const props = defineProps<{
 
 const tabs = [
     { value: 'all', label: 'Semua' },
-    { value: 'not-shipped', label: 'Belum dikirim' },
+    { value: 'unpaid', label: 'Belum bayar' },
+    { value: 'processing', label: 'Diproses' },
+    { value: 'shipped', label: 'Dikirim' },
+    { value: 'completed', label: 'Selesai' },
     { value: 'cancelled', label: 'Dibatalkan' },
 ];
 
@@ -86,7 +94,13 @@ function formatDate(value: string): string {
 }
 
 function itemThumbnail(item: OrderItem): string | null {
-    return item.product?.thumbnail ?? item.product?.images?.[0]?.url ?? null;
+    return (
+        item.product?.thumbnail ??
+        item.product?.images?.[0]?.url ??
+        item.product?.product?.thumbnail ??
+        item.product?.product?.images?.[0]?.url ??
+        null
+    );
 }
 
 function shippingLabel(order: Order): string {

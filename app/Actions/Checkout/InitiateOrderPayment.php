@@ -6,6 +6,7 @@ namespace App\Actions\Checkout;
 
 use App\Payment\Contracts\ProvidesPaymentAction;
 use App\Payment\PaymentActions;
+use App\Payment\PaymentReturnUrl;
 use RuntimeException;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\PaymentMethod;
@@ -27,11 +28,12 @@ final readonly class InitiateOrderPayment
 
     /**
      * @param  array<string, mixed>  $selection  The checkout payment selection (FetchPaymentMethods row)
+     * @param  array<string, mixed>  $extraContext
      * @return array{result: PaymentResult, action: array{driver: string, kind: string, data: array<string, mixed>}|null}
      *
      * @throws \Throwable when the driver cannot create the payment
      */
-    public function handle(Order $order, array $selection = []): array
+    public function handle(Order $order, array $selection = [], array $extraContext = []): array
     {
         $order->loadMissing('paymentMethod');
         $method = $order->paymentMethod;
@@ -40,16 +42,25 @@ final readonly class InitiateOrderPayment
             throw new RuntimeException("Order {$order->number} has no payment method.");
         }
 
-        $result = $this->payments->initiate($order, $this->context($order, $method, $selection));
+        PaymentReturnUrl::remember(
+            $order,
+            is_string($extraContext['return_url'] ?? null) ? $extraContext['return_url'] : null,
+        );
 
-        if (! $result->success) {
-            return ['result' => $result, 'action' => null];
-        }
+        try {
+            $result = $this->payments->initiate($order, $this->context($order, $method, $selection, $extraContext));
 
-        $driver = $this->actions->driver($order);
+            if (! $result->success) {
+                return ['result' => $result, 'action' => null];
+            }
 
-        if ($driver instanceof ProvidesPaymentAction) {
-            $driver->afterPaymentInitiated($order, $result);
+            $driver = $this->actions->driver($order);
+
+            if ($driver instanceof ProvidesPaymentAction) {
+                $driver->afterPaymentInitiated($order, $result);
+            }
+        } finally {
+            PaymentReturnUrl::forget($order);
         }
 
         $action = $this->actions->fromResult($order->refresh(), $result);
@@ -67,9 +78,10 @@ final readonly class InitiateOrderPayment
 
     /**
      * @param  array<string, mixed>  $selection
+     * @param  array<string, mixed>  $extraContext
      * @return array<string, mixed>
      */
-    private function context(Order $order, PaymentMethod $method, array $selection): array
+    private function context(Order $order, PaymentMethod $method, array $selection, array $extraContext = []): array
     {
         $methodMeta = $method->metadata;
 
@@ -86,6 +98,7 @@ final readonly class InitiateOrderPayment
             'payment_method_id' => $method->id,
             'payment_type' => $selection['payment_type'] ?? $methodMeta['payment_type'] ?? null,
             'channel_code' => $selection['channel_code'] ?? $methodMeta['channel_code'] ?? null,
+            'return_url' => $extraContext['return_url'] ?? null,
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
     }
 }

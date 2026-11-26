@@ -13,11 +13,12 @@ use Shopper\Core\Models\Order;
 final class ReleaseOrderShipmentStock
 {
     /**
-     * Gives the order's reserved shipment lines back to their warehouses once:
-     * metadata.stock_released_at marks the release, so a second call (a
-     * retried cancel, an expiry after a staff cancel) changes nothing.
+     * Gives reserved shipment lines back to their warehouses once (either for the
+     * whole order or for a subset of unshipped shipments in split-warehouse orders).
+     *
+     * @param  iterable<int, OrderShipment>|null  $onlyShipments
      */
-    public function handle(Order $order): void
+    public function handle(Order $order, ?iterable $onlyShipments = null): void
     {
         $metadata = $this->metadata($order);
 
@@ -29,20 +30,37 @@ final class ReleaseOrderShipmentStock
             return;
         }
 
-        $shipments = OrderShipment::query()
+        $releasedIds = array_map('intval', (array) ($metadata['released_shipment_ids'] ?? []));
+
+        $allShipments = OrderShipment::query()
             ->where('order_id', $order->id)
             ->with('lines')
             ->get();
 
-        foreach ($shipments as $shipment) {
+        $targets = $onlyShipments === null
+            ? $allShipments
+            : $allShipments->whereIn('id', collect($onlyShipments)->pluck('id')->all());
+
+        foreach ($targets as $shipment) {
+            if (in_array((int) $shipment->id, $releasedIds, true)) {
+                continue;
+            }
+
             foreach ($shipment->lines as $line) {
                 $this->releaseLine($shipment, $line, $order);
             }
+
+            $releasedIds[] = (int) $shipment->id;
         }
 
         // Merge into the existing metadata (address snapshot, payment refs):
         // Shopper's Order does not cast it, so it is stored as JSON text.
-        $metadata['stock_released_at'] = now()->toIso8601String();
+        $metadata['released_shipment_ids'] = array_values(array_unique($releasedIds));
+
+        if ($onlyShipments === null || count($releasedIds) >= $allShipments->count()) {
+            $metadata['stock_released_at'] = now()->toIso8601String();
+        }
+
         $order->forceFill(['metadata' => json_encode($metadata, JSON_THROW_ON_ERROR)])->save();
     }
 

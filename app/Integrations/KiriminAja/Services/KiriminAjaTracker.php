@@ -91,12 +91,12 @@ final readonly class KiriminAjaTracker
 
         $current = is_string($shipment->status) ? $shipment->status : null;
 
-        if ($current !== NormalizeShipmentStatus::CANCELLED) {
+        if (! in_array($result['status'], [KiriminAjaStatus::RETURNED, KiriminAjaStatus::PROBLEM], true)) {
             $status = in_array($result['status'], NormalizeShipmentStatus::STABLE, true)
                 ? $result['status']
                 : $this->normalizeStatus->handle($result['status'], $current);
 
-            if ($status !== null && $status !== $current) {
+            if ($status !== null && NormalizeShipmentStatus::shouldTransition($current, $status) && $status !== $current) {
                 $shipment->forceFill(['status' => $status])->save();
             }
         }

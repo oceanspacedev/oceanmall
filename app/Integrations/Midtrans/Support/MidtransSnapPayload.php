@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Integrations\Midtrans\Support;
 
+use App\Payment\PaymentReturnUrl;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Route;
 use Shopper\Core\Models\Order;
@@ -32,7 +33,7 @@ final class MidtransSnapPayload
     /**
      * @return array<string, mixed>
      */
-    public static function build(Order $order, string $midtransOrderId, int $amount, ?string $channel, CarbonInterface $startsAt, int $expiryMinutes): array
+    public static function build(Order $order, string $midtransOrderId, int $amount, ?string $channel, CarbonInterface $startsAt, int $expiryMinutes, ?string $returnUrl = null): array
     {
         $payload = [
             'transaction_details' => [
@@ -53,7 +54,7 @@ final class MidtransSnapPayload
                 'duration' => $expiryMinutes,
             ],
             'callbacks' => [
-                'finish' => self::finishUrl($order),
+                'finish' => self::finishUrl($order, $returnUrl),
             ],
         ];
 
@@ -82,8 +83,18 @@ final class MidtransSnapPayload
         return $payload;
     }
 
-    public static function finishUrl(Order $order): string
+    public static function finishUrl(Order $order, ?string $returnUrl = null): string
     {
+        $override = is_string($returnUrl) ? trim($returnUrl) : '';
+        if ($override !== '') {
+            return $override;
+        }
+
+        $stored = PaymentReturnUrl::get($order);
+        if ($stored !== null && $stored !== '') {
+            return $stored;
+        }
+
         $configured = trim((string) config('midtrans.finish_url', ''));
 
         if ($configured !== '') {

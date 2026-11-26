@@ -66,6 +66,7 @@ final class CustomerCatalogPresenter
                 'subtotal' => 0,
                 'discount' => 0,
                 'tax' => 0,
+                'tax_inclusive' => true,
                 'total' => 0,
             ],
         ];
@@ -101,11 +102,13 @@ final class CustomerCatalogPresenter
                 'subtotal' => (int) ($context->subtotal ?? 0),
                 'discount' => (int) ($context->discountTotal ?? 0),
                 'tax' => (int) ($context->taxTotal ?? 0),
+                'tax_inclusive' => ((int) ($context->subtotal ?? 0) - (int) ($context->discountTotal ?? 0)) === (int) ($context->total ?? 0),
                 'total' => (int) ($context->total ?? 0),
             ] : [
                 'subtotal' => 0,
                 'discount' => 0,
                 'tax' => 0,
+                'tax_inclusive' => true,
                 'total' => 0,
             ],
         ];

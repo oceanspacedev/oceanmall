@@ -7,9 +7,10 @@ namespace App\Actions\Shipping;
 use App\Models\OrderShipment;
 use App\Shipping\Contracts\PrintsLabels;
 use App\Shipping\Contracts\ReconcilesShipments;
+use App\Shipping\ShipmentFulfillment;
 use App\Shipping\ShippingCapabilities;
+use App\Support\OrderPaymentType;
 use RuntimeException;
-use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
 use Throwable;
 
@@ -31,7 +32,7 @@ final readonly class IssueOrderFulfillment
      */
     public function handle(Order $order): array
     {
-        if ($order->payment_status !== PaymentStatus::Paid) {
+        if (! OrderPaymentType::canFulfill($order)) {
             throw new RuntimeException('Terbitkan resi setelah pembayaran lunas.');
         }
 
@@ -70,7 +71,15 @@ final readonly class IssueOrderFulfillment
             }
 
             try {
-                $driver->fulfillShipment($shipment);
+                $outcome = ShipmentFulfillment::run((int) $shipment->id, static function (OrderShipment $locked) use ($driver): bool {
+                    $driver->fulfillShipment($locked);
+
+                    return true;
+                });
+
+                if ($outcome === ShipmentFulfillment::BUSY) {
+                    $errors[] = 'Booking pengiriman sedang diproses. Muat ulang beberapa saat lagi.';
+                }
             } catch (Throwable $e) {
                 report($e);
                 $errors[] = $e->getMessage();

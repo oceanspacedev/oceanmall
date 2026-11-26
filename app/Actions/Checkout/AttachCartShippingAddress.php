@@ -27,7 +27,7 @@ final class AttachCartShippingAddress
             ? (int) $countryId
             : $cart->addresses()->where('type', AddressType::Shipping)->value('country_id');
 
-        resolve(CartManager::class)->addAddress($cart, AddressType::Shipping, [
+        $payload = [
             'first_name' => (string) ($address['first_name'] ?? ''),
             'last_name' => (string) ($address['last_name'] ?? ''),
             'address_1' => (string) ($address['street_address'] ?? ''),
@@ -37,6 +37,13 @@ final class AttachCartShippingAddress
             'state' => filled($address['state'] ?? null) ? (string) $address['state'] : null,
             'phone' => $address['phone_number'] ?? null,
             'country_id' => $countryId,
-        ]);
+        ];
+
+        $cartManager = resolve(CartManager::class);
+        $cartManager->addAddress($cart, AddressType::Shipping, $payload);
+
+        if (! $cart->addresses()->where('type', AddressType::Billing)->exists()) {
+            $cartManager->addAddress($cart, AddressType::Billing, $payload);
+        }
     }
 }

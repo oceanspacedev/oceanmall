@@ -16,6 +16,7 @@ final readonly class ApplyDeliveryWebhookStatus
 {
     public function __construct(
         private RefreshShipmentTracking $refreshTracking,
+        private ReconcileKomerceShipment $reconcile,
     ) {}
 
     /**
@@ -37,22 +38,34 @@ final readonly class ApplyDeliveryWebhookStatus
             return 'not_found';
         }
 
-        $airwayBill = $cnote ?: $shipment->awb ?: $shipment->tracking_number;
-        if (! is_scalar($airwayBill) || trim((string) $airwayBill) === '') {
-            return 'ignored';
+        // Never trust an unauthenticated webhook's cnote over the DB or
+        // overwrite AWB in memory: reconcile through the authenticated Komerce
+        // detail-order API first to persist the official airway bill.
+        if ($orderNo !== '') {
+            if (blank($shipment->external_reference) && blank(data_get($shipment->metadata, 'komerce.order_no'))) {
+                $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
+                $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
+                $komerce['order_no'] = $orderNo;
+                $metadata['komerce'] = $komerce;
+                $shipment->forceFill(['metadata' => $metadata])->save();
+            }
+
+            $shipment = $this->reconcile->handle($shipment);
         }
 
-        // Set only in memory first. RefreshShipmentTracking persists it only
-        // after the authenticated provider lookup succeeds.
-        $shipment->setAttribute('awb', trim((string) $airwayBill));
-        $shipment->setAttribute('tracking_number', trim((string) $airwayBill));
-        $shipment = $this->refreshTracking->handle($shipment);
+        $persistedAwb = $shipment->awb ?: $shipment->tracking_number ?: data_get($shipment->metadata, 'komerce.awb');
+
+        if (is_scalar($persistedAwb) && trim((string) $persistedAwb) !== '') {
+            $shipment = $this->refreshTracking->handle($shipment);
+        }
 
         $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
         $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
         $komerce['webhook_reported_status'] = $status;
         $komerce['webhook_received_at'] = now()->toIso8601String();
-        $komerce['order_no'] = $orderNo;
+        if ($orderNo !== '') {
+            $komerce['order_no'] = $orderNo;
+        }
         $metadata['komerce'] = $komerce;
 
         $shipment->forceFill(['metadata' => $metadata])->save();

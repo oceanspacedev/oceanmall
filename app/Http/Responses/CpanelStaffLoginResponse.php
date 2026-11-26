@@ -17,7 +17,17 @@ final class CpanelStaffLoginResponse implements LoginResponseContract
      */
     public function toResponse($request): mixed
     {
-        if (! EnsureCpanelIsStaffOnly::userIsStaff(Shopper::auth()->user())) {
+        $user = Shopper::auth()->user();
+
+        if ($user instanceof \App\Models\User && $user->isSuspended()) {
+            Shopper::auth()->logout();
+
+            throw ValidationException::withMessages([
+                'data.email' => __('Your staff account has been suspended.'),
+            ]);
+        }
+
+        if (! EnsureCpanelIsStaffOnly::userIsStaff($user)) {
             Shopper::auth()->logout();
 
             throw ValidationException::withMessages([

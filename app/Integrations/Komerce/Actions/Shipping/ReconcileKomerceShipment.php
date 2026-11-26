@@ -127,29 +127,9 @@ final readonly class ReconcileKomerceShipment
 
     private function shouldWriteStatus(mixed $current, string $incoming): bool
     {
-        $current = is_string($current) ? strtolower(trim($current)) : '';
-
-        if ($incoming === NormalizeShipmentStatus::CANCELLED) {
-            return true;
-        }
-
-        if ($current === NormalizeShipmentStatus::CANCELLED) {
-            return false;
-        }
-
-        return $this->rank($incoming) >= $this->rank($current);
-    }
-
-    private function rank(string $status): int
-    {
-        return match ($status) {
-            NormalizeShipmentStatus::PENDING, 'ready' => 0,
-            NormalizeShipmentStatus::LABELED => 1,
-            NormalizeShipmentStatus::PICKED_UP => 2,
-            NormalizeShipmentStatus::IN_TRANSIT => 3,
-            NormalizeShipmentStatus::DELIVERED => 4,
-            NormalizeShipmentStatus::CANCELLED => 5,
-            default => 0,
-        };
+        return NormalizeShipmentStatus::shouldTransition(
+            is_string($current) ? $current : null,
+            $incoming,
+        );
     }
 }

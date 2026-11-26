@@ -26,7 +26,7 @@ import { WEB_URL } from '@/lib/config';
 import {
   discountPercent,
   formatCount,
-  formatIdr,
+  formatMoney,
   formatRelative,
   mediaUrl,
   stripHtml,
@@ -82,6 +82,7 @@ export default function ProductScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [product, setProduct] = useState<Product | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [variantId, setVariantId] = useState<number | null>(null);
   const [qty, setQty] = useState(1);
   const [imageIndex, setImageIndex] = useState(0);
@@ -165,11 +166,27 @@ export default function ProductScreen() {
           return;
         }
         setProduct(res.data);
-        // The first variant in stock (null = untracked), so a sold-out first size does not make
-        // the whole product look sold out; all sold out keeps the first one.
         const variants = res.data.variants ?? [];
-        const available = variants.find((variant) => variant.stock == null || variant.stock > 0);
-        setVariantId((available ?? variants[0])?.id ?? null);
+        const available = variants.find(
+          (variant) => variant.stock == null || variant.stock > 0 || Boolean(variant.allow_backorder)
+        );
+        const picked = available ?? variants[0] ?? null;
+        setVariantId(picked?.id ?? null);
+        if (picked && res.data.options?.hasStructuredAttributes) {
+          const entry = Object.values(res.data.options.variantMap).find(
+            (v) => v.id === picked.id
+          );
+          if (entry) {
+            const initial: Record<number, number> = {};
+            res.data.options.productOptions.forEach((opt) => {
+              const matched = opt.values.find((val) => entry.values.includes(val.id));
+              if (matched) {
+                initial[opt.id] = matched.id;
+              }
+            });
+            setSelectedOptions(initial);
+          }
+        }
         setImageIndex(0);
         setQty(1);
       })
@@ -217,6 +234,9 @@ export default function ProductScreen() {
     setBusy(next === 'checkout' ? 'buy' : 'cart');
     setError(null);
     try {
+      if (next === 'checkout') {
+        await api('/cart', { method: 'DELETE' });
+      }
       const res = await api<{ data: Cart }>('/cart/items', {
         method: 'POST',
         body: JSON.stringify({
@@ -290,12 +310,42 @@ export default function ProductScreen() {
   const selectedVariant = variants.find((variant) => variant.id === variantId);
   const price = selectedVariant?.price ?? product.price;
   const compare = selectedVariant ? selectedVariant.compare_price : product.compare_price;
-  const off = discountPercent(price, compare);
+  const unpriced = price == null || price <= 0;
+  const off = unpriced ? 0 : discountPercent(price, compare);
   const stock = selectedVariant ? (selectedVariant.stock ?? null) : (product.stock ?? null);
-  const soldOut = stock !== null && stock < 1;
-  const maxQty = Math.max(1, Math.min(MAX_LINE_QUANTITY, stock ?? MAX_LINE_QUANTITY));
-  const atMaxQty = !soldOut && qty >= maxQty;
+  const allowBackorder = Boolean(
+    selectedVariant ? (selectedVariant.allow_backorder ?? product.allow_backorder) : product.allow_backorder
+  );
+  const soldOut = stock !== null && stock < 1 && !allowBackorder;
+  const unavailable = soldOut || unpriced;
+  const maxQty = allowBackorder
+    ? MAX_LINE_QUANTITY
+    : Math.max(1, Math.min(MAX_LINE_QUANTITY, stock ?? MAX_LINE_QUANTITY));
+  const atMaxQty = !soldOut && !allowBackorder && qty >= maxQty;
   const reviews = product.reviews;
+
+  function pickOptionValue(attrId: number, valueId: number) {
+    const next = { ...selectedOptions, [attrId]: valueId };
+    setSelectedOptions(next);
+    setError(null);
+    if (product?.options?.hasStructuredAttributes) {
+      const opts = product.options.productOptions;
+      if (Object.keys(next).length === opts.length) {
+        const key = Object.values(next)
+          .sort((a, b) => a - b)
+          .join('-');
+        const resolvedId = product.options.variantIndex[key] ?? null;
+        if (resolvedId) {
+          setVariantId(resolvedId);
+          const v = variants.find((item) => item.id === resolvedId);
+          if (v?.thumbnail || selectedVariant?.thumbnail) {
+            galleryRef.current?.scrollTo({ x: 0, animated: false });
+            setImageIndex(0);
+          }
+        }
+      }
+    }
+  }
   const reviewItems = reviews?.items ?? [];
   const description = stripHtml(product.description);
 
@@ -304,7 +354,7 @@ export default function ProductScreen() {
   const url = WEB_URL ? `${WEB_URL}/shop/${encodeURIComponent(product.slug)}` : '';
   const text =
     price != null
-      ? `${product.name} - ${formatIdr(price)} di OceanMall`
+      ? `${product.name} - ${formatMoney(price, product.currency)} di OceanMall`
       : `${product.name} di OceanMall`;
 
   const share = async () => {
@@ -397,18 +447,21 @@ export default function ProductScreen() {
               <View className="-mx-4 -mt-3 mb-3 flex-row items-center justify-between bg-om-sale px-4 py-2">
                 <Text className="text-[13px] font-extrabold text-white">Promo hemat {off}%</Text>
                 <Text className="text-[12px] text-white/90">
-                  Hemat {formatIdr((compare ?? 0) - (price ?? 0))}
+                  Hemat {formatMoney((compare ?? 0) - (price ?? 0), product.currency)}
                 </Text>
               </View>
             ) : null}
             <Text
-              className={cn('text-[24px] font-extrabold', off ? 'text-om-sale' : 'text-om-navy')}>
-              {formatIdr(price)}
+              className={cn(
+                unpriced ? 'text-[18px] font-semibold text-muted-foreground' : 'text-[24px] font-extrabold',
+                !unpriced && (off ? 'text-om-sale' : 'text-om-navy')
+              )}>
+              {unpriced ? 'Harga belum tersedia' : formatMoney(price, product.currency)}
             </Text>
             {off ? (
               <View className="mt-0.5 flex-row items-center gap-2">
                 <Text className="text-[13px] text-muted-foreground line-through">
-                  {formatIdr(compare)}
+                  {formatMoney(compare, product.currency)}
                 </Text>
                 <View className="rounded-sm bg-om-sale-soft px-1.5 py-0.5">
                   <Text className="text-[12px] font-extrabold text-om-sale-text">-{off}%</Text>
@@ -455,7 +508,63 @@ export default function ProductScreen() {
           </View>
 
           {/* Variants */}
-          {variants.length > 0 ? (
+          {product.options?.hasStructuredAttributes &&
+          product.options.productOptions.length > 0 ? (
+            <Section
+              title={
+                selectedVariant?.name ? `Pilih opsi: ${selectedVariant.name}` : 'Pilih opsi'
+              }>
+              <View className="gap-3">
+                {product.options.productOptions.map((opt) => (
+                  <View key={opt.id}>
+                    <Text className="mb-1.5 text-[12px] font-semibold text-muted-foreground">
+                      {opt.name}
+                    </Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      {opt.values.map((val) => {
+                        const active = selectedOptions[opt.id] === val.id;
+                        const avail =
+                          product.options?.availabilityMatrix?.[opt.id]?.[val.id] ?? true;
+                        return (
+                          <Pressable
+                            key={val.id}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active, disabled: !avail }}
+                            onPress={() => {
+                              if (!avail) {
+                                toast.show({ tone: 'info', message: `${val.value} sedang habis` });
+                                return;
+                              }
+                              pickOptionValue(opt.id, val.id);
+                            }}
+                            className={cn(
+                              'rounded-sm border px-3 py-2 active:opacity-70',
+                              !avail
+                                ? 'border-dashed border-border bg-white'
+                                : active
+                                  ? 'border-om-navy bg-om-navy-soft'
+                                  : 'border-border bg-white'
+                            )}>
+                            <Text
+                              className={cn(
+                                'text-[13px]',
+                                !avail
+                                  ? 'text-muted-foreground line-through'
+                                  : active
+                                    ? 'font-semibold text-om-navy'
+                                    : 'text-foreground'
+                              )}>
+                              {val.value}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </Section>
+          ) : variants.length > 0 ? (
             <Section
               title={
                 selectedVariant?.name ? `Pilih varian: ${selectedVariant.name}` : 'Pilih varian'
@@ -464,7 +573,11 @@ export default function ProductScreen() {
                 {variants.map((variant) => {
                   const active = variant.id === variantId;
                   const empty =
-                    variant.stock !== null && variant.stock !== undefined && variant.stock < 1;
+                    variant.stock !== null &&
+                    variant.stock !== undefined &&
+                    variant.stock < 1 &&
+                    !variant.allow_backorder &&
+                    !product.allow_backorder;
                   const name = variant.name ?? variant.sku ?? `#${variant.id}`;
                   return (
                     <Pressable
@@ -719,7 +832,7 @@ export default function ProductScreen() {
             />
             <Button
               variant="outline"
-              disabled={soldOut}
+              disabled={unavailable}
               loading={busy === 'cart'}
               onPress={() =>
                 void addToCart('stay', atMaxQty ? TOAST_OFFSET + HINT_ROW_OFFSET : undefined)
@@ -728,12 +841,12 @@ export default function ProductScreen() {
               <Text className="text-[13px] font-bold text-om-navy">+ Keranjang</Text>
             </Button>
             <Button
-              disabled={soldOut}
+              disabled={unavailable}
               loading={busy === 'buy'}
               onPress={() => void addToCart('checkout')}
               className="min-h-11 flex-1 rounded-sm px-2">
               <Text className="text-[13px] font-bold">
-                {soldOut ? 'Stok habis' : 'Beli sekarang'}
+                {soldOut ? 'Stok habis' : unpriced ? 'Belum tersedia' : 'Beli sekarang'}
               </Text>
             </Button>
           </View>

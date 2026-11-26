@@ -35,9 +35,23 @@ final class ConfirmFirstStripeDriver implements ConfirmsBeforeOrder, PaymentDriv
         private readonly string $publishableKey,
     ) {}
 
+    public static function toStripeAmount(int $amount, string $currency): int
+    {
+        return strtoupper(trim($currency)) === 'IDR' ? $amount * 100 : $amount;
+    }
+
+    public static function fromStripeAmount(int $stripeAmount, string $currency): ?int
+    {
+        if (strtoupper(trim($currency)) === 'IDR') {
+            return $stripeAmount % 100 === 0 ? intdiv($stripeAmount, 100) : null;
+        }
+
+        return $stripeAmount;
+    }
+
     public function prepareBeforeOrder(int $amount, string $currency, array $context = []): array
     {
-        $result = $this->stripe->initiatePayment($amount, $currency, [
+        $result = $this->stripe->initiatePayment(self::toStripeAmount($amount, $currency), $currency, [
             'metadata' => array_filter([
                 'cart_id' => $context['cart_id'] ?? null,
                 'customer_id' => $context['customer_id'] ?? 0,
@@ -64,16 +78,64 @@ final class ConfirmFirstStripeDriver implements ConfirmsBeforeOrder, PaymentDriv
         return is_string($intent) && $intent !== '' ? $intent : null;
     }
 
-    public function confirmedStatus(string $reference): ?PaymentStatus
-    {
-        $status = $this->intentStatus($reference);
+    public function confirmedStatus(
+        string $reference,
+        ?int $expectedAmount = null,
+        ?string $expectedCurrency = null,
+    ): ?PaymentStatus {
+        $intent = $this->retrieveIntent($reference);
 
-        return match ($status) {
+        if ($intent === null) {
+            return null;
+        }
+
+        $mapped = match ($intent->status ?? null) {
             'succeeded' => PaymentStatus::Paid,
             'requires_capture' => PaymentStatus::Authorized,
             'processing' => PaymentStatus::Pending,
             default => null,
         };
+
+        if ($mapped === null) {
+            return null;
+        }
+
+        $intentCurrency = strtoupper(trim((string) ($intent->currency ?? '')));
+
+        if ($expectedCurrency !== null && $intentCurrency !== strtoupper(trim($expectedCurrency))) {
+            report(new RuntimeException(sprintf(
+                'Stripe PaymentIntent %s currency mismatch: expected %s, got %s.',
+                $reference,
+                $expectedCurrency,
+                $intentCurrency,
+            )));
+
+            return null;
+        }
+
+        if ($expectedAmount !== null) {
+            $currency = $expectedCurrency ?? ($intentCurrency !== '' ? $intentCurrency : 'IDR');
+            $expectedStripeAmount = self::toStripeAmount($expectedAmount, $currency);
+            $actualAmount = match ($mapped) {
+                PaymentStatus::Paid => (int) ($intent->amount_received ?: $intent->amount),
+                PaymentStatus::Authorized => (int) ($intent->amount_capturable ?: $intent->amount),
+                default => (int) $intent->amount,
+            };
+
+            if ($actualAmount !== $expectedStripeAmount) {
+                report(new RuntimeException(sprintf(
+                    'Stripe PaymentIntent %s amount mismatch: expected %d (%s), got %d.',
+                    $reference,
+                    $expectedStripeAmount,
+                    $currency,
+                    $actualAmount,
+                )));
+
+                return null;
+            }
+        }
+
+        return $mapped;
     }
 
     public function attachOrder(Order $order, string $reference, PaymentStatus $status): void
@@ -109,7 +171,9 @@ final class ConfirmFirstStripeDriver implements ConfirmsBeforeOrder, PaymentDriv
                 },
                 'amount' => $order->price_amount,
                 'currency_code' => $order->currency_code,
-                'status' => $status === PaymentStatus::Paid ? TransactionStatus::Success : TransactionStatus::Pending,
+                'status' => in_array($status, [PaymentStatus::Paid, PaymentStatus::Authorized], true)
+                    ? TransactionStatus::Success
+                    : TransactionStatus::Pending,
                 'metadata' => ['stripe_status' => $stripeStatus],
             ],
         );
@@ -152,7 +216,7 @@ final class ConfirmFirstStripeDriver implements ConfirmsBeforeOrder, PaymentDriv
 
     public function initiatePayment(int $amount, string $currency, array $context = []): PaymentResult
     {
-        return $this->stripe->initiatePayment($amount, $currency, $context);
+        return $this->stripe->initiatePayment(self::toStripeAmount($amount, $currency), $currency, $context);
     }
 
     public function authorizePayment(string $reference, array $data = []): PaymentResult
@@ -185,14 +249,14 @@ final class ConfirmFirstStripeDriver implements ConfirmsBeforeOrder, PaymentDriv
         return $this->stripe->handleWebhook($payload, $headers);
     }
 
-    private function intentStatus(string $reference): ?string
+    private function retrieveIntent(string $reference): ?object
     {
         if ($this->secretKey === '') {
             return null;
         }
 
         try {
-            return $this->client()->paymentIntents->retrieve($reference)->status;
+            return $this->client()->paymentIntents->retrieve($reference);
         } catch (Throwable) {
             return null;
         }

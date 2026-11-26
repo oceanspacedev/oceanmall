@@ -6,7 +6,12 @@ namespace App\Livewire\Shopper\SlideOvers;
 
 use App\Models\OrderShipment;
 use App\Shipping\ShippingCapabilities;
+use App\Support\OrderPaymentType;
 use Filament\Notifications\Notification;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShipmentStatus;
+use Shopper\Core\Events\Orders\OrderShipmentDelivered;
 use Shopper\Livewire\SlideOvers\ShipmentAddEvent as ShopperShipmentAddEvent;
 
 /**
@@ -32,6 +37,20 @@ final class ShipmentAddEvent extends ShopperShipmentAddEvent
         }
 
         parent::save();
+
+        $fresh = $this->shipment->fresh(['order']);
+
+        if ($fresh !== null && $fresh->status === ShipmentStatus::Delivered && $fresh->order !== null) {
+            $order = $fresh->order;
+
+            // Shopper's RecordShipmentEventAction marks Delivered -> Completed unconditionally.
+            // Unpaid COD orders remain Processing until cash remittance is confirmed.
+            if (OrderPaymentType::isCod($order) && $order->payment_status !== PaymentStatus::Paid && $order->status === OrderStatus::Completed) {
+                $order->forceFill(['status' => OrderStatus::Processing])->save();
+            }
+
+            event(new OrderShipmentDelivered($order, $fresh));
+        }
     }
 
     private function providerName(): ?string

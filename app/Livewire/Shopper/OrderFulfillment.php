@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Livewire\Shopper;
 
 use App\Actions\Shipping\IssueOrderFulfillment;
+use App\Actions\Shipping\RefreshShipmentTracking;
+use App\Actions\Shipping\ReshipOrderShipment;
 use App\Models\OrderShipment;
 use App\Shipping\Contracts\PrintsLabels;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
+use App\Support\OrderPaymentType;
+use App\Support\OrderShipmentOpsPresenter;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use RuntimeException;
-use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Livewire\Components\Orders\Fulfillment as ShopperFulfillment;
 use Shopper\Shipping\Contracts\ShippingDriver;
 use Throwable;
@@ -47,7 +51,7 @@ final class OrderFulfillment extends ShopperFulfillment
             return;
         }
 
-        Gate::authorize('print-shipment-label', $this->order);
+        Gate::authorize('manage-order-fulfillment', $this->order);
         $provider = $fulfiller->name();
 
         try {
@@ -91,6 +95,58 @@ final class OrderFulfillment extends ShopperFulfillment
         }
     }
 
+    public function refreshShipmentTracking(int $shipmentId): void
+    {
+        Gate::authorize('manage-order-fulfillment', $this->order);
+
+        $shipment = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->findOrFail($shipmentId);
+
+        try {
+            resolve(RefreshShipmentTracking::class)->handle($shipment);
+            $this->order->refresh();
+            $this->dispatch('order.updated');
+
+            Notification::make()
+                ->title('Status pelacakan kurir diperbarui.')
+                ->success()
+                ->send();
+        } catch (Throwable $e) {
+            Notification::make()
+                ->title('Gagal melacak pengiriman.')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function reshipShipment(int $shipmentId): void
+    {
+        Gate::authorize('manage-order-fulfillment', $this->order);
+
+        $shipment = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->findOrFail($shipmentId);
+
+        try {
+            $newShipment = resolve(ReshipOrderShipment::class)->handle($shipment, auth()->user());
+            $this->order->refresh();
+            $this->dispatch('order.updated');
+
+            Notification::make()
+                ->title("Pengiriman ulang #{$newShipment->id} dibuat.")
+                ->success()
+                ->send();
+        } catch (Throwable $e) {
+            Notification::make()
+                ->title('Gagal membuat pengiriman ulang.')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
     public function render(): View
     {
         $view = parent::render();
@@ -111,14 +167,24 @@ final class OrderFulfillment extends ShopperFulfillment
             ->values()
             ->all();
 
+        $shipmentCards = resolve(OrderShipmentOpsPresenter::class)->shipments($this->order);
+        $fulfillmentErrors = $shipments
+            ->map(static fn (OrderShipment $s): ?string => ShipmentMetadata::fulfillmentError($s))
+            ->filter()
+            ->values()
+            ->all();
+
         return view('shopper.livewire.order-fulfillment', [
             ...$view->getData(),
             'providerName' => $fulfiller->name(),
-            'orderIsPaid' => $this->order->payment_status === PaymentStatus::Paid,
+            'orderIsPaid' => OrderPaymentType::canFulfill($this->order),
+            'isCodOrder' => OrderPaymentType::isCod($this->order),
             'providerAwbs' => $awbs,
             'hasPickupRequested' => $awbs === [] && $this->hasRegisteredShipment(),
-            'canPrintProviderLabel' => $fulfiller instanceof PrintsLabels && $awbs !== [],
+            'canPrintProviderLabel' => $awbs !== [] && ($fulfiller instanceof PrintsLabels || $shipments->isNotEmpty()),
             'printProviderLabelRoute' => route('shopper.orders.fulfillment.print-label', $this->order),
+            'shipmentCards' => $shipmentCards,
+            'fulfillmentErrors' => $fulfillmentErrors,
         ]);
     }
 

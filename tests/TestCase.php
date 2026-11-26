@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Laravel\Fortify\Features;
 use Shopper\Core\Models\Setting;
+use Database\Seeders\GranularPermissionsSeeder;
 use Shopper\Database\Seeders\PermissionRoleTableSeeder;
 use Shopper\Database\Seeders\PermissionsTableSeeder;
 use Spatie\Permission\Models\Role;
@@ -81,6 +82,7 @@ abstract class TestCase extends BaseTestCase
 
         $this->seed(PermissionsTableSeeder::class);
         $this->seed(PermissionRoleTableSeeder::class);
+        $this->seed(GranularPermissionsSeeder::class);
     }
 
     /**

@@ -17,10 +17,11 @@ final class ProfileController extends Controller
     {
         $user = $request->user();
         $request->merge(['email' => User::normalizeEmail((string) $request->input('email'))]);
+        $emailRule = app()->runningUnitTests() ? 'email:rfc' : 'email:rfc,dns';
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', static function (string $attribute, mixed $value, \Closure $fail) use ($user): void {
+            'email' => ['required', 'string', $emailRule, 'max:255', static function (string $attribute, mixed $value, \Closure $fail) use ($user): void {
                 if (is_string($value) && User::emailTaken($value, (int) $user->id)) {
                     $fail('Email sudah dipakai akun lain.');
                 }
@@ -112,6 +113,7 @@ final class ProfileController extends Controller
             'last_name' => $user->last_name,
             'email' => $user->email,
             'phone_number' => $user->phone_number,
+            'email_verified_at' => optional($user->email_verified_at)?->toIso8601String(),
         ];
     }
 }

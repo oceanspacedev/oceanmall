@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
-import { discountPercent, formatIdr } from '@/lib/format';
+import { discountPercent, formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { View } from 'react-native';
 
@@ -12,15 +12,18 @@ import { View } from 'react-native';
 export function SalePrice({
   price,
   compare,
+  currency = 'IDR',
   size = 'card',
   showPercent = false,
 }: {
   price?: number | null;
   compare?: number | null;
+  currency?: string;
   size?: 'card' | 'detail';
   showPercent?: boolean;
 }) {
-  const off = discountPercent(price, compare);
+  const unpriced = price == null || price <= 0;
+  const off = unpriced ? 0 : discountPercent(price, compare);
   const detail = size === 'detail';
 
   return (
@@ -28,13 +31,13 @@ export function SalePrice({
       <View className="flex-row flex-wrap items-baseline gap-1.5">
         <Text
           className={cn(
-            'font-extrabold',
-            detail ? 'text-[22px]' : 'text-[15px]',
+            unpriced ? 'font-semibold text-muted-foreground' : 'font-extrabold',
+            detail ? (unpriced ? 'text-[16px]' : 'text-[22px]') : unpriced ? 'text-[12px]' : 'text-[15px]',
             // om-sale-text clears 4.5:1 on white; the brighter om-sale is for fills.
-            off ? 'text-om-sale-text' : 'text-om-navy'
+            !unpriced && (off ? 'text-om-sale-text' : 'text-om-navy')
           )}
           numberOfLines={1}>
-          {formatIdr(price)}
+          {unpriced ? 'Harga belum tersedia' : formatMoney(price, currency)}
         </Text>
         {off && showPercent ? (
           <Badge variant="sale" className="px-1.5 py-0.5">
@@ -44,13 +47,13 @@ export function SalePrice({
       </View>
       {off ? (
         <Text
-          accessibilityLabel={`Harga sebelum diskon ${formatIdr(compare)}`}
+          accessibilityLabel={`Harga sebelum diskon ${formatMoney(compare, currency)}`}
           className={cn(
             'mt-0.5 text-muted-foreground line-through',
             detail ? 'text-[13px]' : 'text-[12px]'
           )}
           numberOfLines={1}>
-          {formatIdr(compare)}
+          {formatMoney(compare, currency)}
         </Text>
       ) : null}
     </View>

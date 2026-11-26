@@ -10,7 +10,9 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Shopper\Cart\CartSessionManager;
 use Shopper\Cart\Models\CartLine;
+use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Inventory;
+use Shopper\Core\Models\Price;
 use Tests\TestCase;
 
 final class BrowseAndCartTest extends TestCase
@@ -55,10 +57,19 @@ final class BrowseAndCartTest extends TestCase
 
     public function test_add_update_and_remove_cart_line(): void
     {
+        $currencyCode = shopper_currency();
+        $currency = Currency::query()->where('code', $currencyCode)->first()
+            ?? Currency::factory()->create(['code' => $currencyCode, 'name' => $currencyCode, 'symbol' => $currencyCode, 'format' => '1,234.56']);
         $inventory = Inventory::factory()->create(['is_default' => true]);
         $product = Product::factory()->standard()->create([
             'name' => 'Cart Item',
             'published_at' => now()->subDay(),
+        ]);
+        Price::query()->create([
+            'priceable_type' => $product->getMorphClass(),
+            'priceable_id' => $product->id,
+            'amount' => 50_000,
+            'currency_id' => $currency->id,
         ]);
         $product->mutateStock($inventory->id, 5);
 

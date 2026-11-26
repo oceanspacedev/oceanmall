@@ -15,6 +15,26 @@ export function formatIdr(amount: number | null | undefined): string {
   return `${value < 0 && rounded > 0 ? '\u2212' : ''}Rp${grouped}`;
 }
 
+/**
+ * Formats an amount using its currency code. IDR delegates to formatIdr; other currencies
+ * format cleanly without decimal division assumptions unless minor units are expected.
+ */
+export function formatMoney(
+  amount: number | null | undefined,
+  currency = 'IDR'
+): string {
+  const code = (currency || 'IDR').toUpperCase();
+  if (code === 'IDR') {
+    return formatIdr(amount);
+  }
+
+  const value = typeof amount === 'number' && Number.isFinite(amount) ? amount : 0;
+  const rounded = Math.round(Math.abs(value));
+  const grouped = String(rounded).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  return `${value < 0 && rounded > 0 ? '\u2212' : ''}${code} ${grouped}`;
+}
+
 function shortDecimal(value: number): string {
   return String(value).replace('.', ',');
 }

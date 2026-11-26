@@ -15,6 +15,7 @@ use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
 use Shopper\Payment\Contracts\PaymentDriver;
+use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Facades\Payment;
 use Throwable;
 
@@ -117,7 +118,7 @@ final class ExpireUnpaidOrders extends Command
                 try {
                     // The list was read a moment ago: a "pay again" that
                     // went through since gave the order a payment.
-                    if ($order->paymentTransactions()->exists()) {
+                    if ($order->paymentTransactions()->where('status', '!=', TransactionStatus::Failed->value)->exists()) {
                         $skipped++;
 
                         continue;
@@ -205,7 +206,9 @@ final class ExpireUnpaidOrders extends Command
         return Order::query()
             ->where('payment_status', PaymentStatus::Pending)
             ->where('status', OrderStatus::New)
-            ->whereDoesntHave('paymentTransactions')
+            ->whereDoesntHave('paymentTransactions', static function ($query): void {
+                $query->where('status', '!=', TransactionStatus::Failed->value);
+            })
             ->whereHas('paymentMethod', static function ($query) use ($code): void {
                 $query->where('driver', $code);
             });

@@ -51,13 +51,14 @@ final class ProductController extends Controller
         $promo = $request->boolean('promo');
         if ($promo) {
             $currency = current_currency();
-            $query->whereHas(
-                'prices',
-                fn ($q) => $q
-                    ->whereRelation('currency', 'code', $currency)
-                    ->whereNotNull('compare_amount')
-                    ->whereColumn('compare_amount', '>', 'amount'),
-            );
+            $discounted = static fn ($q) => $q
+                ->whereRelation('currency', 'code', $currency)
+                ->whereNotNull('compare_amount')
+                ->whereColumn('compare_amount', '>', 'amount');
+
+            $query->where(static fn ($q) => $q
+                ->whereHas('prices', $discounted)
+                ->orWhereHas('variants', static fn ($variants) => $variants->whereHas('prices', $discounted)));
         }
 
         $sort = (string) $request->string('sort', 'latest');
@@ -69,22 +70,30 @@ final class ProductController extends Controller
         $currencyId = Currency::query()
             ->where('code', current_currency())
             ->value('id');
-        $priceableType = (new Product)->getMorphClass();
+        $productsTable = shopper_table('products');
 
-        $priceSubquery = fn () => Price::query()
+        $productPrice = Price::query()
             ->select('amount')
-            ->whereColumn('priceable_id', shopper_table('products').'.id')
-            ->where('priceable_type', $priceableType)
-            ->when(
-                $currencyId,
-                fn ($q) => $q->where('currency_id', $currencyId),
-            )
-            ->limit(1);
+            ->whereColumn('priceable_id', "{$productsTable}.id")
+            ->where('priceable_type', (new Product)->getMorphClass())
+            ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
+            ->limit(1)
+            ->toBase();
+
+        $variantPrice = Price::query()
+            ->selectRaw('min(amount)')
+            ->where('priceable_type', (new ProductVariant)->getMorphClass())
+            ->whereIn('priceable_id', ProductVariant::query()->select('id')->whereColumn('product_id', "{$productsTable}.id"))
+            ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
+            ->toBase();
+
+        $priceExpr = "coalesce(({$productPrice->toSql()}), ({$variantPrice->toSql()}))";
+        $priceBindings = [...$productPrice->getBindings(), ...$variantPrice->getBindings()];
 
         $query = match ($sort) {
             'name' => $query->orderBy('name'),
-            'price_asc' => $query->orderBy($priceSubquery())->orderBy('name'),
-            'price_desc' => $query->orderByDesc($priceSubquery())->orderBy('name'),
+            'price_asc' => $query->orderByRaw("{$priceExpr} is null", $priceBindings)->orderByRaw("{$priceExpr} asc", $priceBindings)->orderBy('name'),
+            'price_desc' => $query->orderByRaw("{$priceExpr} is null", $priceBindings)->orderByRaw("{$priceExpr} desc", $priceBindings)->orderBy('name'),
             default => $query->latest(),
         };
 
@@ -123,7 +132,7 @@ final class ProductController extends Controller
             'media',
             'prices' => $priceConstraint,
             // Published only: a draft related in cpanel is not public yet.
-            'relatedProducts' => fn ($q) => $q->scopes('publish')->with(['brand', 'media', 'prices' => $priceConstraint]),
+            'relatedProducts' => fn ($q) => $q->scopes('publish')->with(['brand', 'media'])->withCurrentPrices(),
             'variants.media',
             'variants.values.attribute',
             'variants.prices' => $priceConstraint,
@@ -131,10 +140,12 @@ final class ProductController extends Controller
 
         $variantOptions = null;
 
-        if ($product->canUseVariants() && $product->variants->isNotEmpty()) {
+        if ($product->variants->isNotEmpty()) {
             ProductVariant::loadCurrentStock($product->variants); // @phpstan-ignore argument.type
             $product->variants->each(fn (ProductVariant $variant) => $variant->append('stock'));
-            $variantOptions = resolve(BuildVariantOptions::class)->handle($product);
+            $variantOptions = $product->canUseVariants()
+                ? resolve(BuildVariantOptions::class)->handle($product)
+                : null;
         } else {
             $product->setAttribute('real_stock', $product->getStock());
             $product->append('stock');
@@ -162,10 +173,10 @@ final class ProductController extends Controller
                 'content' => $review->content,
                 'is_recommended' => (bool) $review->is_recommended,
                 'created_at' => $review->created_at?->toIso8601String(),
-                'author_name' => trim(implode(' ', array_filter([
+                'author_name' => self::reviewerName(
                     $review->author?->first_name ?? null,
                     $review->author?->last_name ?? null,
-                ]))) ?: 'Pembeli',
+                ),
             ]);
 
         $breakdown = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
@@ -202,5 +213,14 @@ final class ProductController extends Controller
             ],
             'canReview' => $canReview,
         ]);
+    }
+
+    private static function reviewerName(?string $firstName, ?string $lastName): string
+    {
+        $first = trim((string) $firstName);
+        $initial = mb_strtoupper(mb_substr(trim((string) $lastName), 0, 1));
+        $name = trim($first.($initial !== '' ? ' '.$initial.'.' : ''));
+
+        return $name !== '' ? $name : 'Pembeli';
     }
 }

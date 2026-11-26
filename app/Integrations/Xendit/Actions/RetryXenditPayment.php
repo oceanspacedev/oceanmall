@@ -10,6 +10,8 @@ use App\Integrations\Xendit\Services\XenditClient;
 use App\Integrations\Xendit\Support\XenditOrderPayment;
 use App\Integrations\Xendit\Xendit;
 use App\Payment\Exceptions\PaymentRetryRefused;
+use App\Payment\PaymentReturnUrl;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
@@ -40,33 +42,50 @@ final readonly class RetryXenditPayment
 
     public function handle(Order $order): void
     {
-        if ($order->payment_status === PaymentStatus::Paid) {
-            throw PaymentRetryRefused::alreadyPaid();
+        $lock = Cache::lock('xendit:retry:'.$order->id, 15);
+
+        if (! $lock->get()) {
+            throw PaymentRetryRefused::notEligible('Permintaan pembayaran lain sedang diproses. Tunggu sebentar.');
         }
 
-        $order->loadMissing('paymentMethod');
+        try {
+            $order->refresh();
 
-        if (! $order->paymentMethod instanceof PaymentMethod || $order->paymentMethod->driver !== XenditDriver::CODE) {
-            throw PaymentRetryRefused::notEligible('Order has no Xendit payment method.');
+            if ($order->payment_status === PaymentStatus::Paid) {
+                throw PaymentRetryRefused::alreadyPaid();
+            }
+
+            $order->loadMissing('paymentMethod');
+
+            if (! $order->paymentMethod instanceof PaymentMethod || $order->paymentMethod->driver !== XenditDriver::CODE) {
+                throw PaymentRetryRefused::notEligible('Order has no Xendit payment method.');
+            }
+
+            $this->closePrevious($order);
+
+            if ($order->refresh()->payment_status === PaymentStatus::Paid) {
+                throw PaymentRetryRefused::alreadyPaid();
+            }
+
+            $attempt = XenditOrderPayment::currentInvoiceId($order) === null ? 1 : XenditOrderPayment::attempt($order) + 1;
+            $metadata = $order->paymentMethod->metadata;
+            $metadata = is_string($metadata) ? json_decode($metadata, true) : $metadata;
+
+            $result = $this->payments->initiate($order, array_filter([
+                'order' => $order,
+                'channel_code' => data_get(is_array($metadata) ? $metadata : [], 'channel_code'),
+                'attempt' => $attempt,
+                'return_url' => PaymentReturnUrl::get($order),
+            ], static fn (mixed $value): bool => $value !== null && $value !== ''));
+
+            if (! $result->success) {
+                throw new RuntimeException($result->message ?? 'Unable to create a new Xendit invoice.');
+            }
+
+            Payment::driver(XenditDriver::CODE)->afterPaymentInitiated($order, $result);
+        } finally {
+            $lock->release();
         }
-
-        $this->closePrevious($order);
-
-        $attempt = XenditOrderPayment::currentInvoiceId($order) === null ? 1 : XenditOrderPayment::attempt($order) + 1;
-        $metadata = $order->paymentMethod->metadata;
-        $metadata = is_string($metadata) ? json_decode($metadata, true) : $metadata;
-
-        $result = $this->payments->initiate($order, array_filter([
-            'order' => $order,
-            'channel_code' => data_get(is_array($metadata) ? $metadata : [], 'channel_code'),
-            'attempt' => $attempt,
-        ], static fn (mixed $value): bool => $value !== null && $value !== ''));
-
-        if (! $result->success) {
-            throw new RuntimeException($result->message ?? 'Unable to create a new Xendit invoice.');
-        }
-
-        Payment::driver(XenditDriver::CODE)->afterPaymentInitiated($order, $result);
     }
 
     private function closePrevious(Order $order): void

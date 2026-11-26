@@ -16,18 +16,17 @@ final class SearchController extends Controller
     public function __invoke(Request $request): Response
     {
         $request->validate([
-            'q' => ['nullable', 'string', 'min:2', 'max:100'],
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $query = (string) $request->string('q', '');
-
-        $likeOperator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+        $query = trim((string) $request->string('q', ''));
+        $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($query));
 
         $products = mb_strlen($query) < 2
             ? null
             : Product::query()
                 ->scopes('publish')
-                ->where('name', $likeOperator, '%'.str_replace(['%', '_'], ['\%', '\_'], $query).'%')
+                ->whereRaw("lower(name) like ? escape '!'", ["%{$escaped}%"])
                 ->with(['media', 'brand'])
                 ->withCurrentPrices()
                 ->paginate(12)

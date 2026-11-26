@@ -29,6 +29,7 @@ final class AddressController extends Controller
                 ->whereIn('id', resolve(GetCountriesByZone::class)->handle()->pluck('countryId'))
                 ->orderBy('name')
                 ->get(['id', 'name', 'cca2']),
+            'shipping_capabilities' => resolve(ShippingCapabilities::class)->toApi(),
         ]);
     }
 
@@ -116,8 +117,24 @@ final class AddressController extends Controller
         ]);
 
         // On update, keys the client did not send keep their stored value
-        // (a partial edit must not erase the destination or pin).
+        // (a partial edit must not erase the destination or pin) UNLESS the
+        // region itself (city / postal_code / state) changed without a new destination_id.
         $current = AddressDestination::normalize($existing ? $this->metadataOf($existing) : []);
+        $regionChanged = $existing instanceof Address && (
+            mb_strtolower(trim((string) $existing->city)) !== mb_strtolower(trim((string) $data['city']))
+            || mb_strtolower(trim((string) $existing->postal_code)) !== mb_strtolower(trim((string) $data['postal_code']))
+            || mb_strtolower(trim((string) ($existing->state ?? ''))) !== mb_strtolower(trim((string) ($data['state'] ?? '')))
+        );
+
+        if ($regionChanged && ! $sent[AddressDestination::ID]) {
+            unset(
+                $current[AddressDestination::ID],
+                $current[AddressDestination::LABEL],
+                $current[AddressDestination::DRIVER],
+                $current[AddressDestination::PIN_POINT],
+            );
+        }
+
         $metadata = [];
         foreach ($sent as $key => $wasSent) {
             $metadata[$key] = $wasSent ? ($data[$key] ?? null) : ($current[$key] ?? null);

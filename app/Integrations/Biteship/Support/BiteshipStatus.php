@@ -42,8 +42,8 @@ final class BiteshipStatus
         'canceled' => NormalizeShipmentStatus::CANCELLED,
         'rejected' => NormalizeShipmentStatus::CANCELLED,
         'couriernotfound' => NormalizeShipmentStatus::CANCELLED,
-        'returned' => NormalizeShipmentStatus::CANCELLED,
-        'disposed' => NormalizeShipmentStatus::CANCELLED,
+        'returned' => NormalizeShipmentStatus::RETURNED,
+        'disposed' => NormalizeShipmentStatus::RETURNED,
     ];
 
     public static function normalize(mixed $raw): ?string
@@ -58,32 +58,13 @@ final class BiteshipStatus
     }
 
     /**
-     * Statuses only move forward, except that a cancellation always wins and
-     * nothing leaves a cancellation (same rule as the Komerce reconcile).
+     * Statuses only move forward; terminal states stay terminal.
      */
     public static function shouldReplace(mixed $current, string $incoming): bool
     {
-        $current = is_string($current) ? strtolower(trim($current)) : '';
-
-        if ($incoming === NormalizeShipmentStatus::CANCELLED) {
-            return $current !== NormalizeShipmentStatus::DELIVERED;
-        }
-
-        if ($current === NormalizeShipmentStatus::CANCELLED) {
-            return false;
-        }
-
-        return self::rank($incoming) >= self::rank($current);
-    }
-
-    private static function rank(string $status): int
-    {
-        return match ($status) {
-            NormalizeShipmentStatus::LABELED => 1,
-            NormalizeShipmentStatus::PICKED_UP => 2,
-            NormalizeShipmentStatus::IN_TRANSIT => 3,
-            NormalizeShipmentStatus::DELIVERED => 4,
-            default => 0,
-        };
+        return NormalizeShipmentStatus::shouldTransition(
+            is_string($current) ? $current : null,
+            $incoming,
+        );
     }
 }

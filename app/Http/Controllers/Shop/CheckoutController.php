@@ -21,12 +21,14 @@ use App\DTO\ShipmentDraft;
 use App\Enums\OrderNotificationType;
 use App\Http\Controllers\Controller;
 use App\Payment\Contracts\ConfirmsBeforeOrder;
+use App\Payment\Drivers\ConfirmFirstStripeDriver;
 use App\Payment\PaymentActions;
 use App\Payment\PaymentMethodCatalog;
 use App\Shipping\AddressDestination;
 use App\Shipping\SelectedRate;
 use App\Shipping\ShippingCapabilities;
 use App\Shipping\ShippingQuoteContext;
+use App\Support\ShipmentItemValue;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,6 +38,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\CartSessionManager;
 use Shopper\Cart\Models\Cart;
@@ -43,6 +46,7 @@ use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderPaid;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
+use Shopper\Payment\Contracts\PaymentDriver;
 use Shopper\Payment\Models\PaymentTransaction;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -136,7 +140,7 @@ final class CheckoutController extends Controller
 
             if (count($deliveryOptionsByShipment) === 1) {
                 $deliveryOptions = reset($deliveryOptionsByShipment) ?: [];
-            } elseif (count($deliveryOptionsByShipment) === 0) {
+            } elseif ($allocation !== null && count($deliveryOptionsByShipment) === 0) {
                 $deliveryOptions = resolve(FetchDeliveryRates::class)->handle($shippingAddress, $packages);
             }
 
@@ -380,6 +384,11 @@ final class CheckoutController extends Controller
             return redirect()->route('shop.checkout.index');
         }
 
+        $cart = resolve(CartSessionManager::class)->current();
+        if (! $cart) {
+            return redirect()->route('shop.cart');
+        }
+
         if ($request->has('rates') && is_array($request->input('rates'))) {
             return $this->saveShippingOptionsByShipment($request, $shippingAddress);
         }
@@ -406,7 +415,10 @@ final class CheckoutController extends Controller
             : $buildPackages->handle();
 
         $originInventoryId = $singleShipment?->inventory_id;
-        $deliveryOptions = resolve(FetchDeliveryRates::class)->handle($shippingAddress, $packages, $originInventoryId);
+        $itemValue = $singleShipment !== null
+            ? ShipmentItemValue::forCart($cart, $singleShipment->lines)
+            : (int) resolve(CartManager::class)->calculate($cart)->total;
+        $deliveryOptions = resolve(FetchDeliveryRates::class)->handle($shippingAddress, $packages, $originInventoryId, $itemValue);
 
         $selected = SelectedRate::pick($deliveryOptions, $data['service_code']);
 
@@ -474,7 +486,7 @@ final class CheckoutController extends Controller
             }
 
             $shipmentPackages = $buildPackages->handleFromLines($shipmentDraft->lines);
-            $options = $fetchRates->handle($shippingAddress, $shipmentPackages, $inventoryId);
+            $options = $fetchRates->handle($shippingAddress, $shipmentPackages, $inventoryId, ShipmentItemValue::forCart($cart, $shipmentDraft->lines));
             $selected = SelectedRate::pick($options, $serviceCode);
 
             if (! $selected) {
@@ -545,15 +557,29 @@ final class CheckoutController extends Controller
             return redirect()->route('shop.cart');
         }
 
+        $checkout = session()->get(CheckoutSession::KEY, []);
+        $shippingOption = data_get($checkout, 'shipping_option.0');
+
+        if (! is_array($shippingOption)) {
+            return back()->withErrors(['shipping' => __('Please select a delivery option first.')]);
+        }
+
+        $plan = session()->get(CheckoutSession::ALLOCATION_PLAN);
+        if ($plan instanceof AllocationPlan && ! resolve(SelectedShipmentRates::class)->coverPlan($plan, is_array($checkout) ? $checkout : [])) {
+            return back()->withErrors(['shipping' => __('Please select a delivery option for all packages.')]);
+        }
+
         $context = resolve(CartManager::class)->calculate($cart);
-
-        $shippingOption = data_get(session()->get(CheckoutSession::KEY), 'shipping_option.0');
         $shippingPrice = (int) data_get($shippingOption, 'price', 0);
-
         $amount = (int) $context->total + $shippingPrice;
+        $currency = (string) $cart->currency_code;
+
+        if ($message = PaymentMethodCatalog::amountOutOfRange($selectedMethod, $amount)) {
+            return back()->withErrors(['payment' => $message]);
+        }
 
         try {
-            $prepared = $driver->prepareBeforeOrder($amount, (string) $cart->currency_code, [
+            $prepared = $driver->prepareBeforeOrder($amount, $currency, [
                 'cart_id' => $cart->id,
                 'customer_id' => Auth::id() ?? 0,
             ]);
@@ -567,6 +593,8 @@ final class CheckoutController extends Controller
         session()->put(self::CONFIRM_PAYMENT_SESSION, [
             'driver' => $code,
             'reference' => $prepared['reference'],
+            'amount' => $amount,
+            'currency' => $currency,
             'data' => $prepared['data'],
         ]);
 
@@ -602,9 +630,17 @@ final class CheckoutController extends Controller
         // Only for a real checkout: an empty cart or an expired session is
         // answered by CreateOrder with its own message, not "minimum amount".
         $cart = resolve(CartSessionManager::class)->current();
-        $shippingOption = data_get(session()->get(CheckoutSession::KEY), 'shipping_option.0');
+        $checkoutState = session()->get(CheckoutSession::KEY);
+        $shippingOption = data_get($checkoutState, 'shipping_option.0');
 
         if ($cart !== null && $cart->lines->isNotEmpty() && is_array($shippingOption)) {
+            $isCodMethod = strtolower(trim((string) ($selectedMethod['slug'] ?? ''))) === 'cod'
+                || strtolower(trim((string) ($selectedMethod['payment_type'] ?? ''))) === 'cod';
+
+            if ($isCodMethod && ! \App\Support\OrderPaymentType::shippingRatesSupportCod($checkoutState)) {
+                return back()->withErrors(['payment' => __('Kurir yang dipilih tidak mendukung Cash on Delivery (COD). Pilih kurir atau metode pembayaran lain.')]);
+            }
+
             $payable = (int) resolve(CartManager::class)->calculate($cart)->total
                 + (int) data_get($shippingOption, 'price', 0);
 
@@ -640,6 +676,10 @@ final class CheckoutController extends Controller
             resolve(CartSessionManager::class)->forget();
 
             ['result' => $result, 'action' => $action] = resolve(InitiateOrderPayment::class)->handle($order, $selectedMethod);
+
+            if (\App\Support\OrderPaymentType::isCod($order)) {
+                resolve(\App\Actions\Shipping\DispatchShipmentFulfillment::class)->handle($order);
+            }
         } catch (HttpExceptionInterface $e) {
             // CreateOrder refuses with a customer-facing 422 (last unit sold
             // meanwhile, a package without a delivery option): show that
@@ -759,7 +799,13 @@ final class CheckoutController extends Controller
             return redirect()->route('shop.checkout.success', ['order' => $existingTransaction->order_id]);
         }
 
-        $status = $confirmer->confirmedStatus($reference);
+        $prepared = session()->get(self::CONFIRM_PAYMENT_SESSION);
+        $expectedAmount = is_numeric($prepared['amount'] ?? null) ? (int) $prepared['amount'] : null;
+        $expectedCurrency = is_string($prepared['currency'] ?? null) && trim($prepared['currency']) !== ''
+            ? strtoupper(trim($prepared['currency']))
+            : null;
+
+        $status = $confirmer->confirmedStatus($reference, $expectedAmount, $expectedCurrency);
 
         if (! in_array($status, [PaymentStatus::Paid, PaymentStatus::Authorized, PaymentStatus::Pending], true)) {
             session()->forget(self::CONFIRM_PAYMENT_KEYS);
@@ -768,11 +814,45 @@ final class CheckoutController extends Controller
                 ->withErrors(['payment' => __('Payment was not completed. Please try again.').' ('.($redirectStatus ?: 'unknown').')']);
         }
 
+        $cart = resolve(CartSessionManager::class)->current();
+        if ($cart && ! $cart->lines->isEmpty() && $expectedAmount !== null) {
+            $shippingPrice = (int) data_get(session()->get(CheckoutSession::KEY), 'shipping_option.0.price', 0);
+            $liveTotal = (int) resolve(CartManager::class)->calculate($cart)->total + $shippingPrice;
+
+            if ($liveTotal !== $expectedAmount || ($expectedCurrency !== null && strtoupper((string) $cart->currency_code) !== $expectedCurrency)) {
+                $reversed = $this->attemptPaymentReversal($confirmer, $reference, $status, $expectedAmount, $expectedCurrency);
+                session()->forget(self::CONFIRM_PAYMENT_KEYS);
+
+                report(new RuntimeException(sprintf(
+                    'Confirm-first payment %s (%s) refused: cart total changed from %d %s to %d %s (reversed: %s).',
+                    $reference,
+                    $driver,
+                    $expectedAmount,
+                    $expectedCurrency ?? 'IDR',
+                    $liveTotal,
+                    (string) $cart->currency_code,
+                    $reversed ? 'yes' : 'no',
+                )));
+
+                return redirect()->route('shop.checkout.index', ['step' => 3])
+                    ->withErrors(['payment' => __('Total keranjang berubah setelah pembayaran disiapkan. Silakan ulangi konfirmasi pembayaran.')]);
+            }
+        }
+
         try {
             // A paid confirmation fires Shopper's OrderPaid (listeners run
             // after commit: customer notification, provider shipments).
-            $order = DB::transaction(function () use ($confirmer, $reference, $status): Order {
+            $order = DB::transaction(function () use ($confirmer, $reference, $status, $expectedAmount): Order {
                 $order = resolve(CreateOrder::class)->handle();
+
+                if ($expectedAmount !== null && (int) $order->price_amount !== $expectedAmount) {
+                    throw new RuntimeException(sprintf(
+                        'Order total %d no longer matches confirmed payment amount %d.',
+                        (int) $order->price_amount,
+                        $expectedAmount,
+                    ));
+                }
+
                 $confirmer->attachOrder($order, $reference, $status);
                 $order->update(['payment_status' => $status]);
 
@@ -783,7 +863,19 @@ final class CheckoutController extends Controller
                 return $order;
             });
         } catch (Throwable $e) {
-            report($e);
+            $reversed = $this->attemptPaymentReversal($confirmer, $reference, $status, $expectedAmount, $expectedCurrency);
+            session()->forget(self::CONFIRM_PAYMENT_KEYS);
+
+            report(new RuntimeException(sprintf(
+                'Order creation failed after confirmed %s payment %s (status=%s, amount=%s %s, auto_reversed=%s): %s',
+                $driver,
+                $reference,
+                $status->value,
+                $expectedAmount !== null ? (string) $expectedAmount : 'unknown',
+                $expectedCurrency ?? 'unknown',
+                $reversed ? 'yes' : 'no',
+                $e->getMessage(),
+            ), 0, $e));
 
             return redirect()->route('shop.cart')->withErrors(['order' => __('Order creation failed after payment.')]);
         }
@@ -792,6 +884,36 @@ final class CheckoutController extends Controller
         resolve(CartSessionManager::class)->forget();
 
         return redirect()->route('shop.checkout.success', ['order' => $order->id]);
+    }
+
+    private function attemptPaymentReversal(
+        ConfirmsBeforeOrder $confirmer,
+        string $reference,
+        PaymentStatus $status,
+        ?int $expectedAmount,
+        ?string $expectedCurrency,
+    ): bool {
+        if (! $confirmer instanceof PaymentDriver) {
+            return false;
+        }
+
+        try {
+            if ($status === PaymentStatus::Authorized) {
+                return $confirmer->cancelPayment($reference)->success;
+            }
+
+            if ($status === PaymentStatus::Paid && $confirmer->supportsRefunds() && $expectedAmount !== null && $expectedAmount > 0) {
+                $refundAmount = $confirmer instanceof ConfirmFirstStripeDriver && $expectedCurrency !== null
+                    ? ConfirmFirstStripeDriver::toStripeAmount($expectedAmount, $expectedCurrency)
+                    : $expectedAmount;
+
+                return $confirmer->refundPayment($reference, $refundAmount, 'requested_by_customer')->success;
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return false;
     }
 
     /**
@@ -842,6 +964,8 @@ final class CheckoutController extends Controller
         try {
             $plan = resolve(SuggestAllocation::class)->handle($cart, $shippingAddress);
         } catch (Throwable) {
+            session()->forget(CheckoutSession::ALLOCATION_PLAN);
+
             return [null, []];
         }
 
@@ -873,7 +997,7 @@ final class CheckoutController extends Controller
 
         foreach ($plan->shipments as $shipmentDraft) {
             $shipmentPackages = $buildPackages->handleFromLines($shipmentDraft->lines);
-            $rates = $fetchRates->handle($shippingAddress, $shipmentPackages, $shipmentDraft->inventory_id);
+            $rates = $fetchRates->handle($shippingAddress, $shipmentPackages, $shipmentDraft->inventory_id, ShipmentItemValue::forCart($cart, $shipmentDraft->lines));
             $deliveryOptionsByShipment[$shipmentDraft->inventory_id] = $rates;
         }
 

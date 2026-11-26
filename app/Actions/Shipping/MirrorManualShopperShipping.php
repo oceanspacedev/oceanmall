@@ -66,17 +66,16 @@ final class MirrorManualShopperShipping
 
     public function handle(OrderShipping $row): void
     {
-        if (self::$suspended > 0) {
+        if (self::$suspended > 0 || ! $row->order_id) {
             return;
         }
 
         $tracking = trim((string) $row->tracking_number);
+        $originalTracking = $row->wasChanged('tracking_number')
+            ? trim((string) $row->getOriginal('tracking_number'))
+            : '';
 
-        if ($tracking === '' || ! $row->order_id) {
-            return;
-        }
-
-        $shipment = $this->target($row, $tracking);
+        $shipment = $this->target($row, $tracking, $originalTracking);
 
         if (! $shipment instanceof OrderShipment || $this->capabilities->fulfillerFor($shipment) !== null) {
             return;
@@ -84,19 +83,21 @@ final class MirrorManualShopperShipping
 
         $changes = [];
 
-        if (! filled($shipment->awb) && ! filled($shipment->tracking_number)) {
-            $changes['awb'] = $tracking;
-            $changes['tracking_number'] = $tracking;
+        if ($tracking !== '') {
+            if ($originalTracking !== '' && $originalTracking !== $tracking) {
+                // Staff corrected a typo on this OrderShipping row: keep the mirrored shipment AWB in sync.
+                $changes['awb'] = $tracking;
+                $changes['tracking_number'] = $tracking;
+            } elseif (! filled($shipment->awb) && ! filled($shipment->tracking_number)) {
+                $changes['awb'] = $tracking;
+                $changes['tracking_number'] = $tracking;
+            }
         }
 
         $current = strtolower(trim((string) $shipment->status));
         $next = $this->status($row);
 
-        if (
-            $next !== null
-            && isset(self::RANK[$current])
-            && self::RANK[$next] > self::RANK[$current]
-        ) {
+        if ($next !== null && NormalizeShipmentStatus::shouldTransition($current, $next) && $next !== $current) {
             $changes['status'] = $next;
         }
 
@@ -106,11 +107,11 @@ final class MirrorManualShopperShipping
     }
 
     /**
-     * The warehouse shipment this Shopper row belongs to: the one already
-     * carrying its AWB; otherwise the only one without an AWB (preferring the
-     * same carrier when an order has several). Null when ambiguous.
+     * The warehouse shipment this Shopper row belongs to: matched by AWB
+     * (current or previous when staff edited a typo), linked order_items, or
+     * unambiguous open/carrier-matching shipment.
      */
-    private function target(OrderShipping $row, string $tracking): ?OrderShipment
+    private function target(OrderShipping $row, string $tracking, string $originalTracking = ''): ?OrderShipment
     {
         /** @var Collection<int, OrderShipment> $shipments */
         $shipments = OrderShipment::query()
@@ -118,15 +119,55 @@ final class MirrorManualShopperShipping
             ->orderBy('id')
             ->get();
 
-        $needle = strtolower($tracking);
-        $matched = $shipments->first(static fn (OrderShipment $shipment): bool => in_array(
-            $needle,
-            [strtolower(trim((string) $shipment->awb)), strtolower(trim((string) $shipment->tracking_number))],
-            true,
-        ));
+        foreach ([$tracking, $originalTracking] as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
 
-        if ($matched instanceof OrderShipment) {
-            return $matched;
+            $needle = strtolower($candidate);
+            $matched = $shipments->first(static fn (OrderShipment $shipment): bool => in_array(
+                $needle,
+                [strtolower(trim((string) $shipment->awb)), strtolower(trim((string) $shipment->tracking_number))],
+                true,
+            ));
+
+            if ($matched instanceof OrderShipment) {
+                return $matched;
+            }
+        }
+
+        // Match via order_items.order_shipping_id when label has no tracking number (local delivery).
+        $order = $row->order()->with('items')->first();
+        if ($order !== null) {
+            $linkedItems = $order->items->where('order_shipping_id', $row->id);
+            if ($linkedItems->isNotEmpty()) {
+                $shipments->loadMissing('lines');
+                $byItem = $shipments->filter(static function (OrderShipment $s) use ($linkedItems): bool {
+                    foreach ($s->lines as $line) {
+                        if ($linkedItems->contains(static fn ($item): bool => (int) $item->product_id === (int) $line->purchasable_id && (string) $item->product_type === (string) $line->purchasable_type)) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                });
+
+                if ($byItem->count() === 1) {
+                    return $byItem->first();
+                }
+            }
+        }
+
+        if ($tracking === '') {
+            $sameCarrier = $row->carrier_id
+                ? $shipments->filter(static fn (OrderShipment $s): bool => (int) $s->getAttribute('carrier_id') === (int) $row->carrier_id)
+                : $shipments;
+
+            if ($sameCarrier->count() === 1) {
+                return $sameCarrier->first();
+            }
+
+            return $shipments->count() === 1 ? $shipments->first() : null;
         }
 
         $open = $shipments->filter(static fn (OrderShipment $shipment): bool => ! filled($shipment->awb) && ! filled($shipment->tracking_number));
@@ -134,22 +175,14 @@ final class MirrorManualShopperShipping
         if ($open->count() > 1 && $row->carrier_id) {
             $sameCarrier = $open->filter(static fn (OrderShipment $shipment): bool => (int) $shipment->getAttribute('carrier_id') === (int) $row->carrier_id);
 
-            // Several open parcels of this very courier (a split order): each
-            // label / AWB staff enter fills the next one, in order, so every
-            // parcel ends up with its airway bill.
             if ($sameCarrier->isNotEmpty()) {
                 return $sameCarrier->sortBy('id')->first();
             }
         }
 
-        // Still several candidates and nothing tells them apart: left alone.
         return $open->count() === 1 ? $open->first() : null;
     }
 
-    /**
-     * Shopper's shipment status as a stable warehouse shipment status; null
-     * for states with no forward equivalent (failed attempt, returned).
-     */
     private function status(OrderShipping $row): ?string
     {
         $status = $row->status instanceof ShipmentStatus
@@ -160,6 +193,7 @@ final class MirrorManualShopperShipping
             ShipmentStatus::Pending => NormalizeShipmentStatus::LABELED,
             ShipmentStatus::PickedUp => NormalizeShipmentStatus::PICKED_UP,
             ShipmentStatus::InTransit, ShipmentStatus::AtSortingCenter, ShipmentStatus::OutForDelivery => NormalizeShipmentStatus::IN_TRANSIT,
+            ShipmentStatus::Returned => NormalizeShipmentStatus::RETURNED,
             ShipmentStatus::Delivered => NormalizeShipmentStatus::DELIVERED,
             default => null,
         };

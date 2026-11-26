@@ -10,9 +10,11 @@ use App\Models\OrderShipment;
 use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShipmentTimeline;
 use App\Support\EnabledCarriers;
+use App\Support\OrderPaymentType;
 use Illuminate\Support\Carbon;
 use Shopper\Core\Enum\FulfillmentStatus;
 use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Enum\ShipmentStatus;
 use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderCompleted;
@@ -79,16 +81,14 @@ final class SyncOrderShippingFromShipments
 
         $statuses = $shipments->pluck('status')
             ->map(static fn (mixed $status): string => strtolower(trim((string) $status)))
-            ->filter()
+            ->filter(static fn (string $status): bool => $status !== '' && $status !== NormalizeShipmentStatus::CANCELLED)
             ->values()
             ->all();
 
-        if ($statuses === []) {
-            return $order;
-        }
-
         $previousShipping = $order->shipping_status;
-        $shippingStatus = $this->aggregateShippingStatus($statuses);
+        $shippingStatus = $statuses === []
+            ? ShippingStatus::Unfulfilled
+            : $this->aggregateShippingStatus($statuses);
 
         // Conditional updates claim each transition atomically: a webhook racing
         // a tracking refresh cannot fire the same events or notifications twice.
@@ -100,6 +100,7 @@ final class SyncOrderShippingFromShipments
             ->update(['shipping_status' => $shippingStatus->value, 'updated_at' => now()]) > 0;
 
         $completed = $shippingStatus === ShippingStatus::Delivered
+            && (! OrderPaymentType::isCod($order) || $order->payment_status === PaymentStatus::Paid)
             && Order::query()
                 ->whereKey($order->id)
                 ->whereIn('status', [OrderStatus::New->value, OrderStatus::Processing->value])
@@ -144,17 +145,30 @@ final class SyncOrderShippingFromShipments
             $statuses,
             static fn (string $status): bool => $status === NormalizeShipmentStatus::DELIVERED,
         ));
+        $returned = count(array_filter(
+            $statuses,
+            static fn (string $status): bool => $status === NormalizeShipmentStatus::RETURNED,
+        ));
         $active = count(array_filter(
             $statuses,
             static fn (string $status): bool => in_array($status, [
                 NormalizeShipmentStatus::LABELED,
                 NormalizeShipmentStatus::PICKED_UP,
                 NormalizeShipmentStatus::IN_TRANSIT,
+                NormalizeShipmentStatus::DELIVERY_FAILED,
                 NormalizeShipmentStatus::DELIVERED,
             ], true),
         ));
 
-        if ($delivered === $total) {
+        if ($returned === $total && $total > 0) {
+            return ShippingStatus::Returned;
+        }
+
+        if ($returned > 0 && $delivered === 0) {
+            return ShippingStatus::PartiallyReturned;
+        }
+
+        if ($delivered === $total && $total > 0) {
             return ShippingStatus::Delivered;
         }
 
@@ -212,13 +226,15 @@ final class SyncOrderShippingFromShipments
         $status = match (strtolower((string) $shipment->status)) {
             'delivered' => ShipmentStatus::Delivered,
             'picked_up', 'in_transit', 'labeled' => ShipmentStatus::InTransit,
-            'failed' => ShipmentStatus::DeliveryFailed,
+            'delivery_failed', 'failed' => ShipmentStatus::DeliveryFailed,
+            'returned' => ShipmentStatus::Returned,
             default => ShipmentStatus::Pending,
         };
 
         $itemFulfillmentStatus = match (strtolower((string) $shipment->status)) {
             'delivered' => FulfillmentStatus::Delivered,
-            'picked_up', 'in_transit', 'labeled' => FulfillmentStatus::Shipped,
+            'picked_up', 'in_transit', 'labeled', 'delivery_failed', 'failed' => FulfillmentStatus::Shipped,
+            'returned', 'cancelled' => FulfillmentStatus::Cancelled,
             default => FulfillmentStatus::Processing,
         };
 
@@ -266,6 +282,10 @@ final class SyncOrderShippingFromShipments
             }
 
             event(new OrderShipmentDelivered($order, $orderShipping));
+        }
+
+        if ($status === ShipmentStatus::Returned && $statusChanged && $orderShipping->returned_at === null) {
+            $orderShipping->forceFill(['returned_at' => now()])->save();
         }
 
         $this->mirrorProviderEvents($shipment, $orderShipping);

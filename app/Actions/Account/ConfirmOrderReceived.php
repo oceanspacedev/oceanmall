@@ -7,10 +7,12 @@ namespace App\Actions\Account;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\SyncOrderShippingFromShipments;
 use App\Models\OrderShipment;
+use App\Support\OrderPaymentType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderCompleted;
 use Shopper\Core\Models\Order;
 
@@ -30,7 +32,15 @@ final readonly class ConfirmOrderReceived
             ]);
         }
 
-        if ($order->payment_status !== PaymentStatus::Paid) {
+        if (in_array($order->shipping_status, [ShippingStatus::Returned, ShippingStatus::PartiallyReturned], true)) {
+            throw ValidationException::withMessages([
+                'received' => __('Paket telah dikembalikan ke pengirim dan tidak dapat dikonfirmasi diterima.'),
+            ]);
+        }
+
+        $isPaid = $order->payment_status === PaymentStatus::Paid;
+
+        if (! $isPaid && ! OrderPaymentType::isCod($order)) {
             throw ValidationException::withMessages([
                 'received' => __('Payment must be completed before confirming delivery.'),
             ]);
@@ -44,8 +54,20 @@ final readonly class ConfirmOrderReceived
             ]);
         }
 
-        // A cancelled parcel is never coming and is never marked delivered.
-        $live = $shipments->reject(static fn (OrderShipment $shipment): bool => $shipment->status === NormalizeShipmentStatus::CANCELLED)->values();
+        // Cancelled parcels never arrive; returned/failed parcels must go through RTS/reship instead.
+        $live = $shipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower((string) $shipment->status) === NormalizeShipmentStatus::CANCELLED,
+        )->values();
+
+        if ($live->contains(static fn (OrderShipment $s): bool => in_array(
+            strtolower((string) $s->status),
+            [NormalizeShipmentStatus::RETURNED, NormalizeShipmentStatus::DELIVERY_FAILED],
+            true,
+        ))) {
+            throw ValidationException::withMessages([
+                'received' => __('Paket yang gagal kirim atau diretur tidak dapat dikonfirmasi diterima.'),
+            ]);
+        }
 
         // Shipped: it carries an airway bill (staff or the provider entered it).
         $shipped = static fn (OrderShipment $shipment): bool => (is_string($shipment->awb) && trim($shipment->awb) !== '')
@@ -65,19 +87,16 @@ final readonly class ConfirmOrderReceived
             ]);
         }
 
-        return DB::transaction(function () use ($order, $live): Order {
+        return DB::transaction(function () use ($order, $live, $isPaid): Order {
             foreach ($live as $shipment) {
                 $shipment->forceFill(['status' => NormalizeShipmentStatus::DELIVERED])->save();
             }
 
-            // Every live parcel is delivered now: the sync moves the order to
-            // delivered / completed and fires OrderCompleted.
+            // Every live parcel is delivered now: moves shipping_status to delivered,
+            // and marks Completed only when payment is already Paid (unpaid COD waits for remittance).
             $order = $this->syncOrderShipping->handle($order->refresh());
 
-            // The customer said so: the order is completed also where the
-            // sync does not do it on its own (a cancelled parcel next to the
-            // delivered ones, an order staff had archived).
-            if ($order->status !== OrderStatus::Completed) {
+            if ($isPaid && $order->status !== OrderStatus::Completed) {
                 $order->forceFill(['status' => OrderStatus::Completed])->save();
                 event(new OrderCompleted($order));
             }

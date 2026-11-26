@@ -35,9 +35,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhooks/*',
         ]);
 
-        // Global: Shopper registers /cpanel outside the web group.
-        $middleware->append(EnsureCpanelIsStaffOnly::class);
-
         $middleware->alias([
             'auth.optional' => OptionalSanctumAuth::class,
         ]);
@@ -46,6 +43,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // A password change or reset signs out every other web session
             // (their stored password hash no longer matches).
             AuthenticateWebSession::class,
+            // Storefront customers share the web guard; block them from web-group
+            // /cpanel/* routes after StartSession has loaded the session user.
+            EnsureCpanelIsStaffOnly::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

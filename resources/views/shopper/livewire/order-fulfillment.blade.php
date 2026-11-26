@@ -17,7 +17,7 @@
             @elseif ($hasPickupRequested)
                 <p>Pickup kurir sudah dijadwalkan (<span class="font-semibold text-amber-600 dark:text-amber-400">Sedang Dipacking</span>). Menunggu nomor resi diterbitkan kurir.</p>
             @elseif ($orderIsPaid)
-                <p>Pembayaran lunas. Terbitkan AWB dan stiker dari {{ $providerName }} — bukan form resi Shopper.</p>
+                <p>{{ ($isCodOrder ?? false) ? 'Pesanan COD siap diproses.' : 'Pembayaran lunas.' }} Terbitkan AWB dan stiker dari {{ $providerName }} — bukan form resi Shopper.</p>
             @else
                 <p>Menunggu pelunasan. Setelah lunas, resi {{ $providerName }} terbit otomatis.</p>
             @endif
@@ -57,6 +57,50 @@
             @endif
         </div>
     </div>
+
+    @if (! empty($fulfillmentErrors ?? []))
+        <div class="mb-4 rounded-xl border border-danger-300 bg-danger-50 p-3 text-xs text-danger-800 dark:border-danger-800 dark:bg-danger-950/40 dark:text-danger-200">
+            <div class="flex items-center justify-between gap-2">
+                <div>
+                    <p class="font-semibold">Kendala Fulfillment {{ $providerName }}</p>
+                    <p class="mt-0.5">{{ implode(' | ', $fulfillmentErrors) }}</p>
+                </div>
+                @if ($orderIsPaid)
+                    <x-filament::button wire:click="openShippingLabel" size="xs" color="danger">
+                        Coba Ulang
+                    </x-filament::button>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    @if (! empty($shipmentCards ?? []))
+        <div class="mb-4 space-y-2">
+            @foreach ($shipmentCards as $card)
+                <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs dark:border-white/10 dark:bg-gray-900">
+                    <div class="space-y-0.5">
+                        <span class="font-semibold text-gray-900 dark:text-white">{{ $card['carrier_name_display'] ?: $card['carrier'] }} ({{ $card['service'] }})</span>
+                        <span class="text-gray-500"> · {{ $card['status_label'] }}</span>
+                        @if ($card['delivery_order_no'])
+                            <span class="text-gray-500"> · Ref: <code>{{ $card['delivery_order_no'] }}</code></span>
+                        @endif
+                    </div>
+                    <div class="flex items-center gap-2">
+                        @if ($card['can_track'] ?? false)
+                            <x-filament::button wire:click="refreshShipmentTracking({{ $card['id'] }})" size="xs" color="gray">
+                                Lacak
+                            </x-filament::button>
+                        @endif
+                        @if ($card['can_reship'] ?? false)
+                            <x-filament::button wire:click="reshipShipment({{ $card['id'] }})" size="xs" color="warning">
+                                Kirim Ulang
+                            </x-filament::button>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
 
     @include('shopper::livewire.components.orders.fulfillment')
 </div>

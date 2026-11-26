@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Bell } from 'lucide-vue-next';
 import EmptyState from '@/components/shop/empty-state.vue';
+import PagePagination from '@/components/shop/page-pagination.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -46,17 +47,23 @@ return '';
 }
 
 function markRead(item: NotificationItem): void {
+    const navigate = () => {
+        if (item.url) {
+            router.visit(item.url);
+        }
+    };
+
     if (!item.read_at) {
         router.post(
             accountNotifications.read.url(item.id),
             {},
-            { preserveScroll: true },
+            { preserveScroll: true, onFinish: navigate },
         );
+
+        return;
     }
 
-    if (item.url) {
-        router.visit(item.url);
-    }
+    navigate();
 }
 
 function markAllRead(): void {
@@ -162,4 +169,12 @@ function markAllRead(): void {
             </Button>
         </CardContent>
     </Card>
+
+    <PagePagination
+        v-if="notifications.last_page > 1"
+        class="mt-6"
+        :links="notifications.links"
+        :current-page="notifications.current_page"
+        :last-page="notifications.last_page"
+    />
 </template>

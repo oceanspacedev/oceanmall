@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Integrations\Midtrans\Actions;
 
 use App\Actions\Orders\MarkOrderPaid;
+use App\Actions\Orders\RecordPaymentDispute;
 use App\Integrations\Midtrans\Exceptions\MidtransPaymentNeedsReview;
 use App\Integrations\Midtrans\Midtrans;
 use App\Integrations\Midtrans\Services\MidtransClient;
 use App\Integrations\Midtrans\Support\MidtransOrderState;
 use App\Integrations\Midtrans\Support\MidtransTransactionStatus;
+use App\Models\PaymentDispute;
 use RuntimeException;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
@@ -179,6 +181,18 @@ final readonly class SyncMidtransPayment
         if ($status->currency !== null && $status->currency !== strtoupper((string) $order->currency_code)) {
             report(new RuntimeException("Midtrans payment {$midtransOrderId} for order {$order->number} is in {$status->currency}, not {$order->currency_code}."));
 
+            resolve(RecordPaymentDispute::class)->handle(
+                order: $order,
+                driver: Midtrans::CODE,
+                type: PaymentDispute::TYPE_AMOUNT_MISMATCH,
+                reference: $midtransOrderId,
+                amount: $status->amount,
+                expectedAmount: (int) $order->price_amount,
+                currencyCode: $status->currency,
+                reason: "Mata uang Midtrans {$status->currency} tidak sesuai dengan {$order->currency_code}.",
+                payload: $status->raw,
+            );
+
             return self::AMOUNT_MISMATCH;
         }
 
@@ -223,6 +237,18 @@ final readonly class SyncMidtransPayment
             (int) $order->price_amount,
         )));
 
+        resolve(RecordPaymentDispute::class)->handle(
+            order: $order,
+            driver: Midtrans::CODE,
+            type: PaymentDispute::TYPE_AMOUNT_MISMATCH,
+            reference: $midtransOrderId,
+            amount: $status->amount,
+            expectedAmount: (int) $order->price_amount,
+            currencyCode: (string) $order->currency_code,
+            reason: 'Nominal pembayaran Midtrans tidak cocok dengan total tagihan.',
+            payload: $status->raw,
+        );
+
         return self::AMOUNT_MISMATCH;
     }
 
@@ -252,6 +278,21 @@ final readonly class SyncMidtransPayment
     private function needsReview(Order $order, string $midtransOrderId, string $reason): void
     {
         report(new MidtransPaymentNeedsReview((string) $order->number, $midtransOrderId, $reason));
+
+        $type = str_contains($reason, 'second')
+            ? PaymentDispute::TYPE_DOUBLE_PAYMENT
+            : PaymentDispute::TYPE_PAID_AFTER_CANCELLATION;
+
+        resolve(RecordPaymentDispute::class)->handle(
+            order: $order,
+            driver: Midtrans::CODE,
+            type: $type,
+            reference: $midtransOrderId,
+            amount: (int) $order->price_amount,
+            expectedAmount: (int) $order->price_amount,
+            currencyCode: (string) $order->currency_code,
+            reason: $reason,
+        );
     }
 
     private function fetch(string $midtransOrderId): ?MidtransTransactionStatus

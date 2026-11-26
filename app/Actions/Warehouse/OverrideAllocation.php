@@ -20,17 +20,23 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
+use Shopper\Payment\Enum\TransactionStatus;
+use Shopper\Payment\Models\PaymentTransaction;
 
 final class OverrideAllocation
 {
     /**
      * @param  list<array<string, mixed>>  $moves
      */
-    public function handle(Order $order, array $moves, ?User $actor = null): AllocationPlan
+    public function handle(Order $order, array $moves, ?User $actor = null, ?string $reason = null): AllocationPlan
     {
-        return DB::transaction(function () use ($order, $moves, $actor): AllocationPlan {
+        return DB::transaction(function () use ($order, $moves, $actor, $reason): AllocationPlan {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            $this->ensureOrderCanBeOverridden($order);
             $order->loadMissing('shippingAddress');
             $oldShippingTotal = $this->shipmentTotal($order);
             $normalizedMoves = $this->normalizeMoves($order, $moves);
@@ -39,8 +45,10 @@ final class OverrideAllocation
             $this->ensureShipmentsCanBeChanged($affectedShipmentIds);
             $this->ensureDestinationStock($order, $normalizedMoves);
 
+            $cleanReason = is_string($reason) && trim($reason) !== '' ? trim($reason) : null;
+
             foreach ($normalizedMoves as $move) {
-                $this->transferStock($move, $order);
+                $this->transferStock($move, $order, $actor, $cleanReason);
                 $targetShipment = $this->moveLine($order, $move);
                 $affectedShipmentIds[] = (int) $targetShipment->id;
             }
@@ -48,10 +56,26 @@ final class OverrideAllocation
             $this->deleteEmptyShipments($order);
             $this->recalculateRates($order, array_values(array_unique($affectedShipmentIds)));
             $this->updateOrderShippingTotal($order, $oldShippingTotal);
-            $this->writeAuditLogs($order, $normalizedMoves, $actor);
+            $this->writeAuditLogs($order, $normalizedMoves, $actor, $cleanReason);
 
             return $this->allocationPlan($order);
         });
+    }
+
+    private function ensureOrderCanBeOverridden(Order $order): void
+    {
+        if (in_array($order->status, [OrderStatus::Cancelled, OrderStatus::Completed, OrderStatus::Archived], true)) {
+            throw ValidationException::withMessages([
+                'order' => __('Allocation cannot be changed for closed or cancelled orders.'),
+            ]);
+        }
+
+        $metadata = $this->decodeMetadata($order->getAttribute('metadata'));
+        if (filled($metadata['stock_released_at'] ?? null)) {
+            throw ValidationException::withMessages([
+                'order' => __('Allocation cannot be changed after order stock has been released.'),
+            ]);
+        }
     }
 
     /**
@@ -208,10 +232,32 @@ final class OverrideAllocation
         $currentBeforeMoves = $this->currentAllocationTotals($order);
         $projected = $currentBeforeMoves;
         $destinationKeys = [];
+        $runningStock = [];
 
         foreach ($moves as $move) {
             $fromKey = $this->stockKey($move['from_inventory_id'], $move['purchasable_type'], $move['purchasable_id']);
             $toKey = $this->stockKey($move['to_inventory_id'], $move['purchasable_type'], $move['purchasable_id']);
+
+            if (! array_key_exists($fromKey, $runningStock)) {
+                $runningStock[$fromKey] = (int) $this->purchasable($move['purchasable_type'], $move['purchasable_id'])
+                    ->stockInventory($move['from_inventory_id']);
+            }
+            if (! array_key_exists($toKey, $runningStock)) {
+                $runningStock[$toKey] = (int) $this->purchasable($move['purchasable_type'], $move['purchasable_id'])
+                    ->stockInventory($move['to_inventory_id']);
+            }
+
+            // Simulate sequential execution (transferStock restores source then
+            // debits destination): cyclic moves like C->B then B->A must not
+            // drive B negative mid-loop.
+            $runningStock[$fromKey] += $move['qty'];
+            $runningStock[$toKey] -= $move['qty'];
+
+            if ($runningStock[$toKey] < 0) {
+                throw ValidationException::withMessages([
+                    'stock' => __('Destination inventory does not have enough stock for this allocation.'),
+                ]);
+            }
 
             $projected[$fromKey] = ($projected[$fromKey] ?? 0) - $move['qty'];
             $projected[$toKey] = ($projected[$toKey] ?? 0) + $move['qty'];
@@ -264,7 +310,7 @@ final class OverrideAllocation
     private function purchasable(string $purchasableType, int $purchasableId): Model
     {
         $class = Relation::getMorphedModel($purchasableType) ?? $purchasableType;
-        $model = app($class)->newQuery()->find($purchasableId);
+        $model = app($class)->newQuery()->lockForUpdate()->find($purchasableId);
 
         if (! $model instanceof Model) {
             throw ValidationException::withMessages([
@@ -278,7 +324,7 @@ final class OverrideAllocation
     /**
      * @param  array{purchasable_type: string, purchasable_id: int, qty: int, from_inventory_id: int, to_inventory_id: int}  $move
      */
-    private function transferStock(array $move, Order $order): void
+    private function transferStock(array $move, Order $order, ?User $actor = null, ?string $reason = null): void
     {
         $purchasable = $this->purchasable($move['purchasable_type'], $move['purchasable_id']);
 
@@ -286,23 +332,25 @@ final class OverrideAllocation
             return;
         }
 
+        $suffix = $reason !== null ? " ({$reason})" : '';
+
         $purchasable->mutateStock(
             $move['from_inventory_id'],
             $move['qty'],
-            0,
+            abs($move['qty']),
             'allocation_override_restore',
-            'Restore stock at source inventory after allocation override',
-            null,
+            'Restore stock at source inventory after allocation override'.$suffix,
+            $actor?->id,
             $order,
         );
 
         $purchasable->decreaseStock(
             $move['to_inventory_id'],
             $move['qty'],
-            0,
+            -1 * abs($move['qty']),
             'allocation_override_debit',
-            'Debit stock at destination inventory after allocation override',
-            null,
+            'Debit stock at destination inventory after allocation override'.$suffix,
+            $actor?->id,
             $order,
         );
     }
@@ -397,6 +445,8 @@ final class OverrideAllocation
                 ]);
             }
 
+            $existingMetadata = is_array($shipment->metadata) ? $shipment->metadata : [];
+
             $shipment->update([
                 'driver' => $this->rateString($rate, 'driver') ?? $shipment->driver,
                 'carrier_id' => is_numeric($rate['carrier_id'] ?? null) ? (int) $rate['carrier_id'] : $shipment->carrier_id,
@@ -406,7 +456,7 @@ final class OverrideAllocation
                 'service_name' => $this->rateString($rate, 'service_name') ?? $this->rateString($rate, 'description'),
                 'cost' => $this->rateCost($rate),
                 'currency_code' => $this->rateString($rate, 'currency_code') ?? $this->rateString($rate, 'currency') ?? $order->currency_code,
-                'metadata' => ['rate' => $rate],
+                'metadata' => array_merge($existingMetadata, ['rate' => $rate]),
             ]);
         }
     }
@@ -586,15 +636,52 @@ final class OverrideAllocation
     {
         $newShippingTotal = $this->shipmentTotal($order);
 
+        if ($this->isFinanciallyFrozen($order)) {
+            $variance = $newShippingTotal - $oldShippingTotal;
+
+            if ($variance !== 0) {
+                $metadata = $this->decodeMetadata($order->getAttribute('metadata'));
+                $metadata['allocation_shipping_variance'] = [
+                    'old_shipping_total' => $oldShippingTotal,
+                    'new_shipping_total' => $newShippingTotal,
+                    'variance' => $variance,
+                    'recorded_at' => now()->toIso8601String(),
+                ];
+
+                $order->forceFill([
+                    'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+                ])->save();
+            }
+
+            return;
+        }
+
         $order->update([
             'price_amount' => max(0, (int) $order->price_amount - $oldShippingTotal + $newShippingTotal),
         ]);
     }
 
+    private function isFinanciallyFrozen(Order $order): bool
+    {
+        if (in_array($order->payment_status, [
+            PaymentStatus::Paid,
+            PaymentStatus::Authorized,
+            PaymentStatus::PartiallyRefunded,
+            PaymentStatus::Refunded,
+        ], true)) {
+            return true;
+        }
+
+        return PaymentTransaction::query()
+            ->where('order_id', $order->id)
+            ->whereIn('status', [TransactionStatus::Pending, TransactionStatus::Success])
+            ->exists();
+    }
+
     /**
      * @param  list<array{shipment_line_id: int, purchasable_type: string, purchasable_id: int, qty: int, from_inventory_id: int, to_inventory_id: int}>  $moves
      */
-    private function writeAuditLogs(Order $order, array $moves, ?User $actor): void
+    private function writeAuditLogs(Order $order, array $moves, ?User $actor, ?string $reason = null): void
     {
         foreach ($moves as $move) {
             DB::table('allocation_override_logs')->insert([
@@ -602,7 +689,10 @@ final class OverrideAllocation
                 'user_id' => $actor?->id,
                 'from_inventory_id' => $move['from_inventory_id'],
                 'to_inventory_id' => $move['to_inventory_id'],
-                'payload' => json_encode(['move' => $move], JSON_THROW_ON_ERROR),
+                'payload' => json_encode(array_filter([
+                    'move' => $move,
+                    'reason' => $reason,
+                ], static fn (mixed $v): bool => $v !== null), JSON_THROW_ON_ERROR),
                 'created_at' => now(),
             ]);
         }

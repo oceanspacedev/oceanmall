@@ -154,6 +154,8 @@ function applyFilters(patch: Partial<Filters>): void {
             search: next.search || undefined,
             category: next.category ?? undefined,
             brand: next.brand ?? undefined,
+            featured: props.filters.featured ? 1 : undefined,
+            promo: props.filters.promo ? 1 : undefined,
             sort: next.sort,
         },
         { preserveState: true, preserveScroll: true, replace: true },
@@ -169,7 +171,11 @@ function clearFilters(): void {
     brand.value = '';
     router.get(
         shop.index.url(),
-        { sort: props.filters.sort },
+        {
+            featured: props.filters.featured ? 1 : undefined,
+            promo: props.filters.promo ? 1 : undefined,
+            sort: props.filters.sort,
+        },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 }

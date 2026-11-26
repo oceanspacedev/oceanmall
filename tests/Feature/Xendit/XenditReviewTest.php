@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Xendit;
 
 use App\Actions\Orders\CancelOrderWithProviders;
+use App\Integrations\Xendit\Actions\ConfirmXenditInvoice;
 use App\Integrations\Xendit\Payment\XenditDriver;
 use App\Payment\Contracts\ReconcilesPayments;
 use App\Payment\PaymentActions;
@@ -196,5 +197,49 @@ final class XenditReviewTest extends TestCase
 
         Http::assertSent(static fn (Request $request): bool => $request->data()['invoice_duration'] === 31536000
             && $request->data()['payment_methods'] === ['QRIS']);
+    }
+
+    public function test_confirm_xendit_invoice_detects_duplicate_paid_invoice(): void
+    {
+        $method = $this->xenditPaymentMethod();
+        $order = Order::factory()->create([
+            'number' => 'ORD-XEN-DUP',
+            'price_amount' => 150000,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'payment_method_id' => $method->id,
+        ]);
+
+        PaymentTransaction::query()->create([
+            'order_id' => $order->id,
+            'payment_method_id' => $method->id,
+            'driver' => XenditDriver::CODE,
+            'type' => TransactionType::Capture,
+            'status' => TransactionStatus::Success,
+            'amount' => 150000,
+            'currency_code' => 'IDR',
+            'reference' => 'inv_first',
+        ]);
+
+        PaymentTransaction::query()->create([
+            'order_id' => $order->id,
+            'payment_method_id' => $method->id,
+            'driver' => XenditDriver::CODE,
+            'type' => TransactionType::Initiate,
+            'status' => TransactionStatus::Pending,
+            'amount' => 150000,
+            'currency_code' => 'IDR',
+            'reference' => 'inv_second',
+        ]);
+
+        $this->putXenditInvoice('inv_second', [
+            'external_id' => 'ORD-XEN-DUP-2',
+            'status' => 'PAID',
+            'amount' => 150000,
+        ]);
+
+        $outcome = resolve(ConfirmXenditInvoice::class)->handle('inv_second');
+        $this->assertSame(ConfirmXenditInvoice::DUPLICATE_PAYMENT, $outcome['verdict']);
     }
 }

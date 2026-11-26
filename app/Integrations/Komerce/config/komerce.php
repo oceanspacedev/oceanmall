@@ -105,6 +105,10 @@ return [
 
     'timeout' => (int) env('KOMERCE_TIMEOUT', 30),
 
+    'shipping_cost_tolerance_amount' => max(0, (int) env('KOMERCE_SHIPPING_COST_TOLERANCE_AMOUNT', 0)),
+
+    'shipping_cost_tolerance_percent' => max(0.0, (float) env('KOMERCE_SHIPPING_COST_TOLERANCE_PERCENT', 0)),
+
     /*
      * Payment API VA expiry_duration in seconds. Official create example uses
      * 86400; documented VA minimum is 3600. QRIS Payment expiry is provider-fixed.

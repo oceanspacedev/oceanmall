@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
+use App\Models\DiscountRedemption;
 use Illuminate\Support\Facades\DB;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderCancelled;
@@ -70,6 +71,12 @@ final class ReleaseDiscountOnOrderCancelled
             ->whereKey($discountId)
             ->where('total_use', '>', 0)
             ->decrement('total_use');
+
+        DiscountRedemption::query()
+            ->where('order_id', $order->id)
+            ->where('discount_id', $discountId)
+            ->whereNull('released_at')
+            ->update(['released_at' => now()]);
 
         // Shopper's Order does not cast metadata: it is stored as JSON text.
         $metadata['discount_released_at'] = now()->toIso8601String();

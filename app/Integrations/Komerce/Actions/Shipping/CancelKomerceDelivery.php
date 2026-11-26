@@ -57,13 +57,27 @@ final readonly class CancelKomerceDelivery
         }
 
         try {
-            $this->delivery->cancelOrder($orderNo);
+            $response = $this->delivery->cancelOrder($orderNo);
+
+            $metaStatus = strtolower(trim((string) data_get($response, 'meta.status', '')));
+            if ($metaStatus !== '' && $metaStatus !== 'success') {
+                throw new \RuntimeException((string) (data_get($response, 'meta.message') ?: 'Komerce gagal membatalkan pengiriman.'));
+            }
         } catch (Throwable $e) {
             report($e);
+
+            $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
+            $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
+            $komerce['cancel_error'] = $e->getMessage();
+            $metadata['komerce'] = $komerce;
+            $shipment->forceFill(['metadata' => $metadata])->save();
+
+            throw $e;
         }
 
         $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
         $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
+        unset($komerce['cancel_error']);
         $komerce['cancelled_at'] = now()->toIso8601String();
         $metadata['komerce'] = $komerce;
 

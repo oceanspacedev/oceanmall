@@ -42,6 +42,11 @@ type OrderItem = {
         slug?: string;
         thumbnail?: string | null;
         images?: Array<{ url: string }>;
+        product?: {
+            slug?: string;
+            thumbnail?: string | null;
+            images?: Array<{ url: string }>;
+        } | null;
     } | null;
 };
 
@@ -93,11 +98,48 @@ type Shipment = {
     tracking_history: TrackingEvent[];
 };
 
+type PaymentProofItem = {
+    id: number;
+    status: string;
+    original_name: string;
+    sender_name?: string | null;
+    sender_bank?: string | null;
+    transfer_amount?: number | null;
+    verification_notes?: string | null;
+    created_at?: string | null;
+    file_url: string;
+};
+
+type ReturnRequestItem = {
+    id: number;
+    status: string;
+    reason: string;
+    description?: string | null;
+    items: Array<{ order_item_id: number; name?: string; qty: number }>;
+    resolution_notes?: string | null;
+    created_at?: string | null;
+};
+
 const props = defineProps<{
     order: Order;
     shipments: Shipment[];
     paymentAction?: PaymentAction | null;
     canRetryPayment?: boolean;
+    canCancel?: boolean;
+    canRequestReturn?: boolean;
+    canUploadPaymentProof?: boolean;
+    isCod?: boolean;
+    paymentProofs?: PaymentProofItem[];
+    returnRequests?: ReturnRequestItem[];
+    refundedTotal?: number;
+    summary?: {
+        subtotal: number;
+        discount: number;
+        tax: number;
+        tax_inclusive: boolean;
+        shipping: number;
+        total: number;
+    };
 }>();
 
 const page = usePage();
@@ -129,31 +171,75 @@ const offlinePaymentTitle = computed<string | null>(() => {
 const canCheckStatus = computed(
     () =>
         props.paymentAction?.kind === 'instructions' ||
-        props.paymentAction?.kind === 'qr',
+        props.paymentAction?.kind === 'qr' ||
+        props.paymentAction?.kind === 'redirect',
 );
 const checkingPayment = ref(false);
-const shippingPrice =
-    props.shipments.length > 0
+const shippingPrice = computed(() =>
+    props.summary?.shipping ??
+    (props.shipments.length > 0
         ? props.shipments.reduce((sum, s) => sum + s.cost, 0)
-        : (props.order.shipping_option?.price ?? 0);
-const itemsTotal =
-    props.order.price_amount - (props.order.tax_amount ?? 0) - shippingPrice;
+        : (props.order.shipping_option?.price ?? 0)),
+);
+const itemsTotal = computed(
+    () =>
+        props.summary?.subtotal ??
+        props.order.price_amount -
+            (props.order.tax_amount ?? 0) -
+            shippingPrice.value,
+);
+const cancellingOrder = ref(false);
+const cancelReason = ref('');
+const showCancelForm = ref(false);
+const cancelError = ref<string | null>(null);
 
+const proofFile = ref<File | null>(null);
+const proofSenderName = ref('');
+const proofSenderBank = ref('');
+const proofAmount = ref<number | ''>(props.order.price_amount);
+const uploadingProof = ref(false);
+const proofError = ref<string | null>(null);
+
+const showReturnForm = ref(false);
+const returnReason = ref('Barang rusak / cacat');
+const returnDescription = ref('');
+const returnSubmitting = ref(false);
+const returnError = ref<string | null>(null);
+const returnQuantities = ref<Record<number, number>>(
+    Object.fromEntries(props.order.items.map((item) => [item.id, item.quantity])),
+);
+
+const flashError = computed(() => {
+    const flash = page.props.flash as
+        { error?: string; info?: string; success?: string } | undefined;
+
+    return flash?.error ?? null;
+});
 const flashInfo = computed(() => {
     const flash = page.props.flash as
-        { info?: string; success?: string } | undefined;
+        { error?: string; info?: string; success?: string } | undefined;
 
     return flash?.info ?? null;
 });
 const flashSuccess = computed(() => {
     const flash = page.props.flash as
-        { info?: string; success?: string } | undefined;
+        { error?: string; info?: string; success?: string } | undefined;
 
     return flash?.success ?? null;
 });
 
 function thumbnail(item: OrderItem): string | null {
-    return item.product?.thumbnail ?? item.product?.images?.[0]?.url ?? null;
+    return (
+        item.product?.thumbnail ??
+        item.product?.images?.[0]?.url ??
+        item.product?.product?.thumbnail ??
+        item.product?.product?.images?.[0]?.url ??
+        null
+    );
+}
+
+function itemProductSlug(item: OrderItem): string | null {
+    return item.product?.slug ?? item.product?.product?.slug ?? null;
 }
 
 function formatDate(value: string): string {
@@ -185,14 +271,17 @@ const canConfirmReceived = computed(
     () =>
         props.order.status !== 'cancelled' &&
         props.order.status !== 'completed' &&
-        props.order.payment_status === 'paid' &&
+        (props.order.payment_status === 'paid' || Boolean(props.isCod)) &&
         // Every parcel that still travels must have shipped (a cancelled one
-        // is not waited for).
+        // is not waited for), and none is returned/failed.
         props.shipments.some((shipment) => shipment.status !== 'cancelled') &&
         props.shipments
             .filter((shipment) => shipment.status !== 'cancelled')
-            .every((shipment) =>
-                Boolean(shipment.awb || shipment.tracking_number),
+            .every(
+                (shipment) =>
+                    shipment.status !== 'returned' &&
+                    shipment.status !== 'delivery_failed' &&
+                    Boolean(shipment.awb || shipment.tracking_number),
             ),
 );
 
@@ -266,6 +355,94 @@ function syncPayment(): void {
         },
     );
 }
+
+function cancelOrder(): void {
+    cancellingOrder.value = true;
+    cancelError.value = null;
+    router.post(
+        `/account/orders/${props.order.id}/cancel`,
+        { reason: cancelReason.value || null },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                showCancelForm.value = false;
+            },
+            onError: (errors) => {
+                cancelError.value = errors.cancel ?? 'Gagal membatalkan pesanan.';
+            },
+            onFinish: () => {
+                cancellingOrder.value = false;
+            },
+        },
+    );
+}
+
+function submitPaymentProof(): void {
+    if (!proofFile.value) {
+        proofError.value = 'Pilih file bukti transfer terlebih dahulu.';
+        return;
+    }
+    uploadingProof.value = true;
+    proofError.value = null;
+    router.post(
+        `/account/orders/${props.order.id}/payment-proof`,
+        {
+            proof: proofFile.value,
+            sender_name: proofSenderName.value || null,
+            sender_bank: proofSenderBank.value || null,
+            transfer_amount: proofAmount.value || null,
+        },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                proofFile.value = null;
+            },
+            onError: (errors) => {
+                proofError.value = errors.proof ?? 'Gagal mengunggah bukti transfer.';
+            },
+            onFinish: () => {
+                uploadingProof.value = false;
+            },
+        },
+    );
+}
+
+function submitReturn(): void {
+    const items = props.order.items
+        .map((item) => ({
+            order_item_id: item.id,
+            qty: Number(returnQuantities.value[item.id] ?? 0),
+        }))
+        .filter((row) => row.qty > 0);
+    if (!items.length) {
+        returnError.value = 'Pilih minimal satu item untuk diretur.';
+        return;
+    }
+    returnSubmitting.value = true;
+    returnError.value = null;
+    router.post(
+        `/account/orders/${props.order.id}/returns`,
+        {
+            reason: returnReason.value,
+            description: returnDescription.value || null,
+            items,
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                showReturnForm.value = false;
+                returnDescription.value = '';
+            },
+            onError: (errors) => {
+                returnError.value = errors.return ?? errors.items ?? 'Gagal mengajukan retur.';
+            },
+            onFinish: () => {
+                returnSubmitting.value = false;
+            },
+        },
+    );
+}
 </script>
 
 <template>
@@ -302,15 +479,34 @@ function syncPayment(): void {
         </p>
     </div>
 
-    <div class="mt-6 flex flex-wrap gap-2">
-        <template v-if="order.status === 'cancelled'">
-            <OrderStatusBadge :status="order.status" type="order" />
-        </template>
-        <template v-else>
-            <OrderStatusBadge :status="order.payment_status" type="payment" />
-            <OrderStatusBadge :status="order.shipping_status" type="shipping" />
-        </template>
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-2">
+            <template v-if="order.status === 'cancelled'">
+                <OrderStatusBadge :status="order.status" type="order" />
+            </template>
+            <template v-else>
+                <OrderStatusBadge :status="order.payment_status" type="payment" />
+                <OrderStatusBadge :status="order.shipping_status" type="shipping" />
+            </template>
+        </div>
+        <Button variant="outline" size="sm" as-child>
+            <a
+                :href="`/account/orders/${order.id}/invoice`"
+                target="_blank"
+                rel="noopener"
+            >
+                Cetak Invoice
+            </a>
+        </Button>
     </div>
+
+    <Alert
+        v-if="flashError && !paymentError"
+        variant="destructive"
+        class="mt-5"
+    >
+        <AlertDescription>{{ flashError }}</AlertDescription>
+    </Alert>
 
     <Alert
         v-if="flashSuccess && !(pendingPayment || canRetryPayment)"
@@ -423,8 +619,9 @@ function syncPayment(): void {
         </CardContent>
     </Card>
 
-    <div v-if="canConfirmReceived" class="mt-4">
+    <div v-if="canConfirmReceived || canCancel || canRequestReturn || order.payment_status === 'paid'" class="mt-4 flex flex-wrap items-center gap-3">
         <Button
+            v-if="canConfirmReceived"
             type="button"
             size="xl"
             :disabled="confirmingReceived"
@@ -432,13 +629,117 @@ function syncPayment(): void {
         >
             {{ confirmingReceived ? 'Memproses…' : 'Tandai sudah diterima' }}
         </Button>
-        <p v-if="receivedError" class="mt-2 text-sm text-destructive">
-            {{ receivedError }}
-        </p>
+        <Button
+            v-if="order.payment_status === 'paid' || order.payment_status === 'partially_refunded'"
+            as-child
+            variant="outline"
+            size="default"
+        >
+            <a :href="`/account/orders/${order.id}/invoice`" target="_blank">Cetak Invoice</a>
+        </Button>
+        <Button
+            v-if="canCancel"
+            type="button"
+            variant="outline"
+            size="default"
+            @click="showCancelForm = !showCancelForm"
+        >
+            Batalkan pesanan
+        </Button>
+        <Button
+            v-if="canRequestReturn"
+            type="button"
+            variant="outline"
+            size="default"
+            @click="showReturnForm = !showReturnForm"
+        >
+            Ajukan retur
+        </Button>
     </div>
+    <p v-if="receivedError" class="mt-2 text-sm text-destructive">
+        {{ receivedError }}
+    </p>
+
+    <Card v-if="showCancelForm && canCancel" class="mt-4 gap-0 py-0 shadow-none">
+        <CardContent class="space-y-3 p-4">
+            <p class="text-sm font-medium text-foreground">Konfirmasi pembatalan pesanan</p>
+            <input
+                v-model="cancelReason"
+                type="text"
+                placeholder="Alasan pembatalan (opsional)"
+                class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+            <p v-if="cancelError" class="text-sm text-destructive">{{ cancelError }}</p>
+            <div class="flex gap-2">
+                <Button type="button" variant="destructive" size="sm" :disabled="cancellingOrder" @click="cancelOrder">
+                    {{ cancellingOrder ? 'Membatalkan…' : 'Ya, batalkan pesanan' }}
+                </Button>
+                <Button type="button" variant="outline" size="sm" @click="showCancelForm = false">Tutup</Button>
+            </div>
+        </CardContent>
+    </Card>
+
+    <Card v-if="canUploadPaymentProof || (paymentProofs?.length ?? 0) > 0" class="mt-5 gap-0 py-0 shadow-none">
+        <CardHeader class="p-4 pb-2">
+            <CardTitle class="text-sm">Bukti Transfer Bank Manual</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-4 p-4 pt-2">
+            <div v-if="paymentProofs?.length" class="space-y-2">
+                <div
+                    v-for="proof in paymentProofs"
+                    :key="proof.id"
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-xs"
+                >
+                    <div>
+                        <p class="font-medium">{{ proof.original_name }} · Status: {{ proof.status }}</p>
+                        <p v-if="proof.verification_notes" class="text-muted-foreground">{{ proof.verification_notes }}</p>
+                    </div>
+                    <a :href="proof.file_url" target="_blank" class="underline text-primary">Lihat bukti</a>
+                </div>
+            </div>
+            <form v-if="canUploadPaymentProof" class="grid gap-3 sm:grid-cols-2" @submit.prevent="submitPaymentProof">
+                <input v-model="proofSenderBank" type="text" placeholder="Bank pengirim (mis. BCA)" class="rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                <input v-model="proofSenderName" type="text" placeholder="Nama pemilik rekening" class="rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                <input v-model.number="proofAmount" type="number" placeholder="Nominal transfer" class="rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" class="text-sm" @change="(e) => proofFile = (e.target as HTMLInputElement).files?.[0] ?? null" />
+                <p v-if="proofError" class="text-sm text-destructive sm:col-span-2">{{ proofError }}</p>
+                <div class="sm:col-span-2">
+                    <Button type="submit" size="sm" :disabled="uploadingProof">
+                        {{ uploadingProof ? 'Mengunggah…' : 'Unggah bukti transfer' }}
+                    </Button>
+                </div>
+            </form>
+        </CardContent>
+    </Card>
+
+    <Card v-if="showReturnForm || (returnRequests?.length ?? 0) > 0" class="mt-5 gap-0 py-0 shadow-none">
+        <CardHeader class="p-4 pb-2">
+            <CardTitle class="text-sm">Retur / Garansi (RMA)</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-4 p-4 pt-2">
+            <div v-if="returnRequests?.length" class="space-y-2">
+                <div v-for="ret in returnRequests" :key="ret.id" class="rounded-md border border-border px-3 py-2 text-xs">
+                    <p class="font-medium">RMA #{{ ret.id }} · {{ ret.reason }} ({{ ret.status }})</p>
+                    <p v-if="ret.resolution_notes" class="text-muted-foreground">{{ ret.resolution_notes }}</p>
+                </div>
+            </div>
+            <div v-if="showReturnForm && canRequestReturn" class="space-y-3 border-t border-border pt-3">
+                <input v-model="returnReason" type="text" placeholder="Alasan retur" class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                <textarea v-model="returnDescription" rows="2" placeholder="Jelaskan kondisi barang" class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                <div v-for="item in order.items" :key="item.id" class="flex items-center justify-between gap-2 text-xs">
+                    <span class="truncate">{{ item.name }} (Maks {{ item.quantity }})</span>
+                    <input v-model.number="returnQuantities[item.id]" type="number" min="0" :max="item.quantity" class="w-20 rounded border border-border px-2 py-1 text-right" />
+                </div>
+                <p v-if="returnError" class="text-sm text-destructive">{{ returnError }}</p>
+                <Button type="button" size="sm" :disabled="returnSubmitting" @click="submitReturn">
+                    {{ returnSubmitting ? 'Mengirim…' : 'Kirim pengajuan retur' }}
+                </Button>
+            </div>
+        </CardContent>
+    </Card>
 
     <p
-        v-else-if="order.status === 'completed'"
+        v-if="order.status === 'completed'"
         class="mt-4 text-sm text-muted-foreground"
     >
         Pesanan selesai — terima kasih.
@@ -517,10 +818,21 @@ function syncPayment(): void {
                         </dd>
                     </div>
                     <div
+                        v-if="(summary?.discount ?? 0) > 0"
+                        class="flex justify-between"
+                    >
+                        <dt class="text-muted-foreground">Diskon kupon</dt>
+                        <dd class="text-emerald-600">
+                            -{{ formatMoney(summary!.discount, order.currency_code) }}
+                        </dd>
+                    </div>
+                    <div
                         v-if="(order.tax_amount ?? 0) > 0"
                         class="flex justify-between"
                     >
-                        <dt class="text-muted-foreground">Pajak</dt>
+                        <dt class="text-muted-foreground">
+                            {{ summary?.tax_inclusive ? 'Pajak (termasuk PPN)' : 'Pajak' }}
+                        </dt>
                         <dd class="text-[var(--om-navy)]">
                             {{
                                 formatMoney(
@@ -528,6 +840,15 @@ function syncPayment(): void {
                                     order.currency_code,
                                 )
                             }}
+                        </dd>
+                    </div>
+                    <div
+                        v-if="(refundedTotal ?? 0) > 0"
+                        class="flex justify-between"
+                    >
+                        <dt class="text-muted-foreground">Sudah direfund</dt>
+                        <dd class="text-[var(--om-navy)]">
+                            -{{ formatMoney(refundedTotal!, order.currency_code) }}
                         </dd>
                     </div>
                     <Separator />
@@ -624,13 +945,13 @@ function syncPayment(): void {
 
                 <div
                     v-if="
-                        (shipment.awb && shipment.can_track !== false) ||
+                        ((shipment.awb || shipment.tracking_number) && shipment.can_track !== false) ||
                         shipment.tracking_history.length
                     "
                     class="mt-4"
                 >
                     <Button
-                        v-if="shipment.awb && shipment.can_track !== false"
+                        v-if="(shipment.awb || shipment.tracking_number) && shipment.can_track !== false"
                         type="button"
                         :disabled="trackingShipmentId === shipment.id"
                         variant="outline"
@@ -712,8 +1033,8 @@ function syncPayment(): void {
                 </div>
                 <div class="min-w-0 flex-1">
                     <Link
-                        v-if="item.product?.slug"
-                        :href="shop.product.url({ product: item.product.slug })"
+                        v-if="itemProductSlug(item)"
+                        :href="shop.product.url({ product: itemProductSlug(item)! })"
                         class="line-clamp-2 text-sm font-medium text-[var(--om-navy)] hover:underline"
                     >
                         {{ item.name }}

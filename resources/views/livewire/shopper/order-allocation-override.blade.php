@@ -49,6 +49,10 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div class="sm:col-span-2">
+                                <label class="mb-1.5 block font-semibold text-gray-700 dark:text-gray-300 text-xs" for="override_reason">Alasan Override (Opsional)</label>
+                                <textarea id="override_reason" rows="2" wire:model="reason" placeholder="Contoh: Stok gudang asal menipis / dekat alamat tujuan" class="w-full rounded-lg border-gray-300 text-xs shadow-2xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
+                            </div>
                         </div>
 
                         @if ($overrideError)
@@ -64,6 +68,27 @@
                             </x-filament::button>
                         </div>
                     </form>
+
+                    @if ($overrideLogs->isNotEmpty())
+                        <div class="mt-4 border-t border-gray-200 pt-3 dark:border-white/10">
+                            <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">Riwayat Override Gudang</p>
+                            <ul class="mt-2 space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                @foreach ($overrideLogs as $log)
+                                    <li>
+                                        {{ $log->created_at?->format('d M Y H:i') }} ·
+                                        {{ $log->fromInventory?->name ?? '?' }} &rarr; {{ $log->toInventory?->name ?? '?' }}
+                                        (Qty {{ (int) data_get($log->payload, 'move.qty', 0) }})
+                                        @if (data_get($log->payload, 'reason'))
+                                            · "{{ data_get($log->payload, 'reason') }}"
+                                        @endif
+                                        @if ($log->actor)
+                                            oleh {{ $log->actor->full_name }}
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                 </div>
             </x-shopper::card>
         </div>

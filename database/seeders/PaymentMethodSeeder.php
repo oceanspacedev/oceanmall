@@ -51,7 +51,18 @@ class PaymentMethodSeeder extends Seeder
             'title' => 'Bayar di tempat (COD)',
             'description' => 'Bayar di tempat saat barang diterima.',
             'driver' => 'manual',
+            'metadata' => json_encode(['payment_type' => 'cod'], JSON_THROW_ON_ERROR),
         ], enabled: true);
+
+        self::seedMethod('bank-transfer', [
+            'title' => 'Transfer Bank Manual',
+            'description' => 'Transfer ke rekening toko dan unggah bukti pembayaran.',
+            'driver' => 'manual',
+            'metadata' => json_encode([
+                'payment_type' => 'bank_transfer',
+                'requires_proof' => true,
+            ], JSON_THROW_ON_ERROR),
+        ], enabled: false);
 
         foreach (self::$providerSeeders as $seeder) {
             if (class_exists($seeder)) {

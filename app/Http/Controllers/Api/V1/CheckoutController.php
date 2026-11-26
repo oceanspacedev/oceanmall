@@ -34,6 +34,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\Models\Cart;
+use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\PaymentMethod;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
@@ -56,8 +57,21 @@ final class CheckoutController extends Controller
         $destinationDriver = $capabilities->destinationDriverCode();
 
         $rates = [];
+        $allocationPayload = null;
+        $ratesByShipment = [];
         if (is_array($address) && $cart->lines->isNotEmpty()) {
-            $rates = $this->ratesForCart($cart, $address);
+            $quote = $this->quoteCart($cart, $address);
+            $rates = $quote['rates'];
+            $ratesByShipment = $quote['by_shipment'];
+            if ($quote['plan'] instanceof AllocationPlan) {
+                $inventoryIds = array_map(static fn ($s): int => $s->inventory_id, $quote['plan']->shipments);
+                $inventories = Inventory::query()->whereIn('id', $inventoryIds)->get()->keyBy('id');
+                $allocationPayload = array_map(static fn ($s): array => [
+                    'inventory_id' => $s->inventory_id,
+                    'inventory_name' => $inventories->get($s->inventory_id)?->getAttribute('name') ?? (string) $s->inventory_id,
+                    'lines' => $s->lines,
+                ], $quote['plan']->shipments);
+            }
         }
 
         $countryId = is_array($address) ? (int) ($address['country_id'] ?? 0) : 0;
@@ -68,6 +82,9 @@ final class CheckoutController extends Controller
         $methods = $this->appPaymentMethods($countryId);
 
         $context = $cart->lines->isEmpty() ? null : resolve(CartManager::class)->calculate($cart);
+        $selectedByShipment = is_array($state['shipping_options_by_shipment'] ?? null)
+            ? array_map(static fn ($r): int|string|null => is_array($r) ? SelectedRate::optionKeyOf($r) : null, $state['shipping_options_by_shipment'])
+            : [];
 
         return response()->json([
             'data' => [
@@ -90,6 +107,9 @@ final class CheckoutController extends Controller
                     ? [...$state['shipping_option'][0], 'service_code' => SelectedRate::optionKeyOf($state['shipping_option'][0])]
                     : null,
                 'shipping_rates' => $rates,
+                'allocation' => $allocationPayload,
+                'shipping_rates_by_shipment' => $ratesByShipment === [] ? (object) [] : $ratesByShipment,
+                'shipping_options_by_shipment' => $selectedByShipment === [] ? (object) [] : $selectedByShipment,
                 'shipping_capabilities' => $capabilities->toApi(),
                 'payment_methods' => $methods,
                 'payment' => $state['payment'][0] ?? null,
@@ -185,6 +205,64 @@ final class CheckoutController extends Controller
             return response()->json(['message' => 'Alamat pengiriman belum diisi.'], 422);
         }
 
+        $cart = $this->customerCart->current($user);
+        ['plan' => $plan, 'by_shipment' => $ratesByShipment, 'rates' => $rates] = $this->quoteCart($cart, $address);
+
+        if (! $plan instanceof AllocationPlan) {
+            return response()->json(['message' => 'Opsi pengiriman tidak tersedia.'], 422);
+        }
+
+        $state = $this->checkoutState->get($user);
+        $selectedRates = resolve(SelectedShipmentRates::class);
+
+        if ($request->has('rates') && is_array($request->input('rates'))) {
+            $data = $request->validate([
+                'rates' => ['required', 'array'],
+                'rates.*' => ['required'],
+            ]);
+
+            $selectedByShipment = [];
+            $totalPrice = 0;
+
+            foreach ($plan->shipments as $shipment) {
+                $code = $data['rates'][$shipment->inventory_id] ?? $data['rates'][(string) $shipment->inventory_id] ?? null;
+                if ($code === null || (! is_string($code) && ! is_int($code))) {
+                    return response()->json(['message' => 'Pilih kurir untuk setiap paket pengiriman.'], 422);
+                }
+
+                $row = SelectedRate::pick($ratesByShipment[$shipment->inventory_id] ?? [], $code);
+                if (! is_array($row)) {
+                    return response()->json(['message' => 'Opsi pengiriman tidak tersedia.'], 422);
+                }
+
+                $selectedByShipment[$shipment->inventory_id] = $selectedRates->stamp(SelectedRate::fromQuote($row), $shipment);
+                $totalPrice += (int) ($row['amount'] ?? 0);
+            }
+
+            if (count($plan->shipments) === 1) {
+                $onlyRate = reset($selectedByShipment);
+                $state['shipping_option'] = [is_array($onlyRate) ? $onlyRate : []];
+                $state['shipping_options_by_shipment'] = [];
+            } else {
+                $state['shipping_options_by_shipment'] = $selectedByShipment;
+                $state['shipping_option'] = [[
+                    'id' => 'split-shipment',
+                    'name' => 'Split shipment',
+                    'price' => $totalPrice,
+                    'amount' => $totalPrice,
+                    'service_code' => 'split-shipment',
+                    'carrier_code' => 'multi',
+                    'currency' => 'IDR',
+                    'estimated_days' => null,
+                ]];
+            }
+
+            $state['allocation_plan'] = $plan;
+            $this->checkoutState->put($user, $state);
+
+            return $this->show($request);
+        }
+
         $data = $request->validate([
             // Shopper service codes are string|int: Shopper zone options
             // (manual carriers) quote the CarrierOption id as an integer.
@@ -195,21 +273,17 @@ final class CheckoutController extends Controller
             }],
         ]);
 
-        $cart = $this->customerCart->current($user);
-        ['plan' => $plan, 'by_shipment' => $ratesByShipment, 'rates' => $rates] = $this->quoteCart($cart, $address);
         $selected = SelectedRate::pick($rates, $data['service_code']);
 
-        if (! is_array($selected) || ! $plan instanceof AllocationPlan) {
+        if (! is_array($selected)) {
             return response()->json(['message' => 'Opsi pengiriman tidak tersedia.'], 422);
         }
 
-        $state = $this->checkoutState->get($user);
         // Generic fields plus whatever details the quoting driver attached.
         // A cart split over several warehouses ships every package with the
         // picked service, each at its own rate; shipping_option then only
         // sums them up (what the app shows and the payment amount checks).
         $selectedByShipment = [];
-        $selectedRates = resolve(SelectedShipmentRates::class);
 
         if (count($plan->shipments) > 1) {
             foreach ($plan->shipments as $shipment) {
@@ -274,6 +348,11 @@ final class CheckoutController extends Controller
             return response()->json(['message' => 'Pilih kurir pengiriman dulu.'], 422);
         }
 
+        if (\App\Support\OrderPaymentType::methodIsCod($method)
+            && ! \App\Support\OrderPaymentType::shippingRatesSupportCod($checkout)) {
+            return response()->json(['message' => 'Kurir yang dipilih tidak mendukung Cash on Delivery (COD). Pilih kurir atau metode pembayaran lain.'], 422);
+        }
+
         // Reject a method the gateway would refuse for this amount *before*
         // the order exists (e.g. QRIS above its maximum).
         $payable = (int) (resolve(CartManager::class)->calculate($cart)->total ?? 0)
@@ -314,10 +393,16 @@ final class CheckoutController extends Controller
         $paymentError = null;
 
         try {
-            ['result' => $result, 'action' => $action] = resolve(InitiateOrderPayment::class)->handle($order, $selected);
+            ['result' => $result, 'action' => $action] = resolve(InitiateOrderPayment::class)->handle(
+                $order,
+                $selected,
+                ['return_url' => route('payment.return.mobile', ['order' => $order->number])],
+            );
 
             if (! $result->success) {
                 $paymentError = 'Pesanan dibuat, tetapi pembayaran belum bisa dibuat. Coba bayar ulang dari halaman pesanan.';
+            } elseif (\App\Support\OrderPaymentType::isCod($order)) {
+                resolve(\App\Actions\Shipping\DispatchShipmentFulfillment::class)->handle($order);
             }
         } catch (Throwable $e) {
             report($e);

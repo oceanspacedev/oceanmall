@@ -28,6 +28,8 @@ import {
   offlinePaymentNote,
   paymentFromAction,
   PROVIDER_TIMEOUT_MS,
+  serverNow,
+  syncServerClock,
   type OrderDetail,
 } from '@/lib/api';
 import { announce, useReducedMotion } from '@/lib/a11y';
@@ -39,6 +41,7 @@ import {
   formatDate,
   formatDateTime,
   formatIdr,
+  formatMoney,
   mediaUrl,
   parseApiDate,
   statusLabel,
@@ -131,13 +134,14 @@ export default function OrderScreen() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Bumped when the payment deadline passes, so the "renew" check is re-evaluated.
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => serverNow());
   const [justPaid, setJustPaid] = useState(false);
   const [expandedTracking, setExpandedTracking] = useState<Record<number, boolean>>({});
   const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
   const [reviewing, setReviewing] = useState<ReviewTarget | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const wasPaid = useRef<boolean | null>(null);
+  const busyRef = useRef(false);
   const busy = busyAction !== null;
   const userId = user?.id ?? null;
 
@@ -153,8 +157,10 @@ export default function OrderScreen() {
   }, [number, userId]);
 
   const applyOrder = useCallback((received: OrderDetail) => {
+    syncServerClock(received.server_time);
+    setNow(serverNow());
     // The panel renders `payment`: derive it from the neutral payment_action when present.
-    const next = { ...received, payment: paymentFromAction(received) };
+    const next = { ...received, payment: paymentFromAction(received, received.amount) };
     const nowPaid = next.payment_status === 'paid';
     const before = wasPaid.current;
     wasPaid.current = nowPaid;
@@ -277,6 +283,10 @@ export default function OrderScreen() {
   );
 
   async function run(action: string, task: () => Promise<void>) {
+    if (busyRef.current) {
+      return;
+    }
+    busyRef.current = true;
     setBusyAction(action);
     setError(null);
     try {
@@ -284,6 +294,7 @@ export default function OrderScreen() {
     } catch (e) {
       setError(errorMessage(e));
     } finally {
+      busyRef.current = false;
       setBusyAction(null);
     }
   }
@@ -341,7 +352,7 @@ export default function OrderScreen() {
   }
 
   async function retryPayment() {
-    if (!order) {
+    if (!order || busy) {
       return;
     }
     await run('retry', async () => {
@@ -362,13 +373,13 @@ export default function OrderScreen() {
         }
         throw e;
       }
-      setNow(Date.now());
+      setNow(serverNow());
       setOrder((current) =>
         current
           ? {
               ...current,
               payment_action: res.data.payment_action,
-              payment: paymentFromAction(res.data),
+              payment: paymentFromAction(res.data, current.amount),
             }
           : current
       );
@@ -376,7 +387,7 @@ export default function OrderScreen() {
   }
 
   async function trackShipment(shipmentId: number) {
-    if (!order) {
+    if (!order || busy) {
       return;
     }
     await run(`track-${shipmentId}`, async () => {
@@ -395,6 +406,37 @@ export default function OrderScreen() {
         bottomOffset: BAR_OFFSET,
       });
     });
+  }
+
+  function cancelOrder() {
+    if (!order || busy) {
+      return;
+    }
+    const orderNumber = order.number;
+    RNAlert.alert(
+      'Batalkan pesanan?',
+      'Pesanan yang dibatalkan akan mengembalikan stok dan kupon promo ke akunmu.',
+      [
+        { text: 'Kembali', style: 'cancel' },
+        {
+          text: 'Ya, batalkan',
+          style: 'destructive',
+          onPress: () =>
+            void run('cancel', async () => {
+              const res = await api<{ data: OrderDetail }>(`/orders/${orderNumber}/cancel`, {
+                method: 'POST',
+                body: JSON.stringify({ reason: 'Dibatalkan oleh pelanggan via aplikasi' }),
+              });
+              applyOrder(res.data);
+              toast.show({
+                tone: 'success',
+                message: 'Pesanan berhasil dibatalkan.',
+                bottomOffset: BAR_OFFSET,
+              });
+            }),
+        },
+      ]
+    );
   }
 
   function confirmReceived() {
@@ -508,9 +550,14 @@ export default function OrderScreen() {
   const liveShipments = order.shipments.filter((shipment) => shipment.status !== 'cancelled');
   const hasAwb =
     liveShipments.length > 0 &&
-    liveShipments.every((shipment) => Boolean(shipment.awb || shipment.tracking_number));
+    liveShipments.every(
+      (shipment) =>
+        shipment.status !== 'returned' &&
+        shipment.status !== 'delivery_failed' &&
+        Boolean(shipment.awb || shipment.tracking_number)
+    );
   const canConfirm =
-    order.payment_status === 'paid' &&
+    (order.payment_status === 'paid' || Boolean(order.is_cod)) &&
     hasAwb &&
     order.status !== 'completed' &&
     order.status !== 'cancelled';
@@ -519,6 +566,7 @@ export default function OrderScreen() {
   const showStickyBar =
     needsOnlinePayment ||
     canConfirm ||
+    Boolean(order.can_cancel) ||
     (stage.key === 'completed' && Boolean(firstSlug)) ||
     Boolean(error);
 
@@ -595,9 +643,11 @@ export default function OrderScreen() {
           <Section title="Instruksi pembayaran" icon={CreditCard}>
             <PaymentPanel
               payment={order.payment}
+              canRetry={order.can_retry_payment ?? false}
+              currency={order.currency}
               onExpire={() => {
                 // The cron may already have cancelled the order: look again before offering a retry.
-                setNow(Date.now());
+                setNow(serverNow());
                 void load();
               }}
               onClosed={() => void syncPayment(true)}
@@ -756,11 +806,11 @@ export default function OrderScreen() {
                     {item.name}
                   </Text>
                   <Text className="mt-0.5 text-[12px] text-muted-foreground">
-                    {item.quantity} × {formatIdr(item.unit_price)}
+                    {item.quantity} × {formatMoney(item.unit_price, order.currency)}
                   </Text>
                 </View>
                 <Text className="text-[13px] font-bold">
-                  {formatIdr(item.unit_price * item.quantity)}
+                  {formatMoney(item.unit_price * item.quantity, order.currency)}
                 </Text>
               </View>
             );
@@ -781,7 +831,7 @@ export default function OrderScreen() {
                   row
                 )}
                 {slug && reviewable ? (
-                  reviewed[slug] ? (
+                  Boolean(item.reviewed || reviewed[slug]) ? (
                     <View className="mt-2 flex-row items-center justify-end gap-1.5">
                       <Icon as={Check} size={14} className="text-om-success" />
                       <Text className="text-[12px] font-semibold text-om-success">
@@ -816,21 +866,87 @@ export default function OrderScreen() {
           ) : null}
           <SummaryRow
             label={`Total harga (${order.items.reduce((sum, item) => sum + item.quantity, 0)} barang)`}
-            value={formatIdr(order.totals?.subtotal ?? order.amount)}
+            value={formatMoney(
+              order.breakdown?.subtotal ?? order.totals?.subtotal ?? order.amount,
+              order.currency
+            )}
           />
-          {order.totals ? (
-            <SummaryRow label="Ongkos kirim" value={formatIdr(order.totals.shipping)} />
-          ) : null}
-          {order.totals && order.totals.adjustment !== 0 ? (
-            <SummaryRow
-              label={order.totals.adjustment < 0 ? 'Diskon' : 'Biaya lainnya'}
-              value={`${order.totals.adjustment < 0 ? '−' : ''}${formatIdr(Math.abs(order.totals.adjustment))}`}
-              valueClassName={order.totals.adjustment < 0 ? 'text-om-success' : undefined}
-            />
-          ) : null}
+          {order.breakdown ? (
+            <>
+              <SummaryRow
+                label="Ongkos kirim"
+                value={formatMoney(order.breakdown.shipping, order.currency)}
+              />
+              {order.breakdown.discount > 0 ? (
+                <SummaryRow
+                  label="Diskon kupon"
+                  value={`−${formatMoney(order.breakdown.discount, order.currency)}`}
+                  valueClassName="text-om-success"
+                />
+              ) : null}
+              {order.breakdown.tax > 0 ? (
+                <SummaryRow
+                  label={order.breakdown.tax_inclusive ? 'PPN (termasuk)' : 'Pajak'}
+                  value={formatMoney(order.breakdown.tax, order.currency)}
+                />
+              ) : null}
+              {order.breakdown.refunded > 0 ? (
+                <SummaryRow
+                  label="Direfund"
+                  value={`−${formatMoney(order.breakdown.refunded, order.currency)}`}
+                />
+              ) : null}
+            </>
+          ) : (
+            <>
+              {order.totals ? (
+                <SummaryRow
+                  label="Ongkos kirim"
+                  value={formatMoney(order.totals.shipping, order.currency)}
+                />
+              ) : null}
+              {order.totals && order.totals.adjustment !== 0 ? (
+                <SummaryRow
+                  label={order.totals.adjustment < 0 ? 'Diskon' : 'Biaya lainnya'}
+                  value={`${order.totals.adjustment < 0 ? '−' : ''}${formatMoney(Math.abs(order.totals.adjustment), order.currency)}`}
+                  valueClassName={order.totals.adjustment < 0 ? 'text-om-success' : undefined}
+                />
+              ) : null}
+            </>
+          )}
           <View className="my-1.5 h-px bg-border" />
-          <SummaryRow label="Total belanja" value={formatIdr(order.amount)} strong />
+          <SummaryRow label="Total belanja" value={formatMoney(order.amount, order.currency)} strong />
         </Section>
+
+        {(order.payment_proofs?.length ?? 0) > 0 ? (
+          <Section title="Bukti transfer bank" icon={CreditCard}>
+            {order.payment_proofs!.map((proof) => (
+              <View key={proof.id} className="py-1">
+                <Text className="text-[13px] font-semibold">
+                  {proof.original_name} · {proof.status}
+                </Text>
+                {proof.verification_notes ? (
+                  <Text className="text-[12px] text-muted-foreground">{proof.verification_notes}</Text>
+                ) : null}
+              </View>
+            ))}
+          </Section>
+        ) : null}
+
+        {(order.return_requests?.length ?? 0) > 0 ? (
+          <Section title="Riwayat retur (RMA)" icon={FileText}>
+            {order.return_requests!.map((ret) => (
+              <View key={ret.id} className="py-1">
+                <Text className="text-[13px] font-semibold">
+                  RMA #{ret.id} · {ret.reason} ({ret.status})
+                </Text>
+                {ret.resolution_notes ? (
+                  <Text className="text-[12px] text-muted-foreground">{ret.resolution_notes}</Text>
+                ) : null}
+              </View>
+            ))}
+          </Section>
+        ) : null}
 
         {/* Order info */}
         <Section title="Info pesanan" icon={FileText}>
@@ -891,6 +1007,16 @@ export default function OrderScreen() {
               onPress={() => router.push(`/product/${firstSlug}`)}
               className="min-h-11 rounded-sm">
               <Text className="font-bold">Beli lagi</Text>
+            </Button>
+          ) : null}
+          {order.can_cancel ? (
+            <Button
+              variant="outline"
+              loading={busyAction === 'cancel'}
+              disabled={busy}
+              onPress={cancelOrder}
+              className="mt-2 min-h-11 rounded-sm border-destructive">
+              <Text className="font-bold text-destructive">Batalkan pesanan</Text>
             </Button>
           ) : null}
         </StickyBar>

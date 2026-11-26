@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Actions\Payment;
 
 use App\Payment\Exceptions\PaymentRetryRefused;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
@@ -19,6 +20,7 @@ final class RetryKomercePayment
     public function __construct(
         private readonly CreateKomercePayment $createPayment,
         private readonly ResolveKomercePaymentInstructions $resolveInstructions,
+        private readonly SyncKomercePaymentStatus $syncPaymentStatus,
     ) {}
 
     /**
@@ -28,40 +30,70 @@ final class RetryKomercePayment
      */
     public function handle(Order $order): array
     {
-        if (! $this->resolveInstructions->canRetry($order)) {
-            throw PaymentRetryRefused::notEligible('Order is not eligible for Komerce payment retry.');
+        $lock = Cache::lock('komerce:retry:'.$order->id, 15);
+
+        if (! $lock->get()) {
+            throw PaymentRetryRefused::notEligible('Permintaan pembayaran lain sedang diproses. Tunggu sebentar.');
         }
-
-        if ($order->payment_status === PaymentStatus::Paid) {
-            throw PaymentRetryRefused::alreadyPaid();
-        }
-
-        $order->loadMissing('paymentMethod');
-        $method = $order->paymentMethod;
-
-        if (! $method instanceof PaymentMethod || ($method->driver ?? null) !== 'komerce') {
-            throw PaymentRetryRefused::notEligible('Order has no Komerce payment method.');
-        }
-
-        $selected = $this->selectedMethodPayload($order, $method);
 
         try {
-            $this->closePreviousPaymentApiCharge($order);
+            $order->refresh();
 
-            return $this->createPayment->handle($order, $selected);
-        } catch (PaymentRetryRefused $e) {
-            throw $e;
-        } catch (Throwable $e) {
-            report($e);
+            if (! $this->resolveInstructions->canRetry($order)) {
+                throw PaymentRetryRefused::notEligible('Order is not eligible for Komerce payment retry.');
+            }
 
-            throw new RuntimeException('Unable to recreate Komerce payment: '.$e->getMessage(), 0, $e);
+            if ($order->payment_status === PaymentStatus::Paid) {
+                throw PaymentRetryRefused::alreadyPaid();
+            }
+
+            $order->loadMissing('paymentMethod');
+            $method = $order->paymentMethod;
+
+            if (! $method instanceof PaymentMethod || ($method->driver ?? null) !== 'komerce') {
+                throw PaymentRetryRefused::notEligible('Order has no Komerce payment method.');
+            }
+
+            $selected = $this->selectedMethodPayload($order, $method);
+
+            try {
+                $this->closePreviousCharge($order);
+
+                if ($order->refresh()->payment_status === PaymentStatus::Paid) {
+                    throw PaymentRetryRefused::alreadyPaid();
+                }
+
+                return $this->createPayment->handle($order, $selected);
+            } catch (PaymentRetryRefused $e) {
+                throw $e;
+            } catch (Throwable $e) {
+                report($e);
+
+                throw new RuntimeException('Unable to recreate Komerce payment: '.$e->getMessage(), 0, $e);
+            }
+        } finally {
+            $lock->release();
         }
     }
 
-    private function closePreviousPaymentApiCharge(Order $order): void
+    private function closePreviousCharge(Order $order): void
     {
         $metadata = $this->decodeMetadata($order->getAttribute('metadata'));
         $provider = (string) data_get($metadata, 'komerce.provider', 'payment_api');
+
+        if ($provider === 'qrisly') {
+            $verdict = $this->syncPaymentStatus->reconcile($order);
+
+            if (in_array($verdict, ['handled', 'already_processed'], true)) {
+                throw PaymentRetryRefused::alreadyPaid('The previous Komerce payment is already paid; synchronize the order instead of creating another charge.');
+            }
+
+            if ($verdict === 'lookup_failed') {
+                throw new RuntimeException('Could not verify previous QRISLY payment; try again later.');
+            }
+
+            return;
+        }
 
         if ($provider !== 'payment_api') {
             return;
@@ -133,7 +165,7 @@ final class RetryKomercePayment
             $title = mb_strtolower((string) ($method->title ?? ''));
 
             if (str_contains($slug, 'bri') || str_contains($title, 'bri')) {
-                $channelCode = 'BRIVA';
+                $channelCode = 'BRI';
             } elseif (str_contains($slug, 'bni') || str_contains($title, 'bni')) {
                 $channelCode = 'BNI';
             } elseif (str_contains($slug, 'mandiri') || str_contains($title, 'mandiri')) {

@@ -378,8 +378,8 @@ final class RajaOngkirDriver extends Driver implements DelegatesFulfillment, Del
             ?? data_get($response, 'data.summary.status')
             ?? ''
         ));
-        $status = $this->normalizeStatus->handle($rawStatus, NormalizeShipmentStatus::PENDING)
-            ?? NormalizeShipmentStatus::PENDING;
+        $status = $this->normalizeStatus->handle($rawStatus, null)
+            ?? NormalizeShipmentStatus::IN_TRANSIT;
 
         if (data_get($response, 'data.delivered') === true) {
             $status = NormalizeShipmentStatus::DELIVERED;

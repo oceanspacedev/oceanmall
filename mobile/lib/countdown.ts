@@ -1,3 +1,4 @@
+import { serverNow } from '@/lib/api';
 import { parseApiDate } from '@/lib/format';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -71,7 +72,7 @@ export function computeCountdown(endMs: number, nowMs: number): CountdownState {
  */
 export function useCountdown(expiry?: string | null, onExpire?: () => void): CountdownState | null {
   const end = useMemo(() => parseApiDate(expiry)?.getTime() ?? null, [expiry]);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => serverNow());
   const onExpireRef = useRef(onExpire);
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export function useCountdown(expiry?: string | null, onExpire?: () => void): Cou
       return;
     }
 
-    let armed = Date.now() < end;
+    let armed = serverNow() < end;
     let timer: ReturnType<typeof setInterval> | undefined;
 
     const stop = () => {
@@ -93,7 +94,7 @@ export function useCountdown(expiry?: string | null, onExpire?: () => void): Cou
       }
     };
     const tick = () => {
-      const current = Date.now();
+      const current = serverNow();
       setNow(current);
       if (current >= end) {
         stop();
@@ -105,7 +106,7 @@ export function useCountdown(expiry?: string | null, onExpire?: () => void): Cou
     };
 
     tick();
-    if (Date.now() < end) {
+    if (serverNow() < end) {
       timer = setInterval(tick, 1000);
     }
     const subscription = AppState.addEventListener('change', (state) => {

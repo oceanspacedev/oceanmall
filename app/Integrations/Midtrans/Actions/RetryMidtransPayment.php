@@ -9,6 +9,7 @@ use App\Integrations\Midtrans\Payment\MidtransDriver;
 use App\Integrations\Midtrans\Support\MidtransOrderState;
 use App\Payment\Exceptions\PaymentRetryRefused;
 use App\Payment\PaymentMethodCatalog;
+use App\Payment\PaymentReturnUrl;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Shopper\Core\Enum\PaymentStatus;
@@ -95,6 +96,7 @@ final readonly class RetryMidtransPayment
                 'payment_method_id' => $method->id,
                 'channel_code' => is_string($channel) ? $channel : null,
                 'midtrans_attempt' => MidtransOrderState::nextAttempt($order),
+                'return_url' => PaymentReturnUrl::get($order),
             ], static fn (mixed $value): bool => $value !== null && $value !== ''));
         } catch (Throwable $e) {
             report($e);

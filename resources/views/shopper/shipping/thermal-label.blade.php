@@ -93,8 +93,17 @@
             margin-top: 8px;
             font-size: 9px;
             text-align: center;
-            border-top: 1px stroke #ccc;
+            border-top: 1px solid #ccc;
             padding-top: 4px;
+        }
+        .cod-badge {
+            margin-top: 6px;
+            border: 2px solid #000;
+            padding: 4px 6px;
+            font-weight: 900;
+            font-size: 11px;
+            text-align: center;
+            background: #f3f4f6;
         }
         @media print {
             .no-print { display: none; }
@@ -120,10 +129,22 @@
             </div>
         </div>
 
+        @php
+            $barcodeValue = (string) ($shipment['awb'] ?: $shipment['tracking_number'] ?: $shipment['delivery_order_no'] ?: $order->number);
+        @endphp
         <div class="barcode-section">
-            <div style="font-size: 9px; text-transform: uppercase; margin-bottom: 2px;">NOMOR RESI / NO. DELIVERY ORDER</div>
-            <div class="barcode-text">{{ $shipment['delivery_order_no'] ?? $shipment['awb'] ?? $order->number }}</div>
+            <div style="font-size: 9px; text-transform: uppercase; margin-bottom: 4px;">NOMOR RESI / DELIVERY ORDER</div>
+            <div style="max-width: 82mm; margin: 0 auto 4px;">
+                {!! \App\Support\Code128Svg::render($barcodeValue, 44) !!}
+            </div>
+            <div class="barcode-text">{{ $barcodeValue }}</div>
         </div>
+
+        @if (($shipment['cod_amount'] ?? 0) > 0)
+            <div class="cod-badge">
+                COD TAGIHAN: {{ shopper_money_format((int) $shipment['cod_amount'], (string) $order->currency_code) }}
+            </div>
+        @endif
 
         <div class="address-grid">
             <div class="address-box" style="border-right: 1px solid #000; padding-right: 6px;">
@@ -161,7 +182,7 @@
         </div>
 
         <div class="footer-note">
-            Order #{{ $order->number }} · {{ $shipment['carrier_name_display'] ?? $shipment['carrier'] }} · OceanMall Official Store
+            Order #{{ $order->number }} · {{ $shipment['carrier_name_display'] ?? $shipment['carrier'] }} · {{ shopper_setting('name') ?: config('app.name', 'OceanMall') }}
         </div>
     </div>
 @endforeach

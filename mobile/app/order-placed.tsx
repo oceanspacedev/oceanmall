@@ -14,10 +14,11 @@ import {
   offlinePaymentNote,
   paymentFromAction,
   PROVIDER_TIMEOUT_MS,
+  syncServerClock,
   type OrderDetail,
 } from '@/lib/api';
 import { useCountdown, usePolling } from '@/lib/countdown';
-import { formatDateTime, formatIdr } from '@/lib/format';
+import { formatDateTime, formatMoney } from '@/lib/format';
 import { orderStage } from '@/lib/order-status';
 import { ripple } from '@/lib/ripple';
 import { COLORS } from '@/lib/theme';
@@ -69,8 +70,9 @@ export default function OrderPlacedScreen() {
   }
 
   const applyOrder = useCallback((received: OrderDetail) => {
+    syncServerClock(received.server_time);
     // The panel renders `payment`: derive it from the neutral payment_action when present.
-    const next = { ...received, payment: paymentFromAction(received) };
+    const next = { ...received, payment: paymentFromAction(received, received.amount) };
     const nowPaid = next.payment_status === 'paid';
     const before = wasPaid.current;
     wasPaid.current = nowPaid;
@@ -262,7 +264,7 @@ export default function OrderPlacedScreen() {
                 <View className="flex-row items-center justify-between py-1">
                   <Text className="text-[13px] text-muted-foreground">Total belanja</Text>
                   <Text className="text-[16px] font-extrabold text-om-navy">
-                    {formatIdr(order.amount)}
+                    {formatMoney(order.amount, order.currency)}
                   </Text>
                 </View>
 
@@ -286,7 +288,12 @@ export default function OrderPlacedScreen() {
 
               {showPayment ? (
                 <Section title="Instruksi pembayaran" icon={CreditCard}>
-                  <PaymentPanel compact payment={payment} onClosed={() => void checkAfterSheet()} />
+                  <PaymentPanel
+                    compact
+                    payment={payment}
+                    currency={order?.currency}
+                    onClosed={() => void checkAfterSheet()}
+                  />
                 </Section>
               ) : null}
 

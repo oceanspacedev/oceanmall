@@ -35,7 +35,7 @@ final class ReviewReportController extends Controller
         $userId = (int) $request->user()->getAuthIdentifier();
 
         DB::transaction(function () use ($model, $userId, $data): void {
-            DB::table('review_reports')->insertOrIgnore([
+            $inserted = DB::table('review_reports')->insertOrIgnore([
                 'review_id' => $model->id,
                 'user_id' => $userId,
                 'reason' => $data['reason'] ?? null,
@@ -43,7 +43,9 @@ final class ReviewReportController extends Controller
                 'updated_at' => now(),
             ]);
 
-            $model->forceFill(['approved' => false])->save();
+            if ($inserted > 0) {
+                $model->forceFill(['approved' => false])->save();
+            }
         });
 
         return response()->json(['message' => 'Terima kasih, laporanmu sudah kami terima.']);

@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Integrations\Xendit\Actions;
 
 use App\Actions\Orders\MarkOrderPaid;
+use App\Actions\Orders\RecordPaymentDispute;
 use App\Integrations\Xendit\Exceptions\XenditApiException;
 use App\Integrations\Xendit\Exceptions\XenditPaidAfterCancellation;
 use App\Integrations\Xendit\Payment\XenditDriver;
 use App\Integrations\Xendit\Services\XenditClient;
 use App\Integrations\Xendit\Support\XenditOrderPayment;
+use App\Models\PaymentDispute;
 use RuntimeException;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
+use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Models\PaymentTransaction;
 use Throwable;
 
@@ -92,6 +95,48 @@ final readonly class ConfirmXenditInvoice
         }
 
         if ($order->payment_status === PaymentStatus::Paid) {
+            $alreadyCapturedHere = PaymentTransaction::query()
+                ->where('order_id', $order->id)
+                ->where('driver', XenditDriver::CODE)
+                ->where('reference', $invoiceId)
+                ->where('status', TransactionStatus::Success)
+                ->exists();
+
+            if ($alreadyCapturedHere) {
+                return ['verdict' => self::ALREADY_PROCESSED, 'order' => $order];
+            }
+
+            try {
+                $invoice = $this->client->getInvoice($invoiceId);
+            } catch (Throwable $e) {
+                report($e);
+
+                return ['verdict' => self::LOOKUP_FAILED, 'order' => $order];
+            }
+
+            if (XenditOrderPayment::belongsTo($order, $invoice['external_id'] ?? null)
+                && XenditOrderPayment::isPaid($invoice)) {
+                report(new RuntimeException(sprintf(
+                    'Xendit invoice %s was paid for order %s, which is already paid through another invoice: refund one of them.',
+                    $invoiceId,
+                    $order->number,
+                )));
+
+                resolve(RecordPaymentDispute::class)->handle(
+                    order: $order,
+                    driver: XenditDriver::CODE,
+                    type: PaymentDispute::TYPE_DOUBLE_PAYMENT,
+                    reference: $invoiceId,
+                    amount: XenditOrderPayment::paidAmount($invoice),
+                    expectedAmount: (int) $order->price_amount,
+                    currencyCode: (string) $order->currency_code,
+                    reason: 'Invoice Xendit kedua dibayar untuk order yang sudah lunas.',
+                    payload: $invoice,
+                );
+
+                return ['verdict' => self::DUPLICATE_PAYMENT, 'order' => $order];
+            }
+
             return ['verdict' => self::ALREADY_PROCESSED, 'order' => $order];
         }
 
@@ -157,6 +202,18 @@ final readonly class ConfirmXenditInvoice
                 var_export(XenditOrderPayment::paidAmount($invoice), true),
             )));
 
+            resolve(RecordPaymentDispute::class)->handle(
+                order: $order,
+                driver: XenditDriver::CODE,
+                type: PaymentDispute::TYPE_AMOUNT_MISMATCH,
+                reference: $invoiceId,
+                amount: XenditOrderPayment::paidAmount($invoice) ?? $invoiceAmount,
+                expectedAmount: $expected,
+                currencyCode: (string) $order->currency_code,
+                reason: 'Nominal pembayaran Xendit tidak sesuai dengan order.',
+                payload: $invoice,
+            );
+
             return ['verdict' => self::AMOUNT_MISMATCH, 'order' => $order];
         }
 
@@ -167,6 +224,18 @@ final readonly class ConfirmXenditInvoice
         if ($verdict === MarkOrderPaid::CANCELLED_ORDER) {
             // Cancelled between the API read and the row lock, yet Xendit says paid.
             report(new XenditPaidAfterCancellation((string) $order->number, $invoiceId));
+
+            resolve(RecordPaymentDispute::class)->handle(
+                order: $order,
+                driver: XenditDriver::CODE,
+                type: PaymentDispute::TYPE_PAID_AFTER_CANCELLATION,
+                reference: $invoiceId,
+                amount: XenditOrderPayment::paidAmount($invoice) ?? $invoiceAmount,
+                expectedAmount: $expected,
+                currencyCode: (string) $order->currency_code,
+                reason: 'Invoice Xendit dibayar setelah pesanan dibatalkan.',
+                payload: $invoice,
+            );
 
             return ['verdict' => self::PAID_AFTER_CANCEL, 'order' => $order->refresh()];
         }
@@ -220,6 +289,18 @@ final readonly class ConfirmXenditInvoice
         if (MarkOrderPaid::isClosed($order)) {
             report(new XenditPaidAfterCancellation((string) $order->number, $invoiceId));
 
+            resolve(RecordPaymentDispute::class)->handle(
+                order: $order,
+                driver: XenditDriver::CODE,
+                type: PaymentDispute::TYPE_PAID_AFTER_CANCELLATION,
+                reference: $invoiceId,
+                amount: XenditOrderPayment::paidAmount($invoice),
+                expectedAmount: (int) $order->price_amount,
+                currencyCode: (string) $order->currency_code,
+                reason: 'Invoice Xendit tidak tercatat dibayar setelah pesanan dibatalkan.',
+                payload: $invoice,
+            );
+
             return ['verdict' => self::PAID_AFTER_CANCEL, 'order' => $order];
         }
 
@@ -229,6 +310,18 @@ final readonly class ConfirmXenditInvoice
                 $invoiceId,
                 $order->number,
             )));
+
+            resolve(RecordPaymentDispute::class)->handle(
+                order: $order,
+                driver: XenditDriver::CODE,
+                type: PaymentDispute::TYPE_DOUBLE_PAYMENT,
+                reference: $invoiceId,
+                amount: XenditOrderPayment::paidAmount($invoice),
+                expectedAmount: (int) $order->price_amount,
+                currencyCode: (string) $order->currency_code,
+                reason: 'Invoice Xendit kedua dibayar untuk order yang sudah lunas.',
+                payload: $invoice,
+            );
 
             return ['verdict' => self::DUPLICATE_PAYMENT, 'order' => $order];
         }
@@ -324,6 +417,18 @@ final readonly class ConfirmXenditInvoice
         }
 
         report(new XenditPaidAfterCancellation((string) $order->number, $invoiceId));
+
+        resolve(RecordPaymentDispute::class)->handle(
+            order: $order,
+            driver: XenditDriver::CODE,
+            type: PaymentDispute::TYPE_PAID_AFTER_CANCELLATION,
+            reference: $invoiceId,
+            amount: XenditOrderPayment::paidAmount($invoice),
+            expectedAmount: (int) $order->price_amount,
+            currencyCode: (string) $order->currency_code,
+            reason: 'Invoice Xendit dibayar setelah pesanan dibatalkan.',
+            payload: $invoice,
+        );
 
         return self::PAID_AFTER_CANCEL;
     }

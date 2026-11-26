@@ -81,6 +81,7 @@ export function ReviewSheet({
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
   const [recommend, setRecommend] = useState(true);
+  const [recommendTouched, setRecommendTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pendingToast = useRef<{ message: string; tone: ToastTone } | null>(null);
@@ -91,6 +92,7 @@ export function ReviewSheet({
       setRating(0);
       setContent('');
       setRecommend(true);
+      setRecommendTouched(false);
       setBusy(false);
       setError(null);
     }
@@ -255,6 +257,9 @@ export function ReviewSheet({
                       accessibilityState={{ checked: rating === value }}
                       onPress={() => {
                         setRating(value);
+                        if (!recommendTouched) {
+                          setRecommend(value >= 3);
+                        }
                         setError(null);
                       }}
                       className="h-11 w-11 items-center justify-center active:opacity-70">
@@ -290,7 +295,10 @@ export function ReviewSheet({
                 <Text className="flex-1 text-[13px]">Aku merekomendasikan produk ini</Text>
                 <Switch
                   value={recommend}
-                  onValueChange={setRecommend}
+                  onValueChange={(val) => {
+                    setRecommendTouched(true);
+                    setRecommend(val);
+                  }}
                   accessibilityLabel="Rekomendasikan produk ini"
                   trackColor={{ false: COLORS.disabled, true: COLORS.navy }}
                   thumbColor={COLORS.white}

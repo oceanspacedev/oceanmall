@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderShipment;
 use App\Shipping\Contracts\CancelsShipments;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
 use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Models\Order;
@@ -34,6 +36,18 @@ final readonly class CancelShipmentsOnOrderCancelled
             $driver = $this->capabilities->forShipmentSupporting($shipment, CancelsShipments::class);
 
             if ($driver === null) {
+                continue;
+            }
+
+            $hasAwb = trim((string) ($shipment->awb ?: $shipment->tracking_number)) !== '';
+
+            if (ShipmentMetadata::externalReference($shipment) === null && ! $hasAwb) {
+                $status = strtolower(trim((string) $shipment->status));
+
+                if (! in_array($status, [NormalizeShipmentStatus::CANCELLED, NormalizeShipmentStatus::DELIVERED], true)) {
+                    $shipment->forceFill(['status' => NormalizeShipmentStatus::CANCELLED])->save();
+                }
+
                 continue;
             }
 

@@ -5,17 +5,28 @@ declare(strict_types=1);
 namespace App\Livewire\Shopper\Pages;
 
 use App\Actions\Orders\CancelOrderWithProviders;
+use App\Actions\Orders\MarkOrderPaid;
+use App\Actions\Orders\RemitCodOrder;
 use App\Actions\Orders\SyncOrderPayment;
 use App\Actions\Shipping\NormalizeShipmentStatus;
+use App\Models\OrderNote;
 use App\Models\OrderShipment;
 use App\Payment\Contracts\ExpiresPayments;
 use App\Payment\PaymentActions;
 use App\Shipping\ShippingCapabilities;
+use App\Support\OrderPaymentType;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use Shopper\Core\Enum\OrderRefundStatus;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderCompleted;
+use Shopper\Core\Models\OrderRefund;
 use Shopper\Livewire\Pages\Order\Detail as ShopperOrderDetail;
 
 /**
@@ -29,13 +40,99 @@ use Shopper\Livewire\Pages\Order\Detail as ShopperOrderDetail;
  */
 final class OrderDetail extends ShopperOrderDetail
 {
+    public function startProcessingAction(): Action
+    {
+        return parent::startProcessingAction()
+            ->authorize('manage-order-fulfillment');
+    }
+
     public function markPaidAction(): Action
     {
-        $action = parent::markPaidAction();
+        $action = parent::markPaidAction()->authorize('orders-mark-paid');
         $reconciler = resolve(PaymentActions::class)->reconciler($this->order);
 
         if ($reconciler === null) {
-            return $action;
+            if (OrderPaymentType::isCod($this->order)) {
+                return $action
+                    ->label('Konfirmasi Dana COD Diterima')
+                    ->requiresConfirmation()
+                    ->schema([
+                        TextInput::make('reference')
+                            ->label('Referensi Setoran COD')
+                            ->default('cod-remit-'.$this->order->number),
+                        Textarea::make('notes')
+                            ->label('Catatan Verifikasi')
+                            ->rows(2),
+                    ])
+                    ->action(function (array $data): void {
+                        $actor = Auth::user();
+                        if ($actor instanceof \App\Models\User) {
+                            resolve(RemitCodOrder::class)->handle(
+                                $this->order,
+                                $actor,
+                                $data['reference'] ?? null,
+                                $data['notes'] ?? null,
+                            );
+                            $this->order->refresh();
+                            $this->dispatch('order.updated');
+                        }
+
+                        Notification::make()
+                            ->title('Dana COD dikonfirmasi lunas.')
+                            ->success()
+                            ->send();
+                    });
+            }
+
+            return $action
+                ->requiresConfirmation()
+                ->schema([
+                    TextInput::make('verified_amount')
+                        ->label('Nominal Diterima')
+                        ->numeric()
+                        ->default((int) $this->order->price_amount),
+                    TextInput::make('bank_reference')
+                        ->label('Nomor Referensi Mutasi')
+                        ->default('manual-'.$this->order->number),
+                    Textarea::make('notes')
+                        ->label('Catatan Verifikasi Finance')
+                        ->rows(2),
+                ])
+                ->action(function (array $data): void {
+                    $actor = Auth::user();
+                    $amount = isset($data['verified_amount']) && is_numeric($data['verified_amount'])
+                        ? (int) $data['verified_amount']
+                        : (int) $this->order->price_amount;
+                    $reference = filled($data['bank_reference'] ?? null)
+                        ? trim((string) $data['bank_reference'])
+                        : ('manual-'.$this->order->number);
+
+                    resolve(MarkOrderPaid::class)->handle(
+                        order: $this->order,
+                        driver: 'manual',
+                        reference: $reference,
+                        confirmedAmount: $amount,
+                        transactionMetadata: array_filter([
+                            'verified_by' => $actor?->id,
+                            'notes' => $data['notes'] ?? null,
+                        ], static fn (mixed $v): bool => $v !== null && $v !== ''),
+                    );
+
+                    OrderNote::query()->create([
+                        'order_id' => $this->order->id,
+                        'user_id' => $actor?->id,
+                        'type' => OrderNote::TYPE_AUDIT,
+                        'body' => sprintf('Pembayaran manual dikonfirmasi lunas (Ref: %s).', $reference),
+                    ]);
+
+                    $this->order->refresh();
+                    $this->dispatch('order.updated');
+
+                    Notification::make()
+                        ->title(__('shopper::pages/orders.notifications.paid'))
+                        ->success()
+                        ->send();
+                });
         }
 
         $provider = $this->paymentProviderName();
@@ -68,7 +165,7 @@ final class OrderDetail extends ShopperOrderDetail
 
     public function markCompleteAction(): Action
     {
-        $action = parent::markCompleteAction();
+        $action = parent::markCompleteAction()->authorize('manage-order-fulfillment');
 
         if (! $this->hasProviderShipments()) {
             return $action;
@@ -112,23 +209,62 @@ final class OrderDetail extends ShopperOrderDetail
     {
         $withProviders = $this->cancelsWithProviders();
 
-        return parent::cancelOrderAction()->action(function () use ($withProviders): void {
-            resolve(CancelOrderWithProviders::class)->handle($this->order);
-            $this->order->refresh();
-            $this->dispatch('order.updated');
+        return parent::cancelOrderAction()
+            ->authorize('orders-cancel')
+            ->requiresConfirmation()
+            ->schema([
+                TextInput::make('reason')
+                    ->label('Alasan Pembatalan')
+                    ->default('Cancelled by staff'),
+                Checkbox::make('create_refund_ticket')
+                    ->label('Buat tiket refund untuk pesanan sudah dibayar')
+                    ->default($this->order->payment_status === PaymentStatus::Paid),
+            ])
+            ->action(function (array $data) use ($withProviders): void {
+                $wasPaid = $this->order->payment_status === PaymentStatus::Paid;
+                $reason = filled($data['reason'] ?? null)
+                    ? trim((string) $data['reason'])
+                    : 'Cancelled by staff';
+                $actor = Auth::user() instanceof \App\Models\User ? Auth::user() : null;
 
-            Notification::make()
-                ->title($withProviders
-                    ? 'Pesanan dibatalkan di toko dan di penyedia pembayaran/pengiriman.'
-                    : __('shopper::pages/orders.notifications.cancelled'))
-                ->success()
-                ->send();
-        });
+                resolve(CancelOrderWithProviders::class)->handle(
+                    order: $this->order,
+                    throughPaymentProvider: true,
+                    reason: $reason,
+                    actor: $actor,
+                );
+
+                if ($wasPaid && ($data['create_refund_ticket'] ?? false)) {
+                    OrderRefund::query()->firstOrCreate(
+                        [
+                            'order_id' => $this->order->id,
+                            'status' => OrderRefundStatus::Awaiting,
+                        ],
+                        [
+                            'user_id' => $this->order->customer_id,
+                            'amount' => (int) $this->order->price_amount,
+                            'currency' => $this->order->currency_code,
+                            'reason' => 'Tiket refund otomatis pembatalan: '.$reason,
+                            'refunded_by' => $actor?->id,
+                        ],
+                    );
+                }
+
+                $this->order->refresh();
+                $this->dispatch('order.updated');
+
+                Notification::make()
+                    ->title($withProviders
+                        ? 'Pesanan dibatalkan di toko dan di penyedia pembayaran/pengiriman.'
+                        : __('shopper::pages/orders.notifications.cancelled'))
+                    ->success()
+                    ->send();
+            });
     }
 
     public function capturePaymentAction(): Action
     {
-        $action = parent::capturePaymentAction();
+        $action = parent::capturePaymentAction()->authorize('orders-mark-paid');
 
         // The provider captures; Shopper must not record a second capture.
         if (resolve(PaymentActions::class)->reconciler($this->order) !== null) {
@@ -140,7 +276,7 @@ final class OrderDetail extends ShopperOrderDetail
 
     public function archiveAction(): Action
     {
-        $action = parent::archiveAction();
+        $action = parent::archiveAction()->authorize('orders-cancel');
 
         if (! $this->cancelsWithProviders()) {
             // Archiving ends an unpaid order for good: while it could still be

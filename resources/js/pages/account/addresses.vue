@@ -7,7 +7,7 @@ import {
     MoreHorizontal,
     Truck,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AddressController from '@/actions/App/Http/Controllers/Account/AddressController';
 import AuthSelectField from '@/components/auth/auth-select-field.vue';
 import AuthSubmitButton from '@/components/auth/auth-submit-button.vue';
@@ -25,10 +25,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { AddressType  } from '@/types/shop';
-import type {Address} from '@/types/shop';
+import { AddressType } from '@/types/shop';
+import type {
+    Address,
+    AddressDestinationFields,
+    ShippingCapabilities,
+} from '@/types/shop';
 
 type CountryOption = { id: number; name: string; cca2: string };
+
+type DestinationOption = {
+    destination_id: string | number;
+    label: string;
+    province_name?: string | null;
+    city_name?: string | null;
+    zip_code?: string | null;
+};
 
 type AddressForm = {
     first_name: string;
@@ -41,11 +53,15 @@ type AddressForm = {
     phone_number: string;
     country_id: number | null;
     type: AddressType;
+    destination_id: string;
+    destination_label: string;
+    pin_point: string;
 };
 
 const props = defineProps<{
-    addresses: Address[];
+    addresses: Array<Address & { metadata?: AddressDestinationFields | string | null }>;
     countries: CountryOption[];
+    shippingCapabilities?: ShippingCapabilities;
 }>();
 
 const editing = ref<Address | null>(null);
@@ -62,9 +78,71 @@ const defaults: AddressForm = {
     phone_number: '',
     country_id: null,
     type: AddressType.SHIPPING,
+    destination_id: '',
+    destination_label: '',
+    pin_point: '',
 };
 
 const form = useForm<AddressForm>({ ...defaults });
+
+const destinationQuery = ref('');
+const destinationResults = ref<DestinationOption[]>([]);
+const destinationSearching = ref(false);
+let destinationTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(destinationQuery, (value) => {
+    if (destinationTimer) {
+        clearTimeout(destinationTimer);
+    }
+
+    if (!props.shippingCapabilities?.destinationSearch || value.trim().length < 2) {
+        destinationResults.value = [];
+
+        return;
+    }
+
+    if (form.destination_id && value === form.destination_label) {
+        return;
+    }
+
+    destinationTimer = setTimeout(async () => {
+        destinationSearching.value = true;
+        try {
+            const res = await fetch(`/checkout/destinations?q=${encodeURIComponent(value.trim())}&limit=8`, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            const json = (await res.json()) as { data?: DestinationOption[] };
+            destinationResults.value = Array.isArray(json.data) ? json.data : [];
+        } catch {
+            destinationResults.value = [];
+        } finally {
+            destinationSearching.value = false;
+        }
+    }, 300);
+});
+
+function pickDestination(opt: DestinationOption): void {
+    form.destination_id = String(opt.destination_id);
+    form.destination_label = opt.label;
+    destinationQuery.value = opt.label;
+    if (opt.city_name) form.city = opt.city_name;
+    if (opt.province_name) form.state = opt.province_name;
+    if (opt.zip_code) form.postal_code = opt.zip_code;
+    destinationResults.value = [];
+}
+
+function parseMeta(raw: unknown): AddressDestinationFields {
+    if (typeof raw === 'string' && raw.trim() !== '') {
+        try {
+            return JSON.parse(raw) as AddressDestinationFields;
+        } catch {
+            return {};
+        }
+    }
+
+    return (raw && typeof raw === 'object' ? raw : {}) as AddressDestinationFields;
+}
 
 const countryOptions = computed(() =>
     props.countries.map((country) => ({
@@ -87,6 +165,7 @@ const canSaveAddress = computed(
         form.street_address.trim().length > 0 &&
         form.city.trim().length > 0 &&
         form.postal_code.trim().length > 0 &&
+        (form.type !== AddressType.SHIPPING || form.phone_number.trim().length > 0) &&
         form.country_id !== null &&
         !form.processing,
 );
@@ -95,11 +174,17 @@ function startCreate(): void {
     editing.value = null;
     form.reset();
     Object.assign(form, defaults);
+    if (props.countries.length === 1) {
+        form.country_id = props.countries[0].id;
+    }
+    destinationQuery.value = '';
+    destinationResults.value = [];
     open.value = true;
 }
 
-function startEdit(address: Address): void {
+function startEdit(address: Address & { metadata?: AddressDestinationFields | string | null }): void {
     editing.value = address;
+    const meta = parseMeta(address.metadata);
     form.first_name = address.first_name ?? '';
     form.last_name = address.last_name;
     form.street_address = address.street_address;
@@ -110,6 +195,11 @@ function startEdit(address: Address): void {
     form.phone_number = address.phone_number ?? '';
     form.country_id = address.country_id;
     form.type = address.type;
+    form.destination_id = meta.destination_id ? String(meta.destination_id) : '';
+    form.destination_label = meta.destination_label ?? '';
+    form.pin_point = meta.pin_point ?? '';
+    destinationQuery.value = form.destination_label;
+    destinationResults.value = [];
     open.value = true;
 }
 
@@ -374,9 +464,52 @@ function setDefaultBilling(address: Address): void {
                             id="phone_number"
                             v-model="form.phone_number"
                             label="No. HP"
+                            :required="form.type === AddressType.SHIPPING"
                             type="tel"
                             placeholder="08xxxxxxxxxx"
                             :error="form.errors.phone_number"
+                        />
+                    </div>
+                    <div
+                        v-if="shippingCapabilities?.destinationSearch"
+                        class="relative col-span-2"
+                    >
+                        <AuthTextField
+                            id="destination_query"
+                            v-model="destinationQuery"
+                            label="Kecamatan / Kode Pos tujuan"
+                            placeholder="Cari kecamatan atau kode pos..."
+                            :error="form.errors.destination_id"
+                        />
+                        <div
+                            v-if="destinationSearching"
+                            class="mt-1 text-xs text-muted-foreground"
+                        >
+                            Mencari lokasi…
+                        </div>
+                        <ul
+                            v-else-if="destinationResults.length"
+                            class="mt-1 max-h-40 overflow-y-auto rounded-md border border-border bg-background text-xs shadow-sm"
+                        >
+                            <li
+                                v-for="opt in destinationResults"
+                                :key="opt.destination_id"
+                                class="cursor-pointer px-3 py-2 hover:bg-muted"
+                                @click="pickDestination(opt)"
+                            >
+                                {{ opt.label }}
+                            </li>
+                        </ul>
+                    </div>
+                    <div
+                        v-if="shippingCapabilities?.requiresCoordinates"
+                        class="col-span-2"
+                    >
+                        <AuthTextField
+                            id="pin_point"
+                            v-model="form.pin_point"
+                            label="Koordinat Pin Point (opsional)"
+                            placeholder="-6.200000,106.816666"
                         />
                     </div>
                     <fieldset class="col-span-2 flex flex-col gap-2">

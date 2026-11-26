@@ -16,6 +16,10 @@ final class NormalizeShipmentStatus
 
     public const DELIVERED = 'delivered';
 
+    public const DELIVERY_FAILED = 'delivery_failed';
+
+    public const RETURNED = 'returned';
+
     public const CANCELLED = 'cancelled';
 
     /** @var list<string> */
@@ -24,9 +28,67 @@ final class NormalizeShipmentStatus
         self::LABELED,
         self::PICKED_UP,
         self::IN_TRANSIT,
+        self::DELIVERY_FAILED,
         self::DELIVERED,
+        self::RETURNED,
         self::CANCELLED,
     ];
+
+    /**
+     * Forward-only rank for shipment status transitions.
+     * Terminal states (delivered, returned, cancelled) never regress to an earlier stage.
+     */
+    public static function rank(?string $status): int
+    {
+        return match (strtolower(trim((string) $status))) {
+            self::PENDING, 'ready' => 0,
+            self::LABELED => 1,
+            self::PICKED_UP => 2,
+            self::IN_TRANSIT => 3,
+            self::DELIVERY_FAILED => 4,
+            self::DELIVERED, self::RETURNED => 5,
+            self::CANCELLED => 6,
+            default => 0,
+        };
+    }
+
+    public static function isTerminal(?string $status): bool
+    {
+        return in_array(strtolower(trim((string) $status)), [
+            self::DELIVERED,
+            self::RETURNED,
+            self::CANCELLED,
+        ], true);
+    }
+
+    public static function shouldTransition(?string $current, string $incoming): bool
+    {
+        $currentNorm = strtolower(trim((string) $current));
+        $incomingNorm = strtolower(trim($incoming));
+
+        if ($incomingNorm === '' || ! in_array($incomingNorm, self::STABLE, true)) {
+            return false;
+        }
+
+        if ($currentNorm === '' || ! in_array($currentNorm, [...self::STABLE, 'ready'], true)) {
+            return true;
+        }
+
+        if ($currentNorm === $incomingNorm) {
+            return true;
+        }
+
+        if (self::isTerminal($currentNorm)) {
+            // A returned parcel cannot become delivered, nor can delivered/cancelled regress.
+            return false;
+        }
+
+        if ($incomingNorm === self::CANCELLED || $incomingNorm === self::RETURNED) {
+            return true;
+        }
+
+        return self::rank($incomingNorm) >= self::rank($currentNorm);
+    }
 
     /**
      * Map a raw carrier / RajaOngkir status string into a stable shipment status.
@@ -42,9 +104,6 @@ final class NormalizeShipmentStatus
         $upper = strtoupper($candidate);
         $lower = strtolower($candidate);
 
-        // Only explicit cancellations are terminal. A failed/undelivered
-        // attempt means the courier will retry, so it must not lock the
-        // shipment into CANCELLED (ReconcileKomerceShipment treats that as sticky).
         if (
             str_contains($lower, 'cancel')
             || str_contains($lower, 'batal')
@@ -53,8 +112,21 @@ final class NormalizeShipmentStatus
             return self::CANCELLED;
         }
 
-        if (str_contains($lower, 'failed') || str_contains($lower, 'undeliver')) {
-            return $this->stableOrNull($fallback);
+        if (
+            str_contains($lower, 'return')
+            || str_contains($lower, 'retur')
+            || in_array($upper, ['RTS', 'RETURNED', 'RETURN_TO_SENDER', 'RETUR'], true)
+        ) {
+            return self::RETURNED;
+        }
+
+        if (
+            str_contains($lower, 'failed')
+            || str_contains($lower, 'undeliver')
+            || str_contains($lower, 'gagal')
+            || in_array($upper, ['DELIVERY_FAILED', 'FAILED', 'UNDELIVERED', 'GAGAL_KIRIM'], true)
+        ) {
+            return $fallback !== null ? $this->stableOrNull($fallback) : self::DELIVERY_FAILED;
         }
 
         if (

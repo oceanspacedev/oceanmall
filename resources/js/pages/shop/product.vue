@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { BadgeCheck } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AuthTextField from '@/components/auth/auth-text-field.vue';
 import AppPageHeader from '@/components/shop/app-page-header.vue';
 import Card from '@/components/shop/card.vue';
@@ -50,6 +50,7 @@ const page = usePage();
 const cart = useCart();
 
 const selectedOptions = ref<Record<number, number>>({});
+const flatVariantId = ref<number | null>(null);
 const quantity = ref<number>(1);
 const adding = ref<boolean>(false);
 
@@ -59,6 +60,16 @@ const reviewForm = useForm({
     content: '',
     is_recommended: true,
 });
+const recommendedTouched = ref<boolean>(false);
+
+watch(
+    () => reviewForm.rating,
+    (rating) => {
+        if (!recommendedTouched.value) {
+            reviewForm.is_recommended = rating >= 3;
+        }
+    },
+);
 
 const reviewError = computed(
     () => (page.props.errors as Record<string, string>)?.review,
@@ -141,6 +152,8 @@ function submitReview(): void {
         onSuccess: () => {
             reviewForm.reset('title', 'content');
             reviewForm.rating = 5;
+            reviewForm.is_recommended = true;
+            recommendedTouched.value = false;
         },
     });
 }
@@ -181,16 +194,28 @@ const hasVariants = computed<boolean>(() =>
     Boolean(props.variantOptions?.hasStructuredAttributes),
 );
 
+const hasFlatVariants = computed<boolean>(
+    () => !hasVariants.value && (props.product.variants?.length ?? 0) > 0,
+);
+
+const anyVariants = computed<boolean>(
+    () => hasVariants.value || hasFlatVariants.value,
+);
+
 const selectedVariantId = computed<number | null>(() => {
+    if (hasFlatVariants.value) {
+        return flatVariantId.value;
+    }
+
     if (!props.variantOptions || !hasVariants.value) {
-return null;
-}
+        return null;
+    }
 
     const required = props.variantOptions.productOptions.length;
 
     if (Object.keys(selectedOptions.value).length !== required) {
-return null;
-}
+        return null;
+    }
 
     const key = Object.values(selectedOptions.value)
         .sort((a, b) => a - b)
@@ -246,7 +271,7 @@ const salePercentage = computed<number | null>(() => {
 });
 
 const outOfStock = computed<boolean>(() => {
-    if (hasVariants.value) {
+    if (anyVariants.value) {
         if (selectedVariant.value) {
             return (
                 selectedVariant.value.stock <= 0 &&
@@ -266,46 +291,76 @@ const outOfStock = computed<boolean>(() => {
 
 const maxQuantity = computed<number>(() => {
     let maxAllowed = 10;
-    
-    if (hasVariants.value && selectedVariant.value) {
+
+    if (anyVariants.value && selectedVariant.value) {
         if (!selectedVariant.value.allow_backorder) {
             maxAllowed = Math.min(maxAllowed, selectedVariant.value.stock);
         }
-    } else if (!hasVariants.value) {
+    } else if (!anyVariants.value) {
         const stock = (props.product as { stock?: number }).stock ?? 0;
 
         if (!props.product.allow_backorder) {
             maxAllowed = Math.min(maxAllowed, stock);
         }
     }
-    
+
     return Math.max(1, maxAllowed);
+});
+
+watch(selectedVariant, (variant) => {
+    const url = variant?.thumbnail ?? variant?.images?.[0]?.url ?? null;
+    if (url && !url.includes('placeholder')) {
+        activeImage.value = url;
+    }
+});
+
+watch(maxQuantity, (max) => {
+    if (quantity.value > max) {
+        quantity.value = max;
+    }
 });
 
 const canAdd = computed(
     () =>
         !adding.value &&
         !outOfStock.value &&
-        !(hasVariants.value && !selectedVariantId.value),
+        !(anyVariants.value && !selectedVariantId.value),
 );
 
 const ctaLabel = computed(() => {
     if (outOfStock.value) {
-return 'Stok habis';
-}
+        return 'Stok habis';
+    }
 
     if (adding.value) {
-return 'Menambahkan…';
-}
+        return 'Menambahkan…';
+    }
 
-    if (hasVariants.value && !selectedVariantId.value) {
-return 'Pilih opsi dulu';
-}
+    if (anyVariants.value && !selectedVariantId.value) {
+        return 'Pilih opsi dulu';
+    }
 
     return 'Tambah ke keranjang';
 });
 
 function isOptionAvailable(attributeId: number, valueId: number): boolean {
+    if (props.variantOptions?.variantMap) {
+        const otherValues = Object.entries(selectedOptions.value)
+            .filter(([attrId]) => Number(attrId) !== attributeId)
+            .map(([, vId]) => vId);
+
+        if (otherValues.length > 0) {
+            const variants = Object.values(props.variantOptions.variantMap);
+
+            return variants.some(
+                (v) =>
+                    (v.stock > 0 || v.allow_backorder) &&
+                    v.values.includes(valueId) &&
+                    otherValues.every((otherId) => v.values.includes(otherId)),
+            );
+        }
+    }
+
     return (
         props.variantOptions?.availabilityMatrix[attributeId]?.[valueId] ?? true
     );
@@ -493,6 +548,37 @@ return;
                             </ToggleGroupItem>
                         </ToggleGroup>
                     </div>
+                </div>
+
+                <div
+                    v-else-if="hasFlatVariants && product.variants?.length"
+                    class="mt-5 flex flex-col gap-2"
+                >
+                    <Label>Varian</Label>
+                    <ToggleGroup
+                        type="single"
+                        :model-value="flatVariantId ? String(flatVariantId) : undefined"
+                        variant="outline"
+                        :spacing="2"
+                        class="flex flex-wrap"
+                        @update:model-value="
+                            (value) => {
+                                if (typeof value === 'string' && value !== '') {
+                                    flatVariantId = Number(value);
+                                }
+                            }
+                        "
+                    >
+                        <ToggleGroupItem
+                            v-for="v in product.variants"
+                            :key="v.id"
+                            :value="String(v.id)"
+                            :disabled="v.stock <= 0 && !v.allow_backorder"
+                            class="h-9 px-3 text-[13px] font-medium data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                        >
+                            {{ v.name }}
+                        </ToggleGroupItem>
+                    </ToggleGroup>
                 </div>
 
                 <div class="mt-5 hidden items-center gap-3 lg:flex">
@@ -752,6 +838,15 @@ return;
                             {{ reviewForm.errors.content }}
                         </p>
                     </div>
+                    <label class="inline-flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
+                        <input
+                            v-model="reviewForm.is_recommended"
+                            type="checkbox"
+                            class="size-4 rounded border-border text-primary"
+                            @change="recommendedTouched = true"
+                        />
+                        Saya merekomendasikan produk ini
+                    </label>
                     <Button
                         type="submit"
                         size="xl"

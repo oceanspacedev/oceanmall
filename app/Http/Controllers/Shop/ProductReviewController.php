@@ -47,7 +47,7 @@ final class ProductReviewController extends Controller
             'rating' => (int) $data['rating'],
             'title' => $data['title'] ?? null,
             'content' => $data['content'] ?? null,
-            'is_recommended' => (bool) ($data['is_recommended'] ?? true),
+            'is_recommended' => (bool) ($data['is_recommended'] ?? ((int) $data['rating'] >= 3)),
         ], $user);
 
         Inertia::flash('toast', [

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\DiscountRedemption;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -17,7 +18,9 @@ use Shopper\Cart\CartManager;
 use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Exceptions\InvalidDiscountException;
 use Shopper\Cart\Models\Cart;
+use Shopper\Cart\Models\CartLineAdjustment;
 use Shopper\Core\Enum\DiscountStatus;
+use Shopper\Core\Enum\ProductType;
 use Shopper\Core\Models\Discount;
 use Throwable;
 
@@ -72,12 +75,20 @@ final class CartController extends Controller
             return response()->json(['message' => 'Pilih varian produk sebelum menambah ke keranjang.'], 422);
         }
 
+        if ($product->type === ProductType::External) {
+            return response()->json(['message' => 'Produk eksternal tidak dapat dibeli melalui keranjang.'], 422);
+        }
+
         $cart = $this->writableCart($request);
         if (! $cart instanceof Cart) {
             return $this->missingCartToken();
         }
 
         $purchasable = $variant ?? $product;
+        $price = method_exists($purchasable, 'getPrice') ? $purchasable->getPrice($cart->currency_code) : null;
+        if (! $price || (int) $price->amount <= 0) {
+            return response()->json(['message' => 'Harga produk belum tersedia.'], 422);
+        }
         $quantity = (int) ($data['quantity'] ?? 1);
         $existing = $cart->lines()
             ->where('purchasable_type', $purchasable->getMorphClass())
@@ -137,6 +148,11 @@ final class CartController extends Controller
         }
 
         resolve(CartManager::class)->remove($cart, $line);
+
+        if ($cart->lines()->count() === 0 && filled($cart->coupon_code)) {
+            $cart->forceFill(['coupon_code' => null])->save();
+        }
+
         $this->forgetCheckout($request);
 
         return $this->cartResponse($cart->refresh());
@@ -151,6 +167,7 @@ final class CartController extends Controller
         }
 
         resolve(CartManager::class)->clear($cart);
+        $cart->forceFill(['coupon_code' => null])->save();
         $this->forgetCheckout($request);
 
         return $this->cartResponse($cart->refresh());
@@ -171,13 +188,23 @@ final class CartController extends Controller
             return response()->json(['message' => 'Keranjang masih kosong.'], 422);
         }
 
-        $discount = Discount::query()->where('code', $code)->first();
+        $discount = Discount::query()->whereRaw('lower(code) = ?', [mb_strtolower($code)])->first();
         if (! $discount instanceof Discount || ! $discount->is_active || $discount->status !== DiscountStatus::Active) {
             return response()->json(['message' => 'Kode kupon tidak valid.'], 422);
         }
 
+        if ($discount->hasReachedLimit()) {
+            return response()->json(['message' => 'Kuota kupon sudah habis.'], 422);
+        }
+
+        $userEmail = $this->actor($request)?->email;
+        if ($discount->usage_limit_per_user && is_string($userEmail) && DiscountRedemption::hasActiveRedemption($discount->id, $userEmail)) {
+            return response()->json(['message' => 'Kupon ini hanya dapat digunakan satu kali per akun/email.'], 422);
+        }
+
         try {
-            resolve(CartManager::class)->applyCoupon($cart, $code);
+            resolve(CartManager::class)->applyCoupon($cart, $discount->code);
+            $context = resolve(CartManager::class)->calculate($cart->refresh());
         } catch (InvalidDiscountException) {
             return response()->json(['message' => 'Kode kupon tidak valid.'], 422);
         } catch (Throwable $e) {
@@ -185,6 +212,15 @@ final class CartController extends Controller
 
             return response()->json(['message' => 'Kupon tidak bisa dipakai.'], 422);
         }
+
+        if ($context->discountTotal <= 0) {
+            resolve(CartManager::class)->removeCoupon($cart);
+            CartLineAdjustment::query()->whereIn('cart_line_id', $cart->lines()->select('id'))->delete();
+
+            return response()->json(['message' => 'Kupon tidak dapat digunakan untuk keranjang ini.'], 422);
+        }
+
+        $this->forgetCheckout($request);
 
         return $this->cartResponse($cart->refresh());
     }
@@ -197,6 +233,8 @@ final class CartController extends Controller
         }
 
         resolve(CartManager::class)->removeCoupon($cart);
+        CartLineAdjustment::query()->whereIn('cart_line_id', $cart->lines()->select('id'))->delete();
+        $this->forgetCheckout($request);
 
         return $this->cartResponse($cart->refresh());
     }

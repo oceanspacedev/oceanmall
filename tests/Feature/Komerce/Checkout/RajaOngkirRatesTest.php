@@ -60,13 +60,13 @@ final class RajaOngkirRatesTest extends TestCase
             $zone->carriers()->attach($carrier->id);
         }
 
-        Inventory::factory()->create([
+        $inventory = Inventory::factory()->create([
             'country_id' => $country->id,
             'is_default' => true,
             'rajaongkir_origin_id' => '501',
         ]);
 
-        return [$country, $zone];
+        return [$country, $zone, $inventory];
     }
 
     private function fakeCartManager(): void
@@ -121,7 +121,7 @@ final class RajaOngkirRatesTest extends TestCase
         $this->fakeRajaOngkirConfig();
 
         $user = User::factory()->create();
-        [$country] = $this->seedCountryZoneInventory();
+        [$country, , $inventory] = $this->seedCountryZoneInventory();
 
         $cart = Cart::query()->create([
             'currency_code' => 'IDR',
@@ -132,6 +132,7 @@ final class RajaOngkirRatesTest extends TestCase
             'weight_value' => 75,
             'weight_unit' => 'g',
         ]);
+        $product->mutateStock($inventory->id, 10);
         CartLine::query()->create([
             'cart_id' => $cart->id,
             'purchasable_type' => $product->getMorphClass(),
@@ -186,7 +187,7 @@ final class RajaOngkirRatesTest extends TestCase
         $this->fakeRajaOngkirConfig();
 
         $user = User::factory()->create();
-        [$country] = $this->seedCountryZoneInventory();
+        [$country, , $inventory] = $this->seedCountryZoneInventory();
 
         $cart = Cart::query()->create([
             'currency_code' => 'IDR',
@@ -197,6 +198,7 @@ final class RajaOngkirRatesTest extends TestCase
             'weight_value' => 75,
             'weight_unit' => 'g',
         ]);
+        $product->mutateStock($inventory->id, 10);
         CartLine::query()->create([
             'cart_id' => $cart->id,
             'purchasable_type' => $product->getMorphClass(),
@@ -243,7 +245,7 @@ final class RajaOngkirRatesTest extends TestCase
         $this->fakeRajaOngkirConfig();
 
         $user = User::factory()->create();
-        [$country] = $this->seedCountryZoneInventory();
+        [$country, , $inventory] = $this->seedCountryZoneInventory();
 
         $cart = Cart::query()->create([
             'currency_code' => 'IDR',
@@ -254,6 +256,7 @@ final class RajaOngkirRatesTest extends TestCase
             'weight_value' => 150,
             'weight_unit' => 'kg',
         ]);
+        $product->mutateStock($inventory->id, 10);
         CartLine::query()->create([
             'cart_id' => $cart->id,
             'purchasable_type' => $product->getMorphClass(),

@@ -343,7 +343,12 @@ final class KomerceDeliveryFulfillment
             throw new RuntimeException('Delivery rate shipping_cashback cannot exceed shipping_cost.');
         }
 
-        if ((int) $shipment->cost !== $shippingCost) {
+        $toleranceAmount = max(
+            (int) config('komerce.shipping_cost_tolerance_amount', 0),
+            (int) round($shippingCost * ((float) config('komerce.shipping_cost_tolerance_percent', 0) / 100)),
+        );
+
+        if (abs((int) $shipment->cost - $shippingCost) > $toleranceAmount) {
             throw new RuntimeException('Shipment cost does not match the persisted Shipping Delivery rate.');
         }
 
@@ -386,13 +391,13 @@ final class KomerceDeliveryFulfillment
             'shipping_type' => $shippingType,
             'shipping_cost' => $shippingCost,
             'shipping_cashback' => $shippingCashback,
-            'payment_method' => $this->paymentMethod($order),
+            'payment_method' => $paymentMethod = $this->paymentMethod($order),
             'service_fee' => $serviceFee,
             'additional_cost' => $this->requiredNonNegativeInteger(
                 $deliveryRate['additional_cost'] ?? 0,
                 'Delivery rate additional_cost',
             ),
-            'grand_total' => $this->requiredNonNegativeInteger(
+            'grand_total' => $grandTotal = $this->requiredNonNegativeInteger(
                 $deliveryRate['grandtotal']
                     ?? $deliveryRate['grand_total']
                     ?? (array_sum(array_map(
@@ -402,7 +407,13 @@ final class KomerceDeliveryFulfillment
                 'Delivery rate grandtotal',
             ),
             'cod_value' => $this->requiredNonNegativeInteger(
-                $deliveryRate['cod_value'] ?? 0,
+                $paymentMethod === 'COD'
+                    ? (($deliveryRate['cod_value'] ?? 0) > 0
+                        ? $deliveryRate['cod_value']
+                        : (OrderShipment::query()->where('order_id', $order->id)->count() === 1
+                            ? (int) $order->price_amount
+                            : $grandTotal))
+                    : ($deliveryRate['cod_value'] ?? 0),
                 'Delivery rate cod_value',
             ),
             'insurance_value' => $this->requiredNonNegativeInteger(
@@ -1076,15 +1087,31 @@ final class KomerceDeliveryFulfillment
     private function shipmentItemValue(OrderShipment $shipment): int
     {
         $order = $shipment->order;
-        $itemsTotal = 0;
-        if ($order instanceof Order) {
-            $order->loadMissing('items');
-            foreach ($order->items as $item) {
-                $itemsTotal += (int) $item->getAttribute('unit_price_amount') * (int) $item->getAttribute('quantity');
-            }
+
+        if (! $order instanceof Order) {
+            return 0;
         }
 
-        return max(0, $itemsTotal);
+        $shipment->loadMissing('lines');
+
+        if ($shipment->lines->isEmpty()) {
+            $order->loadMissing('items');
+            $itemsTotal = 0;
+
+            foreach ($order->items as $item) {
+                $itemsTotal += (int) $item->getAttribute('unit_price_amount') * max(1, (int) $item->getAttribute('quantity'));
+            }
+
+            return max(0, $itemsTotal);
+        }
+
+        $lines = $shipment->lines->map(static fn ($line): array => [
+            'purchasable_type' => (string) $line->purchasable_type,
+            'purchasable_id' => (int) $line->purchasable_id,
+            'qty' => (int) $line->qty,
+        ])->values()->all();
+
+        return \App\Support\ShipmentItemValue::forOrder($order, $lines);
     }
 
     /**

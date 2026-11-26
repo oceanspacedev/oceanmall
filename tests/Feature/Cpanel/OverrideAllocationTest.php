@@ -14,6 +14,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\OrderAddress;
@@ -343,6 +345,8 @@ final class OverrideAllocationTest extends TestCase
             'shipping_address_id' => $shippingAddress->id,
             'price_amount' => 230000,
             'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Pending,
         ]);
 
         $sourceShipment = OrderShipment::query()->create(array_merge([

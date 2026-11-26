@@ -7,8 +7,8 @@ namespace App\Actions\Shipping;
 use App\Jobs\FulfillOrderShipment;
 use App\Models\OrderShipment;
 use App\Shipping\ShippingCapabilities;
+use App\Support\OrderPaymentType;
 use Illuminate\Support\Facades\DB;
-use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
 use Throwable;
 
@@ -33,7 +33,7 @@ final readonly class DispatchShipmentFulfillment
         $run = function () use ($order): void {
             $order = $order->fresh() ?? $order;
 
-            if ($order->payment_status !== PaymentStatus::Paid) {
+            if (! OrderPaymentType::canFulfill($order)) {
                 return;
             }
 

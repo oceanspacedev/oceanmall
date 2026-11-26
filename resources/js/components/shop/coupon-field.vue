@@ -11,6 +11,7 @@ import * as cartCoupon from '@/routes/shop/cart/coupon';
 
 const props = defineProps<{
     couponCode?: string | null;
+    discountTotal?: number;
 }>();
 
 const page = usePage();
@@ -20,6 +21,12 @@ const form = useForm({
 });
 
 const appliedCode = computed(() => props.couponCode ?? null);
+const couponHasNoDiscount = computed(
+    () =>
+        Boolean(appliedCode.value) &&
+        props.discountTotal !== undefined &&
+        props.discountTotal <= 0,
+);
 const codeError = computed(
     () =>
         form.errors.code ||
@@ -46,12 +53,17 @@ function removeCoupon(): void {
 
         <Alert
             v-if="appliedCode"
-            variant="success"
+            :variant="couponHasNoDiscount ? 'warning' : 'success'"
             class="flex items-center justify-between gap-3 px-3.5 py-2.5"
         >
             <div class="flex min-w-0 items-center gap-2.5">
                 <Ticket
-                    class="size-4 shrink-0 translate-y-0 text-emerald-600"
+                    :class="[
+                        'size-4 shrink-0 translate-y-0',
+                        couponHasNoDiscount
+                            ? 'text-amber-600'
+                            : 'text-emerald-600',
+                    ]"
                 />
                 <div class="min-w-0">
                     <AlertTitle
@@ -59,7 +71,11 @@ function removeCoupon(): void {
                         >{{ appliedCode }}</AlertTitle
                     >
                     <AlertDescription class="text-[12px] leading-tight">
-                        Kupon diterapkan
+                        {{
+                            couponHasNoDiscount
+                                ? 'Kupon belum memenuhi syarat — hapus atau sesuaikan keranjang'
+                                : 'Kupon diterapkan'
+                        }}
                     </AlertDescription>
                 </div>
             </div>

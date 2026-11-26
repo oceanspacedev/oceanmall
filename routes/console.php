@@ -58,5 +58,10 @@ Schedule::command('orders:expire-unpaid')
     ->onOneServer()
     ->when(static fn (): bool => ExpireUnpaidOrders::hasWork());
 
+Schedule::command('shopper:prune-carts')
+    ->dailyAt('02:30')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
 // Provider-specific schedules (e.g. komerce:capabilities) are registered by
 // the provider's own service provider, see app/Integrations/*.

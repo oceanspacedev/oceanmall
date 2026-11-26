@@ -13,6 +13,21 @@ import { getSecureItem, setSecureItem } from '@/lib/storage';
 let authToken: string | null = null;
 let guestToken: string | null = null;
 let guestTokenPromise: Promise<string> | null = null;
+let serverClockOffsetMs = 0;
+
+export function syncServerClock(serverIso?: string | null): void {
+  if (!serverIso) {
+    return;
+  }
+  const parsed = Date.parse(serverIso);
+  if (!Number.isNaN(parsed)) {
+    serverClockOffsetMs = parsed - Date.now();
+  }
+}
+
+export function serverNow(): number {
+  return Date.now() + serverClockOffsetMs;
+}
 
 /** SecureStore key of the guest cart token. Also cleared by lib/auth.tsx on a fresh install. */
 export const GUEST_CART_KEY = 'oceanmall.cart-token';
@@ -256,7 +271,8 @@ export type ApiInit = RequestInit & {
 export async function api<T>(path: string, { timeoutMs, ...init }: ApiInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
-  if (!headers.has('Content-Type') && init.body) {
+  const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
+  if (!headers.has('Content-Type') && init.body && !isFormData) {
     headers.set('Content-Type', 'application/json');
   }
   if (authToken) {
@@ -267,6 +283,7 @@ export async function api<T>(path: string, { timeoutMs, ...init }: ApiInit = {})
   let response: Response;
   try {
     response = await fetchWithTimeout(`${API_URL}${path}`, { ...init, headers }, timeoutMs);
+    syncServerClock(response.headers.get('Date'));
     reportNetworkSuccess();
   } catch (error) {
     // A timeout means a slow server, not a lost connection: leave the offline state alone.
@@ -304,7 +321,14 @@ export type User = {
   last_name: string;
   email: string;
   phone_number?: string | null;
+  email_verified_at?: string | null;
 };
+
+export async function resendVerificationEmail(): Promise<{ message: string }> {
+  return api<{ message: string }>('/auth/email/verification-notification', {
+    method: 'POST',
+  });
+}
 
 export type ProductReview = {
   id: number;
@@ -314,6 +338,23 @@ export type ProductReview = {
   is_recommended?: boolean;
   created_at?: string | null;
   author_name?: string;
+};
+
+export type VariantOptionsPayload = {
+  productOptions: {
+    id: number;
+    name: string;
+    slug: string;
+    type: string;
+    values: { id: number; value: string; key?: string | null }[];
+  }[];
+  variantIndex: Record<string, number>;
+  variantMap: Record<
+    number,
+    { id: number; values: number[]; stock: number; allow_backorder: boolean }
+  >;
+  availabilityMatrix: Record<number, Record<number, boolean>>;
+  hasStructuredAttributes: boolean;
 };
 
 export type Product = {
@@ -327,6 +368,8 @@ export type Product = {
   compare_price?: number | null;
   currency?: string;
   description?: string | null;
+  allow_backorder?: boolean;
+  options?: VariantOptionsPayload | null;
   variants?: {
     id: number;
     sku?: string | null;
@@ -335,6 +378,7 @@ export type Product = {
     compare_price?: number | null;
     /** null = stock not tracked */
     stock?: number | null;
+    allow_backorder?: boolean;
     /** The variant's own photo URL; null/absent = none, keep the product gallery. */
     thumbnail?: string | null;
   }[];
@@ -415,7 +459,7 @@ export type Cart = {
     thumbnail?: string | null;
     purchasable_id: number;
   }[];
-  totals: { subtotal: number; discount: number; tax: number; total: number };
+  totals: { subtotal: number; discount: number; tax: number; tax_inclusive?: boolean; total: number };
 };
 
 export type PaymentInstructions = {
@@ -450,7 +494,10 @@ type PaymentSource = {
  * The instructions the payment panel renders. Reads the neutral `payment_action` and falls back
  * to the legacy `payment` field for API versions that predate it.
  */
-export function paymentFromAction(source: PaymentSource): PaymentInstructions | null {
+export function paymentFromAction(
+  source: PaymentSource,
+  fallbackAmount?: number
+): PaymentInstructions | null {
   const action = source.payment_action;
 
   if (action === undefined) {
@@ -466,7 +513,14 @@ export function paymentFromAction(source: PaymentSource): PaymentInstructions | 
   }
 
   if (action.kind === 'redirect' && typeof action.data.url === 'string') {
-    return { payment_url: action.data.url };
+    return {
+      payment_url: action.data.url,
+      expiry_date: typeof action.data.expiry_date === 'string' ? action.data.expiry_date : null,
+      amount: typeof action.data.amount === 'number' ? action.data.amount : fallbackAmount,
+      bank_code:
+        typeof action.data.channel_code === 'string' ? action.data.channel_code : null,
+      payment_id: typeof action.data.payment_id === 'string' ? action.data.payment_id : undefined,
+    };
   }
 
   return null;
@@ -579,12 +633,19 @@ export function destinationRegion(row: Destination): {
   };
 }
 
+export type CheckoutAllocationItem = {
+  inventory_id: number;
+  inventory_name: string;
+  lines: { purchasable_type: string; purchasable_id: number; qty: number }[];
+};
+
 export type CheckoutPayload = {
   cart: Cart;
   shipping_address: {
     first_name?: string;
     last_name?: string;
     street_address?: string;
+    street_address_plus?: string | null;
     city?: string;
     state?: string | null;
     postal_code?: string;
@@ -605,6 +666,9 @@ export type CheckoutPayload = {
     carrier_name?: string | null;
   } | null;
   shipping_rates: ShippingRate[];
+  allocation?: CheckoutAllocationItem[] | null;
+  shipping_rates_by_shipment?: Record<string, ShippingRate[]>;
+  shipping_options_by_shipment?: Record<string, string | null>;
   /** Absent on API versions older than the provider-neutral checkout. */
   shipping_capabilities?: ShippingCapabilities;
   payment_methods: PaymentMethodOption[];
@@ -639,13 +703,16 @@ export type AppNotification = {
 };
 
 export type OrderDetail = OrderSummary & {
+  server_time?: string;
   items: {
+    id?: number;
     name: string;
     sku?: string | null;
     quantity: number;
     unit_price: number;
     thumbnail?: string | null;
     slug?: string | null;
+    reviewed?: boolean;
   }[];
   shipping_address?: {
     name: string;
@@ -654,6 +721,15 @@ export type OrderDetail = OrderSummary & {
     area?: string | null;
   } | null;
   totals?: { subtotal: number; shipping: number; adjustment: number; total: number };
+  breakdown?: {
+    subtotal: number;
+    discount: number;
+    tax: number;
+    tax_inclusive: boolean;
+    shipping: number;
+    refunded: number;
+    total: number;
+  };
   shipments: {
     id: number;
     status: string;
@@ -676,4 +752,26 @@ export type OrderDetail = OrderSummary & {
   payment?: PaymentInstructions | null;
   payment_action?: PaymentAction | null;
   can_retry_payment?: boolean;
+  can_cancel?: boolean;
+  can_request_return?: boolean;
+  can_upload_payment_proof?: boolean;
+  is_cod?: boolean;
+  payment_proofs?: {
+    id: number;
+    status: string;
+    original_name: string;
+    sender_name?: string | null;
+    sender_bank?: string | null;
+    transfer_amount?: number | null;
+    verification_notes?: string | null;
+    created_at?: string | null;
+  }[];
+  return_requests?: {
+    id: number;
+    status: string;
+    reason: string;
+    description?: string | null;
+    resolution_notes?: string | null;
+    created_at?: string | null;
+  }[];
 };

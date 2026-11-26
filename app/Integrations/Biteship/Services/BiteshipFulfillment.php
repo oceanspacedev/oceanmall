@@ -57,22 +57,32 @@ final readonly class BiteshipFulfillment
 
     public function fulfill(OrderShipment $shipment): void
     {
-        $shipment = OrderShipment::query()->with(self::RELATIONS)->findOrFail($shipment->id);
+        $lock = \Illuminate\Support\Facades\Cache::lock('biteship:fulfill:'.$shipment->id, 120);
 
-        if (trim((string) ($shipment->awb ?: $shipment->tracking_number)) !== '') {
+        if (! $lock->get()) {
             return;
         }
 
         try {
-            $this->execute($shipment);
-            $this->clearError($shipment);
-        } catch (ShipmentNotFulfillable $e) {
-            // Not a provider failure: the order was closed / the parcel left.
-            throw $e;
-        } catch (Throwable $e) {
-            $this->recordError($shipment, $e->getMessage());
+            $shipment = OrderShipment::query()->with(self::RELATIONS)->findOrFail($shipment->id);
 
-            throw $e instanceof RuntimeException ? $e : new RuntimeException($e->getMessage(), 0, $e);
+            if (trim((string) ($shipment->awb ?: $shipment->tracking_number)) !== '') {
+                return;
+            }
+
+            try {
+                $this->execute($shipment);
+                $this->clearError($shipment);
+            } catch (ShipmentNotFulfillable $e) {
+                // Not a provider failure: the order was closed / the parcel left.
+                throw $e;
+            } catch (Throwable $e) {
+                $this->recordError($shipment, $e->getMessage());
+
+                throw $e instanceof RuntimeException ? $e : new RuntimeException($e->getMessage(), 0, $e);
+            }
+        } finally {
+            $lock->release();
         }
     }
 
@@ -200,6 +210,17 @@ final readonly class BiteshipFulfillment
             'items' => $items,
             ...$this->delivery(),
         ];
+
+        if (\App\Support\OrderPaymentType::isCod($order)) {
+            $codTotal = OrderShipment::query()->where('order_id', $order->id)->count() === 1
+                ? (int) $order->price_amount
+                : (\App\Support\ShipmentItemValue::forOrder($order, $shipment->lines) + (int) $shipment->cost);
+
+            if ($codTotal > 0) {
+                $payload['cash_on_delivery'] = $codTotal;
+                $payload['cash_on_delivery_type'] = '7_days';
+            }
+        }
 
         $originArea = resolve(InventoryOrigins::class)->get($inventory, Biteship::CODE);
         $originPostal = $this->postalCode($inventory->getAttribute('postal_code'));

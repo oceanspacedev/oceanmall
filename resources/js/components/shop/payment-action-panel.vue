@@ -24,6 +24,26 @@ const redirectUrl = computed<string | null>(() => {
         : null;
 });
 
+const redirectExpiry = computed<string | null>(() => {
+    const raw = props.action.data.expiry_date ?? props.action.data.expires_at;
+    if (typeof raw !== 'string' || !raw.trim()) {
+        return null;
+    }
+
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) {
+        return null;
+    }
+
+    return d.toLocaleString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+});
+
 const methodNote = computed<string | null>(() => {
     if (props.action.kind !== 'none') {
         return null;
@@ -51,6 +71,9 @@ const methodNote = computed<string | null>(() => {
         <CardContent class="flex flex-col gap-3 p-4">
             <p class="text-[13px] text-foreground">
                 Selesaikan pembayaran di halaman pembayaran.
+            </p>
+            <p v-if="redirectExpiry" class="text-[12px] text-muted-foreground">
+                Berlaku hingga {{ redirectExpiry }}
             </p>
             <Button as-child size="xl">
                 <a :href="redirectUrl" rel="noopener noreferrer">

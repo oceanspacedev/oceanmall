@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Actions\Payment;
 
 use App\Actions\Orders\MarkOrderPaid;
+use App\Actions\Orders\RecordPaymentDispute;
 use App\Integrations\Komerce\Exceptions\KomercePaidAfterCancellation;
 use App\Integrations\Komerce\Payment\KomerceDriver;
 use App\Integrations\Komerce\Support\KomercePaymentLookupContext;
+use App\Models\PaymentDispute;
 use RuntimeException;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
 use Shopper\Payment\DataTransferObjects\PaymentResult;
+use Shopper\Payment\Enum\TransactionStatus;
+use Shopper\Payment\Enum\TransactionType;
 use Shopper\Payment\Facades\Payment;
 use Shopper\Payment\Models\PaymentTransaction;
 use Throwable;
@@ -63,6 +67,40 @@ final class MarkOrderPaidFromKomerce
         }
 
         if ($order->payment_status === PaymentStatus::Paid) {
+            $alreadyCapturedHere = PaymentTransaction::query()
+                ->where('order_id', $order->id)
+                ->where('driver', KomerceDriver::CODE)
+                ->where('type', TransactionType::Capture)
+                ->where('status', TransactionStatus::Success)
+                ->where(static function ($q) use ($paymentId, $transaction): void {
+                    $q->where('reference', $paymentId);
+                    if ($transaction instanceof PaymentTransaction) {
+                        $q->orWhere('id', $transaction->id);
+                    }
+                })
+                ->exists();
+
+            if (! $alreadyCapturedHere) {
+                $retrieved = $this->retrieve($paymentId, $provider);
+                if ($retrieved instanceof PaymentResult && $retrieved->status === 'captured') {
+                    $remotePayment = is_array($retrieved->data['raw_response'] ?? null)
+                        ? $retrieved->data['raw_response']
+                        : [];
+
+                    resolve(RecordPaymentDispute::class)->handle(
+                        order: $order,
+                        driver: KomerceDriver::CODE,
+                        type: PaymentDispute::TYPE_DOUBLE_PAYMENT,
+                        reference: $paymentId,
+                        amount: $this->remoteAmount($remotePayment, $provider),
+                        expectedAmount: (int) $order->price_amount,
+                        currencyCode: (string) $order->currency_code,
+                        reason: 'Pembayaran Komerce kedua diterima untuk order yang sudah lunas.',
+                        payload: $remotePayment,
+                    );
+                }
+            }
+
             // Webhook retry for a paid order: OrderPaid already ran.
             return 'already_processed';
         }
@@ -103,6 +141,18 @@ final class MarkOrderPaidFromKomerce
                 $paymentId,
             )));
 
+            resolve(RecordPaymentDispute::class)->handle(
+                order: $order,
+                driver: KomerceDriver::CODE,
+                type: PaymentDispute::TYPE_AMOUNT_MISMATCH,
+                reference: $paymentId,
+                amount: $this->remoteAmount($remotePayment, $provider),
+                expectedAmount: (int) $order->price_amount,
+                currencyCode: (string) $order->currency_code,
+                reason: 'Nominal pembayaran Komerce tidak cocok dengan total tagihan.',
+                payload: $remotePayment,
+            );
+
             return 'amount_mismatch';
         }
 
@@ -141,6 +191,17 @@ final class MarkOrderPaidFromKomerce
     private function alertPaidAfterCancellation(Order $order, string $paymentId, string $provider): void
     {
         report(new KomercePaidAfterCancellation($order->number, $paymentId, $provider));
+
+        resolve(RecordPaymentDispute::class)->handle(
+            order: $order,
+            driver: KomerceDriver::CODE,
+            type: PaymentDispute::TYPE_PAID_AFTER_CANCELLATION,
+            reference: $paymentId,
+            amount: (int) $order->price_amount,
+            expectedAmount: (int) $order->price_amount,
+            currencyCode: (string) $order->currency_code,
+            reason: "Dana Komerce ({$provider}) masuk setelah pesanan dibatalkan.",
+        );
     }
 
     private function retrieve(string $paymentId, string $provider): ?PaymentResult

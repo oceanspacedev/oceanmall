@@ -13,7 +13,7 @@ import { KeyboardAvoider } from '@/components/keyboard-avoider';
 import { api, ApiError, errorMessage, SESSION_EXPIRED_MESSAGE, type Cart } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { cartItemCount, useCart } from '@/lib/cart';
-import { formatIdr, mediaUrl } from '@/lib/format';
+import { formatMoney, mediaUrl } from '@/lib/format';
 import { useNetwork } from '@/lib/network';
 import { ripple } from '@/lib/ripple';
 import { toast } from '@/lib/toast';
@@ -174,7 +174,7 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
         tone: 'success',
         message:
           saved > 0
-            ? `Kode promo ${applied} terpasang, hemat ${formatIdr(saved)}`
+            ? `Kode promo ${applied} terpasang, hemat ${formatMoney(saved, cart?.currency)}`
             : `Kode promo ${applied} terpasang`,
         position: 'top',
       });
@@ -352,7 +352,7 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
                     Kode {cart.coupon_code} dipakai
                   </Text>
                   {discount > 0 ? (
-                    <Text className="text-[12px] text-om-success">Hemat {formatIdr(discount)}</Text>
+                    <Text className="text-[12px] text-om-success">Hemat {formatMoney(discount, cart?.currency)}</Text>
                   ) : null}
                 </View>
                 <Pressable
@@ -416,16 +416,16 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
             </Text>
             <SummaryRow
               label={`Total harga (${count} barang)`}
-              value={formatIdr(totals?.subtotal)}
+              value={formatMoney(totals?.subtotal, cart?.currency)}
             />
             {discount > 0 ? (
               <SummaryRow
                 label="Diskon promo"
-                value={`−${formatIdr(discount)}`}
+                value={`−${formatMoney(discount, cart?.currency)}`}
                 valueClassName="text-om-success"
               />
             ) : null}
-            {tax > 0 ? <SummaryRow label="Pajak" value={formatIdr(tax)} /> : null}
+            {tax > 0 ? <SummaryRow label="Pajak" value={formatMoney(tax, cart?.currency)} /> : null}
             <SummaryRow
               label="Ongkos kirim"
               value="Dihitung saat checkout"
@@ -445,7 +445,7 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
                 adjustsFontSizeToFit
                 minimumFontScale={0.7}
                 maxFontSizeMultiplier={1.3}>
-                {formatIdr(totals?.total)}
+                {formatMoney(totals?.total, cart?.currency)}
               </Text>
             </View>
             <Button onPress={checkout} loading={updating} className="min-h-11 rounded-sm px-4">
@@ -502,7 +502,7 @@ function CartLineRow({
           </View>
         ) : null}
         <Text className="mt-1.5 text-[15px] font-extrabold text-foreground">
-          {formatIdr(line.unit_price)}
+          {formatMoney(line.unit_price)}
         </Text>
         <View className="mt-1 flex-row items-center justify-end gap-1">
           <Pressable
@@ -525,7 +525,7 @@ function CartLineRow({
         </View>
         {line.quantity > 1 ? (
           <Text className="mt-1 self-end text-[12px] text-muted-foreground">
-            Subtotal {formatIdr(line.unit_price * line.quantity)}
+            Subtotal {formatMoney(line.unit_price * line.quantity)}
           </Text>
         ) : null}
       </View>

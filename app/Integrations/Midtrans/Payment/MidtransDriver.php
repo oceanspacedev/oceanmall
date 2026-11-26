@@ -101,6 +101,7 @@ final class MidtransDriver extends Driver implements ExpiresPayments, ProvidesPa
 
         $order = $this->resolveOrder($context);
         $channel = is_string($context['channel_code'] ?? null) ? trim($context['channel_code']) : null;
+        $returnUrl = is_string($context['return_url'] ?? null) ? trim($context['return_url']) : null;
         $attempt = is_numeric($context['midtrans_attempt'] ?? null)
             ? max(1, (int) $context['midtrans_attempt'])
             : MidtransOrderState::nextAttempt($order);
@@ -112,7 +113,7 @@ final class MidtransDriver extends Driver implements ExpiresPayments, ProvidesPa
 
             try {
                 $snap = $this->client->createSnapTransaction(
-                    MidtransSnapPayload::build($order, $midtransOrderId, $amount, $channel, $startsAt, $expiryMinutes),
+                    MidtransSnapPayload::build($order, $midtransOrderId, $amount, $channel, $startsAt, $expiryMinutes, $returnUrl),
                 );
 
                 break;

@@ -29,8 +29,14 @@ export function OrderStepper({ steps }: { steps: OrderStep[] }) {
     );
   }
 
-  const doneCount = steps.filter((step) => step.done).length;
-  const latest = doneCount > 0 ? doneCount - 1 : -1;
+  let latest = -1;
+  let doneCount = 0;
+  steps.forEach((step, idx) => {
+    if (step.done) {
+      latest = idx;
+      doneCount++;
+    }
+  });
 
   return (
     <View

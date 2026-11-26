@@ -339,6 +339,7 @@ final class BiteshipShippingDriver extends Driver implements CancelsShipments, F
                 'courier_type' => $type,
                 'shipping_fee' => is_numeric($row['shipping_fee'] ?? null) ? (int) $row['shipping_fee'] : null,
                 'service_type' => is_scalar($row['service_type'] ?? null) ? (string) $row['service_type'] : null,
+                'available_for_cash_on_delivery' => (bool) ($row['available_for_cash_on_delivery'] ?? false),
             ]);
         }
 

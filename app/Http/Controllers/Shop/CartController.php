@@ -126,6 +126,10 @@ final class CartController extends Controller
 
         resolve(CartManager::class)->remove($cart, $line);
 
+        if ($cart->lines()->count() === 0 && filled($cart->coupon_code)) {
+            $cart->forceFill(['coupon_code' => null])->save();
+        }
+
         $this->invalidateCheckoutSession();
 
         Inertia::flash('toast', [
@@ -140,11 +144,10 @@ final class CartController extends Controller
     {
         $cart = resolve(CartSessionManager::class)->current();
 
-        if (! $cart) {
-            return back();
+        if ($cart) {
+            resolve(CartManager::class)->clear($cart);
+            $cart->forceFill(['coupon_code' => null])->save();
         }
-
-        resolve(CartManager::class)->clear($cart);
 
         $this->invalidateCheckoutSession();
 

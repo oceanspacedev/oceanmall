@@ -50,9 +50,13 @@ interface ConfirmsBeforeOrder
     /**
      * Status of the prepared payment at the provider: Paid, Authorized or
      * Pending (processing) once the customer confirmed it; null when it was
-     * not completed (or cannot be read).
+     * not completed (or cannot be read, or amount/currency mismatches).
      */
-    public function confirmedStatus(string $reference): ?PaymentStatus;
+    public function confirmedStatus(
+        string $reference,
+        ?int $expectedAmount = null,
+        ?string $expectedCurrency = null,
+    ): ?PaymentStatus;
 
     /**
      * Link the provider payment to the order created for it.

@@ -70,7 +70,10 @@ final class ProviderNeutralOpsTest extends TestCase
 
     public function test_presenter_uses_neutral_keys_and_copy_for_any_provider(): void
     {
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+        ]);
         $registered = $this->shipment($order, 'areaship', [
             'external_reference' => 'AREA-ORDER-1',
             'metadata' => ['fulfillment_error' => 'Saldo provider kurang'],
@@ -104,7 +107,10 @@ final class ProviderNeutralOpsTest extends TestCase
     {
         $this->requireModules('Komerce');
 
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+        ]);
         $shipment = $this->shipment($order, 'rajaongkir');
 
         $shipment->update(['metadata' => ['komerce' => [
@@ -174,7 +180,10 @@ final class ProviderNeutralOpsTest extends TestCase
 
     public function test_tracking_cron_is_not_starved_by_hand_entered_awbs(): void
     {
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+        ]);
 
         for ($i = 0; $i < 3; $i++) {
             $this->shipment($order, 'manual', ['awb' => 'HAND-'.$i]);
@@ -270,7 +279,10 @@ final class ProviderNeutralOpsTest extends TestCase
 
     public function test_order_shipping_uses_the_recorded_carrier_and_never_an_unrelated_one(): void
     {
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+        ]);
         // An enabled carrier that has nothing to do with the parcel.
         Carrier::query()->create(['name' => 'Unrelated', 'slug' => 'unrelated', 'is_enabled' => true, 'driver' => 'manual']);
         $own = Carrier::query()->create(['name' => 'Kurir Area', 'slug' => 'kurir-area', 'is_enabled' => true, 'driver' => 'areaship']);

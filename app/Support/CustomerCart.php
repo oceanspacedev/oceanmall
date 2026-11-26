@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Actions\GetCountriesByZone;
+use App\CheckoutSession;
 use App\Models\Channel;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Shopper\Cart\CartManager;
+use Shopper\Cart\CartSessionManager;
 use Shopper\Cart\Exceptions\InsufficientStockException;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Contracts\Priceable;
+use Shopper\Core\Models\Discount;
 use Throwable;
 
 /**
@@ -60,6 +63,51 @@ final class CustomerCart
         }
 
         return $this->createCart($user->id);
+    }
+
+    /**
+     * Merge a web storefront session guest cart into the newly logged-in user's open cart.
+     */
+    public function mergeSessionCart(User $user, ?Cart $sessionCart): void
+    {
+        if (! $sessionCart instanceof Cart || $sessionCart->completed_at !== null) {
+            return;
+        }
+
+        if ($sessionCart->customer_id !== null && (int) $sessionCart->customer_id !== (int) $user->id) {
+            return;
+        }
+
+        $sessionCart->loadMissing('lines.purchasable');
+        $existing = $this->findCustomer($user);
+
+        if ($sessionCart->lines->isEmpty()) {
+            if ($existing instanceof Cart && (int) $existing->id !== (int) $sessionCart->id) {
+                $sessionCart->addresses()->delete();
+                $sessionCart->delete();
+                resolve(CartSessionManager::class)->use($existing);
+            }
+
+            return;
+        }
+
+        if ($existing instanceof Cart && (int) $existing->id !== (int) $sessionCart->id) {
+            $this->absorb($sessionCart, $existing);
+            resolve(CartSessionManager::class)->use($existing->refresh());
+            resolve(CustomerCheckoutState::class)->forgetQuote($user);
+            session()->forget([CheckoutSession::SHIPPING_OPTION, CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT, CheckoutSession::ALLOCATION_PLAN, CheckoutSession::PAYMENT]);
+
+            return;
+        }
+
+        if ($sessionCart->customer_id === null) {
+            $sessionCart->forceFill([
+                'customer_id' => $user->id,
+                'metadata' => $this->withoutGuestToken($sessionCart->metadata),
+            ])->save();
+            resolve(CustomerCheckoutState::class)->forgetQuote($user);
+            session()->forget([CheckoutSession::SHIPPING_OPTION, CheckoutSession::SHIPPING_OPTIONS_BY_SHIPMENT, CheckoutSession::ALLOCATION_PLAN, CheckoutSession::PAYMENT]);
+        }
     }
 
     public function forGuest(string $guestToken): Cart
@@ -140,8 +188,12 @@ final class CustomerCart
 
         $target->refresh();
         if (is_string($source->coupon_code) && $source->coupon_code !== '' && blank($target->coupon_code)) {
+            $canonicalCode = Discount::query()
+                ->whereRaw('lower(code) = ?', [mb_strtolower(trim($source->coupon_code))])
+                ->value('code') ?? trim($source->coupon_code);
+
             try {
-                $manager->applyCoupon($target, $source->coupon_code);
+                $manager->applyCoupon($target, (string) $canonicalCode);
             } catch (Throwable) {
                 // Keep the user cart even if the guest coupon cannot apply.
             }

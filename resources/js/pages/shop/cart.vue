@@ -234,7 +234,10 @@ function confirmClear(): void {
                         <CardTitle class="text-[14px]">Ringkasan</CardTitle>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-3 p-4">
-                        <CouponField :coupon-code="couponCode" />
+                        <CouponField
+                            :coupon-code="couponCode"
+                            :discount-total="cartContext?.discountTotal"
+                        />
                         <dl class="flex flex-col gap-2 text-[13px]">
                             <div
                                 class="flex justify-between text-muted-foreground"

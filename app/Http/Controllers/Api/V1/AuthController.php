@@ -28,10 +28,11 @@ final class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $request->merge(['email' => User::normalizeEmail((string) $request->input('email'))]);
+        $emailRule = app()->runningUnitTests() ? 'email:rfc' : 'email:rfc,dns';
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', static function (string $attribute, mixed $value, \Closure $fail): void {
+            'email' => ['required', 'string', $emailRule, 'max:255', static function (string $attribute, mixed $value, \Closure $fail): void {
                 if (is_string($value) && User::emailTaken($value)) {
                     $fail('Email sudah terdaftar.');
                 }
@@ -88,6 +89,12 @@ final class AuthController extends Controller
             return response()->json([
                 'message' => 'Email atau kata sandi salah.',
             ], 422);
+        }
+
+        if ($user->isSuspended()) {
+            return response()->json([
+                'message' => 'Akun ini telah dinonaktifkan sementara.',
+            ], 403);
         }
 
         // An account protected by two-step verification on the website is
@@ -195,6 +202,26 @@ final class AuthController extends Controller
         ]);
     }
 
+    public function resendVerificationEmail(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email sudah terverifikasi.']);
+        }
+
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => 'Gagal mengirim email verifikasi. Coba lagi nanti.'], 500);
+        }
+
+        return response()->json(['message' => 'Tautan verifikasi email telah dikirim ulang.']);
+    }
+
     /**
      * In-app account deletion (App Store 5.1.1(v), Play account-deletion policy).
      *
@@ -258,6 +285,7 @@ final class AuthController extends Controller
             'last_name' => $user->last_name,
             'email' => $user->email,
             'phone_number' => $user->phone_number,
+            'email_verified_at' => optional($user->email_verified_at)?->toIso8601String(),
         ];
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Notifications\QueuedVerifyEmail;
+use App\Support\CustomerCheckoutState;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -14,12 +15,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Laravel\Sanctum\PersonalAccessToken;
+use Shopper\Contracts\HasStoreAuthentication;
+use Shopper\Contracts\HasStoreAuthenticationRecovery;
 use Shopper\Models\Contracts\ShopperUser;
 use Shopper\Traits\InteractsWithShopper;
+use Shopper\Traits\InteractsWithStoreAuthentication;
+use Shopper\Traits\InteractsWithStoreAuthenticationRecovery;
 
 #[Unguarded]
 #[Hidden([
@@ -30,7 +36,7 @@ use Shopper\Traits\InteractsWithShopper;
     'store_two_factor_secret',
     'store_two_factor_recovery_codes',
 ])]
-final class User extends Authenticatable implements MustVerifyEmail, ShopperUser
+final class User extends Authenticatable implements HasStoreAuthentication, HasStoreAuthenticationRecovery, MustVerifyEmail, ShopperUser
 {
     use HasApiTokens;
 
@@ -38,18 +44,35 @@ final class User extends Authenticatable implements MustVerifyEmail, ShopperUser
     use HasFactory;
 
     use InteractsWithShopper;
+    use InteractsWithStoreAuthentication;
+    use InteractsWithStoreAuthenticationRecovery;
     use Notifiable;
     use TwoFactorAuthenticatable;
 
     /**
-     * A new password signs the mobile app out, whoever changed it and
-     * wherever (website settings, reset link, cpanel, a command): an owner
-     * changes the password to lock out whoever else holds the account. The
-     * API request that changes the password keeps its own token.
+     * A new password, suspension, or /cpanel anonymization revokes mobile tokens
+     * and active sessions so access cannot outlive account revocation.
      */
     protected static function booted(): void
     {
         self::updated(static function (User $user): void {
+            $anonymized = $user->wasChanged('email') && Str::endsWith(strtolower((string) $user->email), '@anonymized.local');
+            $suspended = $user->wasChanged('suspended_at') && $user->suspended_at !== null;
+
+            if ($anonymized || $suspended) {
+                $user->tokens()->delete();
+
+                if (config('session.driver') === 'database') {
+                    DB::table((string) config('session.table', 'sessions'))
+                        ->where('user_id', $user->getKey())
+                        ->delete();
+                }
+
+                resolve(CustomerCheckoutState::class)->forget($user);
+
+                return;
+            }
+
             if (! $user->wasChanged('password')) {
                 return;
             }
@@ -61,6 +84,21 @@ final class User extends Authenticatable implements MustVerifyEmail, ShopperUser
                 ->when(is_int($currentKey) || is_string($currentKey), static fn ($query) => $query->whereKeyNot($currentKey))
                 ->delete();
         });
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
+    }
+
+    public function suspend(): void
+    {
+        $this->forceFill(['suspended_at' => now()])->save();
+    }
+
+    public function unsuspend(): void
+    {
+        $this->forceFill(['suspended_at' => null])->save();
     }
 
     /**
@@ -121,6 +159,7 @@ final class User extends Authenticatable implements MustVerifyEmail, ShopperUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'suspended_at' => 'datetime',
         ];
     }
 }

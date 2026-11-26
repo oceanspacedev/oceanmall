@@ -7,6 +7,7 @@ namespace App\Integrations\Xendit\Actions;
 use App\Integrations\Xendit\Services\XenditClient;
 use App\Integrations\Xendit\Support\XenditChannels;
 use App\Integrations\Xendit\Support\XenditOrderPayment;
+use App\Payment\PaymentReturnUrl;
 use Illuminate\Support\Facades\Route;
 use RuntimeException;
 use Shopper\Core\Models\Order;
@@ -25,7 +26,7 @@ final readonly class CreateXenditInvoice
 {
     public function __construct(private XenditClient $client) {}
 
-    public function handle(Order $order, int $amount, string $currency, ?string $channelCode, int $attempt = 1): PaymentResult
+    public function handle(Order $order, int $amount, string $currency, ?string $channelCode, int $attempt = 1, ?string $returnUrl = null): PaymentResult
     {
         if ($amount <= 0) {
             throw new RuntimeException('Xendit invoice requires a positive amount.');
@@ -42,8 +43,8 @@ final readonly class CreateXenditInvoice
             'description' => (string) __('Order :number', ['number' => $order->number]),
             'invoice_duration' => min(31536000, max(60, (int) config('xendit.invoice_duration', 86400))),
             'payment_methods' => $channel !== null ? [$channel] : null,
-            'success_redirect_url' => $this->redirectUrl($order, 'success_redirect_url'),
-            'failure_redirect_url' => $this->redirectUrl($order, 'failure_redirect_url'),
+            'success_redirect_url' => $this->redirectUrl($order, 'success_redirect_url', $returnUrl),
+            'failure_redirect_url' => $this->redirectUrl($order, 'failure_redirect_url', $returnUrl),
             'should_send_email' => false,
             'payer_email' => $this->customerEmail($order),
             'customer' => $this->customer($order),
@@ -79,8 +80,18 @@ final readonly class CreateXenditInvoice
         );
     }
 
-    private function redirectUrl(Order $order, string $key): ?string
+    private function redirectUrl(Order $order, string $key, ?string $returnUrl = null): ?string
     {
+        $override = is_string($returnUrl) ? trim($returnUrl) : '';
+        if ($override !== '') {
+            return $override;
+        }
+
+        $stored = PaymentReturnUrl::get($order);
+        if ($stored !== null && $stored !== '') {
+            return $stored;
+        }
+
         $configured = config("xendit.{$key}");
 
         if (is_string($configured) && trim($configured) !== '') {

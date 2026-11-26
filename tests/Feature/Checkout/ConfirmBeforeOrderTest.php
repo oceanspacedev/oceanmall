@@ -267,8 +267,11 @@ final class CardPayDriver extends Driver implements ConfirmsBeforeOrder
         return is_string($ref) && $ref !== '' ? $ref : null;
     }
 
-    public function confirmedStatus(string $reference): ?PaymentStatus
-    {
+    public function confirmedStatus(
+        string $reference,
+        ?int $expectedAmount = null,
+        ?string $expectedCurrency = null,
+    ): ?PaymentStatus {
         return $this->status;
     }
 

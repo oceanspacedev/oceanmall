@@ -6,7 +6,10 @@ namespace App\Livewire\Shopper;
 
 use App\Models\OrderShipment;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Gate;
+use Shopper\Core\Enum\OrderRefundStatus;
 use Shopper\Core\Models\Contracts\TaxZone;
+use Shopper\Core\Models\OrderRefund;
 use Shopper\Livewire\Components\Orders\OrderSummary as BaseOrderSummary;
 
 class OrderSummary extends BaseOrderSummary
@@ -21,13 +24,29 @@ class OrderSummary extends BaseOrderSummary
         $subtotal = (float) $this->order->total();
 
         $shipmentsCost = (float) OrderShipment::query()->where('order_id', $this->order->id)->sum('cost');
-        $shippingPrice = $shippingOption?->price 
+        $shippingPrice = $shippingOption?->price
             ?? ($shipmentsCost > 0 ? $shipmentsCost : max(0, (float) ($this->order->price_amount - $subtotal)));
 
         $taxAmount = $this->order->tax_amount ?? 0;
         $isTaxInclusive = $this->resolveTaxInclusivity();
+        $total = $this->order->price_amount !== null
+            ? (int) $this->order->price_amount
+            : (int) ($subtotal + $shippingPrice + ($isTaxInclusive ? 0 : $taxAmount));
 
-        return view('shopper::livewire.components.orders.order-summary', [
+        $discountAmount = (int) $this->order->items->sum(static fn ($item): int => (int) ($item->discount_amount ?? 0));
+        $refundedTotal = (int) OrderRefund::query()
+            ->where('order_id', $this->order->id)
+            ->where('status', '!=', OrderRefundStatus::Rejected->value)
+            ->where('status', '!=', OrderRefundStatus::Cancelled->value)
+            ->sum('amount');
+        $gatewayFee = (int) ($this->order->gateway_fee ?? 0);
+        $netSettlement = $this->order->net_settlement !== null
+            ? (int) $this->order->net_settlement
+            : max(0, $total - $gatewayFee);
+        $cogsTotal = (int) $this->order->items->sum(static fn ($item): int => (int) ($item->unit_cost_amount ?? 0) * (int) $item->quantity);
+        $grossProfit = max(0, $total - $refundedTotal) - $cogsTotal - $gatewayFee;
+
+        return view('livewire.shopper.order-summary', [
             'subtotal' => $subtotal,
             'shippingPrice' => $shippingPrice,
             'shippingOption' => $shippingOption,
@@ -36,9 +55,14 @@ class OrderSummary extends BaseOrderSummary
             'carrierLogoUrl' => $carrier?->logo(),
             'paymentLogoUrl' => $paymentMethod?->logo(),
             'itemsCount' => $this->order->items->count(),
-            'total' => $this->order->price_amount !== null
-                ? $this->order->price_amount
-                : ($subtotal + $shippingPrice + ($isTaxInclusive ? 0 : $taxAmount)),
+            'total' => $total,
+            'discountAmount' => $discountAmount,
+            'refundedTotal' => $refundedTotal,
+            'gatewayFee' => $gatewayFee,
+            'netSettlement' => $netSettlement,
+            'cogsTotal' => $cogsTotal,
+            'grossProfit' => $grossProfit,
+            'canViewFinance' => Gate::allows('finance-dashboard'),
         ]);
     }
 

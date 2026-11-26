@@ -6,7 +6,9 @@ namespace App\Observers;
 
 use App\Actions\Shipping\DispatchShipmentFulfillment;
 use App\Models\OrderShipment;
-use Shopper\Core\Enum\PaymentStatus;
+use App\Support\OrderPaymentType;
+use Illuminate\Support\Facades\DB;
+use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Models\Order;
 
 /**
@@ -22,14 +24,32 @@ final class OrderShipmentObserver
         }
 
         $order = $shipment->order;
-        if (! $order instanceof Order || $order->payment_status !== PaymentStatus::Paid) {
+        if (! $order instanceof Order
+            || ! OrderPaymentType::canFulfill($order)
+            || in_array($order->status, [OrderStatus::Cancelled, OrderStatus::Completed, OrderStatus::Archived], true)) {
             return;
         }
 
-        $dispatcher = resolve(DispatchShipmentFulfillment::class);
+        $shipmentId = (int) $shipment->id;
 
-        if ($dispatcher->needsFulfillment($shipment)) {
-            $dispatcher->dispatchOne((int) $shipment->id);
-        }
+        DB::afterCommit(static function () use ($shipmentId): void {
+            $fresh = OrderShipment::query()->with('order')->find($shipmentId);
+            if (! $fresh instanceof OrderShipment || $fresh->awb || $fresh->tracking_number) {
+                return;
+            }
+
+            $freshOrder = $fresh->order;
+            if (! $freshOrder instanceof Order
+                || ! OrderPaymentType::canFulfill($freshOrder)
+                || in_array($freshOrder->status, [OrderStatus::Cancelled, OrderStatus::Completed, OrderStatus::Archived], true)) {
+                return;
+            }
+
+            $dispatcher = resolve(DispatchShipmentFulfillment::class);
+
+            if ($dispatcher->needsFulfillment($fresh)) {
+                $dispatcher->dispatchOne($shipmentId);
+            }
+        });
     }
 }

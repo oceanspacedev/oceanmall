@@ -35,6 +35,16 @@ final class CpanelStaffLoginResponse implements LoginResponseContract
             ]);
         }
 
-        return redirect()->intended(route('shopper.dashboard'));
+        $prefix = '/'.trim((string) config('shopper.admin.prefix', 'cpanel'), '/');
+        $intended = $request->hasSession()
+            ? $request->session()->pull('url.intended')
+            : session()->pull('url.intended');
+        $intendedPath = is_string($intended) ? (string) parse_url($intended, PHP_URL_PATH) : '';
+
+        if (is_string($intended) && ($intendedPath === $prefix || str_starts_with($intendedPath, $prefix.'/'))) {
+            return redirect()->to($intended);
+        }
+
+        return redirect()->to(route('shopper.dashboard'));
     }
 }

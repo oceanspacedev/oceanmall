@@ -1,7 +1,8 @@
 import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from '@/lib/config';
+import { confirmAlert } from '@/lib/confirm';
 import { toast } from '@/lib/toast';
 import * as Clipboard from 'expo-clipboard';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 
 /*
  * Ways to reach support. Both come from EXPO_PUBLIC_SUPPORT_* (lib/config.ts) and are empty when
@@ -50,7 +51,7 @@ export async function openSupportChannel(channel: SupportChannel): Promise<void>
   try {
     await Linking.openURL(channel.url);
   } catch {
-    Alert.alert(channel.label, channel.address, [
+    confirmAlert(channel.label, channel.address, [
       {
         text: 'Salin',
         onPress: () => {
@@ -70,7 +71,7 @@ export function contactSupport(): void {
   if (channels.length === 1) {
     void openSupportChannel(channels[0]);
   } else if (channels.length > 1) {
-    Alert.alert('Hubungi kami', 'Pilih cara menghubungi kami.', [
+    confirmAlert('Hubungi kami', 'Pilih cara menghubungi kami.', [
       ...channels.map((channel) => ({
         text: channel.label,
         onPress: () => void openSupportChannel(channel),

@@ -33,7 +33,7 @@ enum OrderNotificationType: string
             self::Paid => "Pembayaran untuk pesanan {$orderNumber} sudah kami terima.",
             self::Shipped => "Pesanan {$orderNumber} sedang dalam pengiriman.",
             self::Delivered => "Pesanan {$orderNumber} sudah sampai. Silakan konfirmasi jika sudah diterima.",
-            self::Cancelled => "Pesanan {$orderNumber} dibatalkan karena pembayaran tidak diselesaikan.",
+            self::Cancelled => "Pesanan {$orderNumber} telah dibatalkan.",
         };
     }
 }

@@ -19,6 +19,7 @@ import {
   apiFieldErrors,
   destinationRegion,
   errorMessage,
+  resendVerificationEmail,
   type Cart,
   type CheckoutPayload,
   type Destination,
@@ -110,7 +111,7 @@ function destinationOf(
 const TOAST_OFFSET = 104;
 
 export default function CheckoutScreen() {
-  const { user } = useAuth();
+  const { user, refresh: refreshAuth } = useAuth();
   const { applyCart } = useCart();
   const router = useRouter();
   const navigation = useNavigation();
@@ -136,6 +137,7 @@ export default function CheckoutScreen() {
   const [busyRate, setBusyRate] = useState<string | null>(null);
   /** The saved address being applied, for the same reason. */
   const [busyAddress, setBusyAddress] = useState<number | null>(null);
+  const [verifyBusy, setVerifyBusy] = useState<'resend' | 'check' | null>(null);
   /** Errors that belong to the address section: shown above "Simpan & hitung ongkir". */
   const [addressError, setAddressError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<AddressField, string>>>({});
@@ -158,7 +160,9 @@ export default function CheckoutScreen() {
   const [destTouched, setDestTouched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [selectedRate, setSelectedRate] = useState<string | null>(null);
-  const [selectedRatesByShipment, setSelectedRatesByShipment] = useState<Record<string, string>>({});
+  const [selectedRatesByShipment, setSelectedRatesByShipment] = useState<Record<string, string>>(
+    {}
+  );
   const [selectedPayment, setSelectedPayment] = useState<number | null>(null);
   const [editingAddress, setEditingAddress] = useState(false);
   const [newAddressOpen, setNewAddressOpen] = useState(false);
@@ -607,9 +611,9 @@ export default function CheckoutScreen() {
    * new unpaid order is the answer. 'none' = the cart is intact (nothing was created, retry is
    * safe); 'unknown' = the check itself failed, so a blind retry might create a second order.
    */
-  async function findPlacedOrder(submittedAtMs: number): Promise<
-    { state: 'placed'; number: string } | { state: 'none' } | { state: 'unknown' }
-  > {
+  async function findPlacedOrder(
+    submittedAtMs: number
+  ): Promise<{ state: 'placed'; number: string } | { state: 'none' } | { state: 'unknown' }> {
     try {
       const cart = await api<{ data: Cart }>('/cart');
       if ((cart.data?.lines ?? []).length > 0) {
@@ -790,6 +794,48 @@ export default function CheckoutScreen() {
     <ErrorBanner message={addressError} className="mx-0 mb-3 mt-0" />
   ) : null;
 
+  const emailVerified = Boolean(user?.email_verified_at);
+
+  async function handleResendVerification() {
+    if (verifyBusy) {
+      return;
+    }
+    setVerifyBusy('resend');
+    try {
+      const res = await resendVerificationEmail();
+      toast.show({
+        tone: 'success',
+        message: res.message || 'Email verifikasi berhasil dikirim ulang.',
+        bottomOffset: TOAST_OFFSET,
+      });
+    } catch (e) {
+      toast.show({
+        tone: 'error',
+        message: errorMessage(e, 'Gagal mengirim ulang email verifikasi.'),
+        bottomOffset: TOAST_OFFSET,
+      });
+    } finally {
+      setVerifyBusy(null);
+    }
+  }
+
+  async function handleCheckVerification() {
+    if (verifyBusy) {
+      return;
+    }
+    setVerifyBusy('check');
+    try {
+      await refreshAuth();
+      toast.show({
+        tone: 'info',
+        message: 'Status verifikasi diperbarui.',
+        bottomOffset: TOAST_OFFSET,
+      });
+    } finally {
+      setVerifyBusy(null);
+    }
+  }
+
   const body = (
     <>
       <ScrollView
@@ -801,6 +847,36 @@ export default function CheckoutScreen() {
         // handled by the KeyboardAvoider around this body. Using both on iOS would adjust
         // twice and leave a blank gap.
         automaticallyAdjustKeyboardInsets>
+        {user && !emailVerified ? (
+          <View className="mx-4 mt-3 rounded-sm bg-om-warning-soft p-3.5">
+            <Text className="text-[14px] font-bold text-om-warning">Email belum terverifikasi</Text>
+            <Text className="mt-1 text-[12px] leading-4 text-om-warning">
+              Cek kotak masuk ({user.email}) lalu klik tautan verifikasi sebelum membuat pesanan.
+            </Text>
+            <View className="mt-3 flex-row flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                loading={verifyBusy === 'resend'}
+                disabled={verifyBusy !== null}
+                onPress={() => void handleResendVerification()}
+                className="min-h-10 rounded-sm border-om-navy bg-white px-3">
+                <Text className="text-[12px] font-bold text-om-navy">Kirim ulang verifikasi</Text>
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                loading={verifyBusy === 'check'}
+                disabled={verifyBusy !== null}
+                onPress={() => void handleCheckVerification()}
+                className="min-h-10 rounded-sm px-3">
+                <Text className="text-[12px] font-bold text-white">
+                  Sudah verifikasi? Cek status
+                </Text>
+              </Button>
+            </View>
+          </View>
+        ) : null}
         {/* Address */}
         <Section
           title="Alamat pengiriman"
@@ -1162,7 +1238,9 @@ export default function CheckoutScreen() {
                   const pkgRates = checkout.shipping_rates_by_shipment?.[invKey] ?? [];
                   const pickedCode = selectedRatesByShipment[invKey] ?? null;
                   return (
-                    <View key={shipment.inventory_id} className="gap-1.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
+                    <View
+                      key={shipment.inventory_id}
+                      className="gap-1.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
                       <Text className="text-[13px] font-bold text-foreground">
                         Paket {idx + 1} · {shipment.inventory_name}
                       </Text>
@@ -1178,8 +1256,12 @@ export default function CheckoutScreen() {
                               key={`${invKey}:${code}`}
                               selected={pickedCode === code}
                               disabled={busy !== null}
-                              loading={busy === 'rate' && busyRate === `${shipment.inventory_id}:${code}`}
-                              onPress={() => void chooseRateForShipment(shipment.inventory_id, rate)}
+                              loading={
+                                busy === 'rate' && busyRate === `${shipment.inventory_id}:${code}`
+                              }
+                              onPress={() =>
+                                void chooseRateForShipment(shipment.inventory_id, rate)
+                              }
                               icon={<LogoImage uri={rate.carrier_logo} fallback={Truck} />}
                               title={rate.carrier_name ?? rate.carrier_code ?? rate.service_name}
                               subtitle={[rate.service_name, etaLabel(rate.estimated_days)]
@@ -1224,7 +1306,9 @@ export default function CheckoutScreen() {
                       .filter(Boolean)
                       .join(' · ')}
                     trailing={
-                      <Text className="text-[14px] font-bold">{formatMoney(rate.amount, currency)}</Text>
+                      <Text className="text-[14px] font-bold">
+                        {formatMoney(rate.amount, currency)}
+                      </Text>
                     }
                   />
                 );
@@ -1301,17 +1385,16 @@ export default function CheckoutScreen() {
             />
           ) : null}
           {!taxInclusive && tax > 0 ? (
-            <SummaryRow
-              label="Pajak"
-              value={formatMoney(tax, currency)}
-            />
+            <SummaryRow label="Pajak" value={formatMoney(tax, currency)} />
           ) : null}
           {priceLoading ? (
             <SummaryRowSkeleton label="Ongkos kirim" />
           ) : (
             <SummaryRow
               label="Ongkos kirim"
-              value={checkout.shipping_option ? formatMoney(shippingAmount, currency) : 'Pilih kurir'}
+              value={
+                checkout.shipping_option ? formatMoney(shippingAmount, currency) : 'Pilih kurir'
+              }
               valueClassName={checkout.shipping_option ? undefined : 'text-muted-foreground'}
             />
           )}

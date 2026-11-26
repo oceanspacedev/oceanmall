@@ -8,6 +8,7 @@ import { Text } from '@/components/ui/text';
 import { WelcomeBanner } from '@/components/welcome-banner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { confirmAlert } from '@/lib/confirm';
 import { APP_VERSION, APP_VERSION_LABEL } from '@/lib/legal-content';
 import { useUnreadCount } from '@/lib/notifications';
 import { ripple } from '@/lib/ripple';
@@ -36,7 +37,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
-import { Alert as RNAlert, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from '@/components/safe-area-view';
 
 type OrderCounts = Partial<
@@ -108,7 +109,7 @@ export default function AccountScreen() {
   const open = (path: Href) => router.push(path);
 
   const confirmLogout = () =>
-    RNAlert.alert('Keluar dari akun?', 'Kamu bisa masuk lagi kapan saja.', [
+    confirmAlert('Keluar dari akun?', 'Kamu bisa masuk lagi kapan saja.', [
       { text: 'Batal', style: 'cancel' },
       { text: 'Keluar', style: 'destructive', onPress: () => void logout() },
     ]);

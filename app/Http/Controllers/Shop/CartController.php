@@ -23,7 +23,11 @@ final class CartController extends Controller
     {
         $cart = resolve(CartSessionManager::class)->current();
 
-        $cart?->load(['lines.purchasable.media']);
+        $cart?->load(['lines.purchasable']);
+        $cart?->lines->loadMorph('purchasable', [
+            ProductVariant::class => ['media', 'product.media'],
+            Product::class => ['media'],
+        ]);
 
         $context = $cart
             ? resolve(CartManager::class)->calculate($cart)

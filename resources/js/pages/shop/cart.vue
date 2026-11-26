@@ -57,7 +57,35 @@ function productSlug(
 }
 
 function lineName(purchasable: Cart['lines'][number]['purchasable']): string {
-    return 'name' in purchasable ? purchasable.name : '';
+    const ownName = 'name' in purchasable ? String(purchasable.name ?? '') : '';
+    const parentName =
+        'product' in purchasable
+            ? String((purchasable as { product?: Product }).product?.name ?? '')
+            : '';
+
+    if (parentName && ownName && parentName !== ownName) {
+        return `${parentName} — ${ownName}`;
+    }
+
+    return parentName || ownName;
+}
+
+function lineThumbnail(
+    purchasable: Cart['lines'][number]['purchasable'],
+): string | null {
+    if (
+        'thumbnail' in purchasable &&
+        typeof purchasable.thumbnail === 'string' &&
+        purchasable.thumbnail
+    ) {
+        return purchasable.thumbnail;
+    }
+
+    if ('product' in purchasable) {
+        return (purchasable as { product?: Product }).product?.thumbnail ?? null;
+    }
+
+    return null;
 }
 
 function confirmClear(): void {
@@ -134,8 +162,8 @@ function confirmClear(): void {
                                 class="size-16 shrink-0 overflow-hidden rounded-md bg-muted sm:size-[72px]"
                             >
                                 <img
-                                    v-if="line.purchasable.thumbnail"
-                                    :src="line.purchasable.thumbnail"
+                                    v-if="lineThumbnail(line.purchasable)"
+                                    :src="lineThumbnail(line.purchasable)!"
                                     :alt="lineName(line.purchasable)"
                                     class="size-full object-cover object-center"
                                 />

@@ -26,6 +26,11 @@ final class OrderInvoiceController extends Controller
         return $this->renderInvoice($order, isStaff: false);
     }
 
+    public function signedCustomer(Order $order): View
+    {
+        return $this->renderInvoice($order, isStaff: false);
+    }
+
     public function staff(Request $request, Order $order): View
     {
         abort_unless(EnsureCpanelIsStaffOnly::userIsStaff($request->user()), 403);

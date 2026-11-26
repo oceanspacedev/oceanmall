@@ -21,6 +21,13 @@ final class StatCards extends Component
         }
     }
 
+    public function updatedPeriod(string $period): void
+    {
+        if (! in_array($period, ['7d', '30d', 'mtd', 'ytd'], true)) {
+            $this->period = '30d';
+        }
+    }
+
     public function render(FinanceReportService $service): View
     {
         abort_unless(Gate::allows('finance-dashboard'), 403);

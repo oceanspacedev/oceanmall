@@ -130,10 +130,10 @@
                                 @else
                                     <div class="space-y-2">
                                         @foreach ($reports as $report)
-                                            <div class="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-xs dark:border-amber-500/30 dark:bg-amber-500/10">
+                                            <div class="rounded-lg bg-warning-50 p-2.5 text-xs ring-1 ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30">
                                                 <div class="flex items-center justify-between gap-2">
                                                     <span class="font-semibold text-gray-900 dark:text-white">{{ $report['reporter'] }}</span>
-                                                    <span class="text-[11px] text-gray-500 dark:text-gray-400">{{ $report['created_at'] }}</span>
+                                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ $report['created_at'] }}</span>
                                                 </div>
                                                 <p class="mt-1 text-gray-700 dark:text-gray-300">{{ $report['reason'] }}</p>
                                             </div>

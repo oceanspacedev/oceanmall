@@ -50,7 +50,7 @@ final class NotificationController extends Controller
 
     public function markAllRead(Request $request): RedirectResponse
     {
-        $request->user()->unreadNotifications->markAsRead();
+        $request->user()->unreadNotifications()->update(['read_at' => now()]);
 
         Inertia::flash('toast', [
             'type' => 'success',

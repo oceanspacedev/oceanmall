@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { BadgeCheck } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import AuthTextField from '@/components/auth/auth-text-field.vue';
@@ -74,6 +74,49 @@ watch(
 const reviewError = computed(
     () => (page.props.errors as Record<string, string>)?.review,
 );
+const reviewFlashSuccess = computed(
+    () => (page.props.flash as { success?: string } | undefined)?.success ?? null,
+);
+const isSignedIn = computed(
+    () => Boolean((page.props.auth as { user?: unknown } | undefined)?.user),
+);
+
+const reportReasons = [
+    'Spam atau iklan',
+    'Bahasa kasar atau tidak pantas',
+    'Tidak sesuai dengan produk',
+] as const;
+const reportingReviewId = ref<number | null>(null);
+const selectedReportReason = ref<string>(reportReasons[0]);
+const submittingReport = ref(false);
+
+function startReportReview(reviewId: number): void {
+    if (!isSignedIn.value) {
+        router.visit('/login');
+
+        return;
+    }
+
+    reportingReviewId.value = reportingReviewId.value === reviewId ? null : reviewId;
+    selectedReportReason.value = reportReasons[0];
+}
+
+function submitReportReview(reviewId: number): void {
+    submittingReport.value = true;
+    router.post(
+        `/shop/reviews/${reviewId}/report`,
+        { reason: selectedReportReason.value },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                reportingReviewId.value = null;
+            },
+            onFinish: () => {
+                submittingReport.value = false;
+            },
+        },
+    );
+}
 
 const reviewSort = ref<'highest' | 'newest' | 'lowest'>('highest');
 
@@ -614,6 +657,16 @@ return;
                 Ulasan pembeli
             </h2>
 
+            <Alert
+                v-if="reviewFlashSuccess"
+                variant="success"
+                class="mt-3 py-2 text-[12px]"
+            >
+                <AlertDescription class="text-[12px]">
+                    {{ reviewFlashSuccess }}
+                </AlertDescription>
+            </Alert>
+
             <UiCard
                 v-if="reviews.totalCount > 0"
                 class="mt-3 gap-0 py-0 shadow-none"
@@ -753,6 +806,13 @@ return;
                                 <span class="text-[11px] text-muted-foreground">
                                     {{ formatReviewDate(review.created_at) }}
                                 </span>
+                                <button
+                                    type="button"
+                                    class="ml-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                                    @click="startReportReview(review.id)"
+                                >
+                                    Laporkan
+                                </button>
                             </div>
                             <p
                                 v-if="review.title"
@@ -766,6 +826,42 @@ return;
                             >
                                 {{ review.content }}
                             </p>
+                            <div
+                                v-if="reportingReviewId === review.id"
+                                class="mt-2.5 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 p-2.5"
+                            >
+                                <select
+                                    v-model="selectedReportReason"
+                                    class="h-8 rounded border border-border bg-background px-2 text-[12px] text-foreground"
+                                >
+                                    <option
+                                        v-for="reason in reportReasons"
+                                        :key="reason"
+                                        :value="reason"
+                                    >
+                                        {{ reason }}
+                                    </option>
+                                </select>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    class="h-8 px-3 text-[12px]"
+                                    :disabled="submittingReport"
+                                    @click="submitReportReview(review.id)"
+                                >
+                                    {{ submittingReport ? 'Mengirim…' : 'Kirim laporan' }}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    class="h-8 px-2 text-[12px]"
+                                    @click="reportingReviewId = null"
+                                >
+                                    Batal
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </li>

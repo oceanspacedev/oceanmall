@@ -1,13 +1,13 @@
 {
-  "draft": true,
+  "draft": false,
   "docs": {
     "syarat-ketentuan": {
       "title": "Syarat & Ketentuan",
-      "updated": "2026-10-14",
+      "updated": "2026-11-26",
       "sections": [
         {
           "heading": "1. Tentang OceanMall",
-          "body": "OceanMall adalah toko online yang menjual produk fisik dan mengirimkannya ke alamat yang kamu pilih. Dengan memakai aplikasi ini atau mendaftar akun, kamu menyetujui syarat dan ketentuan di halaman ini.\n\n[TODO: nama badan usaha, alamat, dan nomor izin penjual.]"
+          "body": "OceanMall adalah toko online yang menjual produk fisik dan mengirimkannya ke alamat yang kamu pilih. Dengan memakai aplikasi ini atau mendaftar akun, kamu menyetujui syarat dan ketentuan di halaman ini.\n\nLayanan ini dioperasikan secara resmi oleh OceanMall Official Store Indonesia (CV Top Selular / Complete Selular Group), Jl. Tuparev No. 109F, Kertawinangun, Kedawung, Kabupaten Cirebon, Jawa Barat, Indonesia."
         },
         {
           "heading": "2. Akun kamu",
@@ -27,7 +27,7 @@
         },
         {
           "heading": "6. Pembatalan, pengembalian, dan garansi",
-          "body": "Pembatalan: pesanan yang belum dibayar sampai batas waktu yang tertera di halaman pembayaran dibatalkan otomatis dan stoknya dikembalikan. Pesanan yang sudah dibayar tidak bisa dibatalkan dari aplikasi; hubungi {{contact}} secepatnya dengan nomor pesananmu. Pembatalan masih bisa diproses selama paket belum diserahkan ke kurir, dan dana dikembalikan ke rekening yang kamu tunjuk paling lambat 14 hari kerja.\n\nPengembalian: kalau barang yang kamu terima rusak, salah kirim, atau tidak sesuai deskripsi, laporkan lewat {{contact}} paling lambat 2x24 jam setelah paket diterima, sertakan nomor pesanan, foto, dan video saat membuka paket. Setelah laporan disetujui, kirim barang kembali dalam kondisi dan kemasan semula; ongkos kirim pengembalian untuk kesalahan dari pihak OceanMall kami tanggung. Pengembalian dana atau pengiriman ulang dilakukan paling lambat 14 hari kerja setelah barang kami terima. Perubahan pikiran bukan alasan pengembalian.\n\nGaransi: produk bergaransi mengikuti ketentuan garansi resmi produsen atau distributor yang tertulis di halaman produk. Simpan nota dan kartu garansi; kami membantu mengarahkan klaim ke pusat layanan resmi."
+          "body": "Pembatalan: pesanan yang belum dibayar sampai batas waktu yang tertera di halaman pembayaran dibatalkan otomatis dan stoknya dikembalikan. Selama paket belum dikirim oleh gudang, kamu juga dapat mengajukan pembatalan langsung lewat tombol Batalkan pesanan di halaman detail pesanan, atau menghubungi {{contact}} jika membutuhkan bantuan lebih lanjut.\n\nPengembalian: kalau barang yang kamu terima rusak, salah kirim, atau tidak sesuai deskripsi, ajukan melalui menu Ajukan retur pada halaman detail pesanan atau laporkan lewat {{contact}} paling lambat 2x24 jam setelah paket diterima dengan menyertakan nomor pesanan serta foto/video saat membuka paket. Setelah pengajuan disetujui, kirim barang kembali dalam kondisi dan kemasan semula; ongkos kirim pengembalian untuk kesalahan dari pihak OceanMall kami tanggung. Pengembalian dana atau pengiriman ulang dilakukan paling lambat 14 hari kerja setelah barang kami terima. Perubahan pikiran bukan alasan pengembalian.\n\nGaransi: produk bergaransi mengikuti ketentuan garansi resmi produsen atau distributor yang tertulis di halaman produk. Simpan nota dan kartu garansi; kami membantu mengarahkan klaim ke pusat layanan resmi."
         },
         {
           "heading": "7. Ulasan produk",
@@ -45,7 +45,7 @@
     },
     "kebijakan-privasi": {
       "title": "Kebijakan Privasi",
-      "updated": "2026-10-14",
+      "updated": "2026-11-26",
       "sections": [
         {
           "heading": "1. Data yang kami kumpulkan",

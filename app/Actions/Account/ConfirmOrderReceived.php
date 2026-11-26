@@ -22,7 +22,12 @@ final readonly class ConfirmOrderReceived
 
     public function handle(Order $order): Order
     {
-        if ($order->status === OrderStatus::Completed && $order->shipping_status?->value === 'delivered') {
+        if ($order->shipping_status === ShippingStatus::Delivered) {
+            if ($order->payment_status === PaymentStatus::Paid && $order->status !== OrderStatus::Completed) {
+                $order->forceFill(['status' => OrderStatus::Completed])->save();
+                event(new OrderCompleted($order));
+            }
+
             return $order;
         }
 

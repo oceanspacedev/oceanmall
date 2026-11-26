@@ -42,6 +42,9 @@ return [
             'journal_mode' => null,
             'synchronous' => null,
             'transaction_mode' => 'DEFERRED',
+            'pragmas' => [
+                'temp_store' => env('DB_SQLITE_TEMP_STORE', 'MEMORY'),
+            ],
         ],
 
         'mysql' => [

@@ -14,8 +14,6 @@ use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Shopper\Core\Models\Currency;
-use Shopper\Core\Models\Price;
 
 final class ProductController extends Controller
 {
@@ -67,35 +65,7 @@ final class ProductController extends Controller
             $sort = 'latest';
         }
 
-        $currencyId = Currency::query()
-            ->where('code', current_currency())
-            ->value('id');
-        $productsTable = shopper_table('products');
-
-        $productPrice = Price::query()
-            ->select('amount')
-            ->whereColumn('priceable_id', "{$productsTable}.id")
-            ->where('priceable_type', (new Product)->getMorphClass())
-            ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
-            ->limit(1)
-            ->toBase();
-
-        $variantPrice = Price::query()
-            ->selectRaw('min(amount)')
-            ->where('priceable_type', (new ProductVariant)->getMorphClass())
-            ->whereIn('priceable_id', ProductVariant::query()->select('id')->whereColumn('product_id', "{$productsTable}.id"))
-            ->when($currencyId, fn ($q) => $q->where('currency_id', $currencyId))
-            ->toBase();
-
-        $priceExpr = "coalesce(({$productPrice->toSql()}), ({$variantPrice->toSql()}))";
-        $priceBindings = [...$productPrice->getBindings(), ...$variantPrice->getBindings()];
-
-        $query = match ($sort) {
-            'name' => $query->orderBy('name'),
-            'price_asc' => $query->orderByRaw("{$priceExpr} is null", $priceBindings)->orderByRaw("{$priceExpr} asc", $priceBindings)->orderBy('name'),
-            'price_desc' => $query->orderByRaw("{$priceExpr} is null", $priceBindings)->orderByRaw("{$priceExpr} desc", $priceBindings)->orderBy('name'),
-            default => $query->latest(),
-        };
+        $query = Product::applyCatalogSort($query, $sort);
 
         return Inertia::render('shop/index', [
             'products' => $query->paginate(20)->withQueryString(),

@@ -17,6 +17,7 @@ use App\Payment\PaymentActions;
 use App\Shipping\ShipmentTimeline;
 use App\Shipping\ShippingCapabilities;
 use App\Support\CarrierLogos;
+use App\Support\CustomerCatalogPresenter;
 use App\Support\OrderPaymentType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -63,15 +64,25 @@ final class OrderController extends Controller
             default => $query,
         };
 
+        $presenter = resolve(CustomerCatalogPresenter::class);
+
         $orders = $query
             ->latest()
             ->paginate(10)
             ->withQueryString()
-            ->through(static function (Order $order): Order {
+            ->through(static function (Order $order) use ($presenter): Order {
                 $order->items->loadMorph('product', [
                     ProductVariant::class => ['media', 'product.media'],
                     Product::class => ['media'],
                 ]);
+                foreach ($order->items as $item) {
+                    $thumb = $presenter->purchasableThumbnail($item->product);
+                    if (! is_string($thumb) || $thumb === '') {
+                        $thumb = $item->product?->images[0]['url'] ?? $item->product?->product?->images[0]['url'] ?? null;
+                    }
+                    $item->setAttribute('thumbnail_url', is_string($thumb) && $thumb !== '' ? $thumb : null);
+                    $item->setAttribute('product_slug', $presenter->purchasableSlug($item->product));
+                }
 
                 return $order->makeHidden(['metadata', 'notes']);
             });
@@ -99,6 +110,15 @@ final class OrderController extends Controller
             ProductVariant::class => ['media', 'product.media'],
             Product::class => ['media'],
         ]);
+        $presenter = resolve(CustomerCatalogPresenter::class);
+        foreach ($order->items as $item) {
+            $thumb = $presenter->purchasableThumbnail($item->product);
+            if (! is_string($thumb) || $thumb === '') {
+                $thumb = $item->product?->images[0]['url'] ?? $item->product?->product?->images[0]['url'] ?? null;
+            }
+            $item->setAttribute('thumbnail_url', is_string($thumb) && $thumb !== '' ? $thumb : null);
+            $item->setAttribute('product_slug', $presenter->purchasableSlug($item->product));
+        }
 
         $order->shippingAddress?->append('full_name');
         $order->billingAddress?->append('full_name');

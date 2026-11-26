@@ -1,268 +1,352 @@
-<x-shopper::container class="py-6 space-y-6">
-    <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <h1 class="font-heading text-2xl font-bold text-gray-900 dark:text-white">
-                Laporan Keuangan, Pajak PPN & Settlement
-            </h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Omzet dibayar, COGS & margin kotor, PPN keluaran 11%, ROI promo, serta pelunasan COD.
-            </p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <a
-                href="{{ route('cpanel.reports.finance.export', ['tab' => $activeTab, 'format' => 'csv', 'from' => $fromDate, 'to' => $toDate]) }}"
-                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-white/15 dark:bg-gray-800 dark:text-gray-200"
-            >
-                Ekspor CSV
-            </a>
-            <a
-                href="{{ route('cpanel.reports.finance.export', ['tab' => $activeTab, 'format' => 'xlsx', 'from' => $fromDate, 'to' => $toDate]) }}"
-                class="inline-flex items-center rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-500"
-            >
-                Ekspor Excel (.xlsx)
-            </a>
-        </div>
-    </div>
+<x-shopper::container class="space-y-6 py-5">
+    <x-shopper::breadcrumb :back="route('shopper.dashboard')">
+        <x-untitledui-chevron-left class="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+        <x-shopper::breadcrumb.link
+            :link="route('shopper.dashboard')"
+            :title="__('shopper::pages/dashboard.menu')"
+        />
+    </x-shopper::breadcrumb>
 
-    <div class="flex flex-wrap items-end justify-between gap-4 rounded-xl bg-white p-4 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
-        <div class="flex flex-wrap gap-2">
-            @foreach ([
-                'margin' => 'Keuangan & Margin',
-                'ppn' => 'PPN Keluaran 11%',
-                'promo' => 'Promo ROI',
-                'settlement' => 'Settlement & COD',
-            ] as $key => $label)
-                <button
-                    type="button"
-                    wire:click="setTab('{{ $key }}')"
-                    @class([
-                        'rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-                        'bg-primary-600 text-white' => $activeTab === $key,
-                        'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/10 dark:text-gray-300' => $activeTab !== $key,
-                    ])
+    <x-shopper::heading title="Laporan Keuangan, Pajak PPN & Settlement">
+        <x-slot:action>
+            <div class="flex flex-wrap items-center gap-2">
+                <x-filament::button
+                    tag="a"
+                    :href="route('cpanel.reports.finance.export', ['tab' => $activeTab, 'format' => 'csv', 'from' => $fromDate, 'to' => $toDate])"
+                    color="gray"
+                    size="sm"
+                    icon="heroicon-o-arrow-down-tray"
                 >
-                    {{ $label }}
-                </button>
-            @endforeach
-        </div>
+                    Ekspor CSV
+                </x-filament::button>
+                <x-filament::button
+                    tag="a"
+                    :href="route('cpanel.reports.finance.export', ['tab' => $activeTab, 'format' => 'xlsx', 'from' => $fromDate, 'to' => $toDate])"
+                    color="primary"
+                    size="sm"
+                    icon="heroicon-o-document-arrow-down"
+                >
+                    Ekspor Excel (.xlsx)
+                </x-filament::button>
+            </div>
+        </x-slot:action>
+    </x-shopper::heading>
 
-        <div class="flex flex-wrap items-center gap-2 text-xs">
-            <label class="text-gray-600 dark:text-gray-400">
-                Dari
-                <input type="date" wire:model.live="dateFrom" class="ml-1 rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-800 dark:text-white" />
-            </label>
-            <label class="text-gray-600 dark:text-gray-400">
-                Sampai
-                <input type="date" wire:model.live="dateTo" class="ml-1 rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-800 dark:text-white" />
-            </label>
+    <x-shopper::tabs-navigation
+        wire:model.live="activeTab"
+        :tabs="[
+            ['key' => 'margin', 'label' => 'Keuangan & Margin'],
+            ['key' => 'ppn', 'label' => 'PPN Keluaran 11%'],
+            ['key' => 'promo', 'label' => 'Promo ROI'],
+            ['key' => 'settlement', 'label' => 'Settlement & COD'],
+        ]"
+        :active="$activeTab"
+    />
+
+    <x-shopper::card>
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                Omzet dibayar, HPP (COGS) &amp; margin kotor, PPN keluaran 11%, ROI promo, serta pelunasan COD.
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Dari</span>
+                    <x-filament::input.wrapper>
+                        <x-filament::input type="date" wire:model.live="dateFrom" />
+                    </x-filament::input.wrapper>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Sampai</span>
+                    <x-filament::input.wrapper>
+                        <x-filament::input type="date" wire:model.live="dateTo" />
+                    </x-filament::input.wrapper>
+                </div>
+            </div>
         </div>
-    </div>
+    </x-shopper::card>
 
     @if ($activeTab === 'margin')
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="om-stat-grid-4">
             <x-shopper::card>
-                <p class="text-xs text-gray-500">Pendapatan Bersih</p>
-                <p class="mt-1 text-xl font-bold text-gray-900 dark:text-white">Rp {{ number_format($report['summary']['net_revenue'], 0, ',', '.') }}</p>
-                <p class="mt-1 text-xs text-gray-500">{{ $report['summary']['orders'] }} pesanan dibayar</p>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Pendapatan Bersih</p>
+                <p class="mt-1 font-heading text-xl font-bold text-gray-900 dark:text-white om-tabular">
+                    Rp {{ number_format($report['summary']['net_revenue'], 0, ',', '.') }}
+                </p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $report['summary']['orders'] }} pesanan dibayar</p>
             </x-shopper::card>
+
             <x-shopper::card>
-                <p class="text-xs text-gray-500">Total HPP (COGS)</p>
-                <p class="mt-1 text-xl font-bold text-gray-900 dark:text-white">Rp {{ number_format($report['summary']['cogs'], 0, ',', '.') }}</p>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total HPP (COGS)</p>
+                <p class="mt-1 font-heading text-xl font-bold text-gray-900 dark:text-white om-tabular">
+                    Rp {{ number_format($report['summary']['cogs'], 0, ',', '.') }}
+                </p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Snapshot biaya pokok produk</p>
             </x-shopper::card>
+
             <x-shopper::card>
-                <p class="text-xs text-gray-500">Laba Kotor</p>
-                <p class="mt-1 text-xl font-bold text-emerald-600">Rp {{ number_format($report['summary']['gross_profit'], 0, ',', '.') }}</p>
-                <p class="mt-1 text-xs text-gray-500">Margin {{ $report['summary']['margin_pct'] }}%</p>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Laba Kotor</p>
+                <p class="mt-1 font-heading text-xl font-bold text-success-600 dark:text-success-400 om-tabular">
+                    Rp {{ number_format($report['summary']['gross_profit'], 0, ',', '.') }}
+                </p>
+                <div class="mt-1">
+                    <x-filament::badge size="sm" color="success">
+                        Margin {{ $report['summary']['margin_pct'] }}%
+                    </x-filament::badge>
+                </div>
             </x-shopper::card>
+
             <x-shopper::card>
-                <p class="text-xs text-gray-500">Total Refund & Biaya Gateway</p>
-                <p class="mt-1 text-xl font-bold text-amber-600">Rp {{ number_format($report['summary']['refunds'] + $report['summary']['gateway_fee'], 0, ',', '.') }}</p>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Refund &amp; Biaya Gateway</p>
+                <p class="mt-1 font-heading text-xl font-bold text-warning-600 dark:text-warning-400 om-tabular">
+                    Rp {{ number_format($report['summary']['refunds'] + $report['summary']['gateway_fee'], 0, ',', '.') }}
+                </p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Total potongan periode ini</p>
             </x-shopper::card>
         </div>
 
-        <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
-            <table class="min-w-full divide-y divide-gray-200 text-xs dark:divide-white/10">
-                <thead class="bg-gray-50 dark:bg-white/5">
-                    <tr>
-                        <th class="px-3 py-2.5 text-left font-semibold">Invoice</th>
-                        <th class="px-3 py-2.5 text-left font-semibold">Pesanan</th>
-                        <th class="px-3 py-2.5 text-left font-semibold">Tanggal Bayar</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">Bruto</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">COGS</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">Refund</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">Laba Kotor</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">Margin %</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-white/10">
-                    @forelse ($report['rows'] as $row)
+        <x-shopper::card class="[&>div:first-of-type]:p-0">
+            <div class="overflow-x-auto">
+                <table class="fi-ta-table w-full table-auto divide-y divide-gray-200 text-start dark:divide-white/10">
+                    <thead>
                         <tr>
-                            <td class="px-3 py-2 font-medium">{{ $row['invoice_number'] }}</td>
-                            <td class="px-3 py-2">
-                                <a href="{{ route('shopper.orders.detail', ['order' => $row['order_id']]) }}" class="text-primary-600 hover:underline">
-                                    {{ $row['order_number'] }}
-                                </a>
-                            </td>
-                            <td class="px-3 py-2 text-gray-500">{{ $row['paid_at'] }}</td>
-                            <td class="px-3 py-2 text-right">Rp {{ number_format($row['gross'], 0, ',', '.') }}</td>
-                            <td class="px-3 py-2 text-right">Rp {{ number_format($row['cogs'], 0, ',', '.') }}</td>
-                            <td class="px-3 py-2 text-right text-amber-600">Rp {{ number_format($row['refunds'], 0, ',', '.') }}</td>
-                            <td class="px-3 py-2 text-right font-semibold text-emerald-600">Rp {{ number_format($row['gross_profit'], 0, ',', '.') }}</td>
-                            <td class="px-3 py-2 text-right">{{ $row['margin_pct'] }}%</td>
+                            <th class="fi-ta-header-cell px-4 py-3 text-left text-xs font-semibold text-gray-950 dark:text-white">Invoice</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-left text-xs font-semibold text-gray-950 dark:text-white">Pesanan</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-left text-xs font-semibold text-gray-950 dark:text-white">Tanggal Bayar</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">Bruto</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">COGS</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">Refund</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">Laba Kotor</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">Margin</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="8" class="px-3 py-6 text-center text-gray-500">Belum ada transaksi dibayar pada periode ini.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 text-sm dark:divide-white/10">
+                        @forelse ($report['rows'] as $row)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
+                                <td class="fi-ta-cell px-4 py-3 font-medium text-gray-900 dark:text-white">{{ $row['invoice_number'] }}</td>
+                                <td class="fi-ta-cell px-4 py-3">
+                                    <x-shopper::link
+                                        :href="route('shopper.orders.detail', ['order' => $row['order_id']])"
+                                        wire:navigate
+                                        class="font-medium text-primary-600 hover:underline dark:text-primary-400"
+                                    >
+                                        {{ $row['order_number'] }}
+                                    </x-shopper::link>
+                                </td>
+                                <td class="fi-ta-cell px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $row['paid_at'] }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right om-tabular">Rp {{ number_format($row['gross'], 0, ',', '.') }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right om-tabular">Rp {{ number_format($row['cogs'], 0, ',', '.') }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right text-warning-600 dark:text-warning-400 om-tabular">Rp {{ number_format($row['refunds'], 0, ',', '.') }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right font-semibold text-success-600 dark:text-success-400 om-tabular">Rp {{ number_format($row['gross_profit'], 0, ',', '.') }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right">
+                                    <x-filament::badge size="sm" color="gray">{{ $row['margin_pct'] }}%</x-filament::badge>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    Belum ada transaksi dibayar pada periode ini.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </x-shopper::card>
     @elseif ($activeTab === 'ppn')
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="om-stat-grid-3">
             <x-shopper::card>
-                <p class="text-xs text-gray-500">Dasar Pengenaan Pajak (DPP)</p>
-                <p class="mt-1 text-xl font-bold">Rp {{ number_format($report['summary']['dpp'], 0, ',', '.') }}</p>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Dasar Pengenaan Pajak (DPP)</p>
+                <p class="mt-1 font-heading text-xl font-bold text-gray-900 dark:text-white om-tabular">
+                    Rp {{ number_format($report['summary']['dpp'], 0, ',', '.') }}
+                </p>
             </x-shopper::card>
             <x-shopper::card>
-                <p class="text-xs text-gray-500">PPN Keluaran 11%</p>
-                <p class="mt-1 text-xl font-bold text-primary-600">Rp {{ number_format($report['summary']['ppn'], 0, ',', '.') }}</p>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">PPN Keluaran 11%</p>
+                <p class="mt-1 font-heading text-xl font-bold text-primary-600 dark:text-primary-400 om-tabular">
+                    Rp {{ number_format($report['summary']['ppn'], 0, ',', '.') }}
+                </p>
             </x-shopper::card>
             <x-shopper::card>
-                <p class="text-xs text-gray-500">Total Omzet Kena Pajak</p>
-                <p class="mt-1 text-xl font-bold">Rp {{ number_format($report['summary']['taxable_total'], 0, ',', '.') }}</p>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total Omzet Kena Pajak</p>
+                <p class="mt-1 font-heading text-xl font-bold text-gray-900 dark:text-white om-tabular">
+                    Rp {{ number_format($report['summary']['taxable_total'], 0, ',', '.') }}
+                </p>
             </x-shopper::card>
         </div>
 
-        <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
-            <table class="min-w-full divide-y divide-gray-200 text-xs dark:divide-white/10">
-                <thead class="bg-gray-50 dark:bg-white/5">
-                    <tr>
-                        <th class="px-3 py-2.5 text-left font-semibold">Invoice</th>
-                        <th class="px-3 py-2.5 text-left font-semibold">No Order</th>
-                        <th class="px-3 py-2.5 text-left font-semibold">Pelanggan</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">DPP</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">PPN 11%</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">Total</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-white/10">
-                    @forelse ($report['rows'] as $row)
+        <x-shopper::card class="[&>div:first-of-type]:p-0">
+            <div class="overflow-x-auto">
+                <table class="fi-ta-table w-full table-auto divide-y divide-gray-200 text-start dark:divide-white/10">
+                    <thead>
                         <tr>
-                            <td class="px-3 py-2 font-medium">{{ $row['invoice_number'] }}</td>
-                            <td class="px-3 py-2">{{ $row['order_number'] }}</td>
-                            <td class="px-3 py-2">{{ $row['customer'] }}</td>
-                            <td class="px-3 py-2 text-right">Rp {{ number_format($row['dpp'], 0, ',', '.') }}</td>
-                            <td class="px-3 py-2 text-right font-semibold">Rp {{ number_format($row['ppn'], 0, ',', '.') }}</td>
-                            <td class="px-3 py-2 text-right">Rp {{ number_format($row['total'], 0, ',', '.') }}</td>
+                            <th class="fi-ta-header-cell px-4 py-3 text-left text-xs font-semibold text-gray-950 dark:text-white">Invoice</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-left text-xs font-semibold text-gray-950 dark:text-white">No Order</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-left text-xs font-semibold text-gray-950 dark:text-white">Pelanggan</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">DPP</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">PPN 11%</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">Total</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Belum ada data PPN pada periode ini.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 text-sm dark:divide-white/10">
+                        @forelse ($report['rows'] as $row)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
+                                <td class="fi-ta-cell px-4 py-3 font-medium text-gray-900 dark:text-white">{{ $row['invoice_number'] }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-gray-700 dark:text-gray-300">{{ $row['order_number'] }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-gray-700 dark:text-gray-300">{{ $row['customer'] }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right om-tabular">Rp {{ number_format($row['dpp'], 0, ',', '.') }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right font-semibold text-primary-600 dark:text-primary-400 om-tabular">Rp {{ number_format($row['ppn'], 0, ',', '.') }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right font-medium om-tabular">Rp {{ number_format($row['total'], 0, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    Belum ada data PPN pada periode ini.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </x-shopper::card>
     @elseif ($activeTab === 'promo')
-        <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
-            <table class="min-w-full divide-y divide-gray-200 text-xs dark:divide-white/10">
-                <thead class="bg-gray-50 dark:bg-white/5">
-                    <tr>
-                        <th class="px-3 py-2.5 text-left font-semibold">Kode Promo</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">Pesanan Dibayar</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">Total Diskon</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">GMV Teratribusi</th>
-                        <th class="px-3 py-2.5 text-right font-semibold">Margin Bersih</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-white/10">
-                    @forelse ($report['rows'] as $row)
+        <x-shopper::card class="[&>div:first-of-type]:p-0">
+            <div class="overflow-x-auto">
+                <table class="fi-ta-table w-full table-auto divide-y divide-gray-200 text-start dark:divide-white/10">
+                    <thead>
                         <tr>
-                            <td class="px-3 py-2 font-semibold">{{ $row['code'] }}</td>
-                            <td class="px-3 py-2 text-right">{{ $row['orders'] }}</td>
-                            <td class="px-3 py-2 text-right text-amber-600">Rp {{ number_format($row['total_discount'], 0, ',', '.') }}</td>
-                            <td class="px-3 py-2 text-right">Rp {{ number_format($row['attributed_gmv'], 0, ',', '.') }}</td>
-                            <td class="px-3 py-2 text-right font-semibold text-emerald-600">Rp {{ number_format($row['net_margin'], 0, ',', '.') }}</td>
+                            <th class="fi-ta-header-cell px-4 py-3 text-left text-xs font-semibold text-gray-950 dark:text-white">Kode Promo</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">Pesanan Dibayar</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">Total Diskon</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">GMV Teratribusi</th>
+                            <th class="fi-ta-header-cell px-4 py-3 text-right text-xs font-semibold text-gray-950 dark:text-white">Margin Bersih</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Belum ada penggunaan kupon pada periode ini.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 text-sm dark:divide-white/10">
+                        @forelse ($report['rows'] as $row)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
+                                <td class="fi-ta-cell px-4 py-3">
+                                    <x-filament::badge color="primary">{{ $row['code'] }}</x-filament::badge>
+                                </td>
+                                <td class="fi-ta-cell px-4 py-3 text-right om-tabular">{{ $row['orders'] }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right text-warning-600 dark:text-warning-400 om-tabular">Rp {{ number_format($row['total_discount'], 0, ',', '.') }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right om-tabular">Rp {{ number_format($row['attributed_gmv'], 0, ',', '.') }}</td>
+                                <td class="fi-ta-cell px-4 py-3 text-right font-semibold text-success-600 dark:text-success-400 om-tabular">Rp {{ number_format($row['net_margin'], 0, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    Belum ada penggunaan kupon pada periode ini.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </x-shopper::card>
     @else
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
-                <div class="border-b border-gray-200 px-4 py-3 text-sm font-semibold dark:border-white/10">
-                    Settlement per Kanal Pembayaran
+        <div class="om-grid-2">
+            <x-shopper::card class="[&>div:first-of-type]:p-0">
+                <div class="border-b border-gray-200 px-4 py-3 dark:border-white/10">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Settlement per Kanal Pembayaran</h3>
                 </div>
-                <table class="min-w-full divide-y divide-gray-200 text-xs dark:divide-white/10">
-                    <thead class="bg-gray-50 dark:bg-white/5">
-                        <tr>
-                            <th class="px-3 py-2 text-left">Metode</th>
-                            <th class="px-3 py-2 text-right">Order</th>
-                            <th class="px-3 py-2 text-right">Bruto</th>
-                            <th class="px-3 py-2 text-right">Fee</th>
-                            <th class="px-3 py-2 text-right">Net</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-white/10">
-                        @forelse ($report['channels'] as $channel)
+                <div class="overflow-x-auto">
+                    <table class="fi-ta-table w-full table-auto divide-y divide-gray-200 text-start dark:divide-white/10">
+                        <thead>
                             <tr>
-                                <td class="px-3 py-2 font-medium">{{ $channel['method'] }} <span class="text-gray-400">({{ $channel['driver'] }})</span></td>
-                                <td class="px-3 py-2 text-right">{{ $channel['orders'] }}</td>
-                                <td class="px-3 py-2 text-right">Rp {{ number_format($channel['gross'], 0, ',', '.') }}</td>
-                                <td class="px-3 py-2 text-right">Rp {{ number_format($channel['gateway_fee'], 0, ',', '.') }}</td>
-                                <td class="px-3 py-2 text-right font-semibold">Rp {{ number_format($channel['net_settlement'], 0, ',', '.') }}</td>
+                                <th class="fi-ta-header-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-950 dark:text-white">Metode</th>
+                                <th class="fi-ta-header-cell px-3 py-2.5 text-right text-xs font-semibold text-gray-950 dark:text-white">Order</th>
+                                <th class="fi-ta-header-cell px-3 py-2.5 text-right text-xs font-semibold text-gray-950 dark:text-white">Bruto</th>
+                                <th class="fi-ta-header-cell px-3 py-2.5 text-right text-xs font-semibold text-gray-950 dark:text-white">Fee</th>
+                                <th class="fi-ta-header-cell px-4 py-2.5 text-right text-xs font-semibold text-gray-950 dark:text-white">Net</th>
                             </tr>
-                        @empty
-                            <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Belum ada settlement pada periode ini.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 text-xs dark:divide-white/10">
+                            @forelse ($report['channels'] as $channel)
+                                <tr>
+                                    <td class="fi-ta-cell px-4 py-2.5 font-medium text-gray-900 dark:text-white">
+                                        {{ $channel['method'] }}
+                                        <span class="text-gray-400">({{ $channel['driver'] }})</span>
+                                    </td>
+                                    <td class="fi-ta-cell px-3 py-2.5 text-right om-tabular">{{ $channel['orders'] }}</td>
+                                    <td class="fi-ta-cell px-3 py-2.5 text-right om-tabular">Rp {{ number_format($channel['gross'], 0, ',', '.') }}</td>
+                                    <td class="fi-ta-cell px-3 py-2.5 text-right om-tabular">Rp {{ number_format($channel['gateway_fee'], 0, ',', '.') }}</td>
+                                    <td class="fi-ta-cell px-4 py-2.5 text-right font-semibold text-gray-900 dark:text-white om-tabular">Rp {{ number_format($channel['net_settlement'], 0, ',', '.') }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        Belum ada settlement pada periode ini.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </x-shopper::card>
 
-            <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3 text-sm font-semibold dark:border-white/10">
-                    <span>Pelunasan Dana COD Kurir</span>
-                    <span class="text-xs text-amber-600">Outstanding: Rp {{ number_format($report['summary']['cod_unremitted'], 0, ',', '.') }}</span>
+            <x-shopper::card class="[&>div:first-of-type]:p-0">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-white/10">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Pelunasan Dana COD Kurir</h3>
+                    <x-filament::badge size="sm" :color="$report['summary']['cod_unremitted'] > 0 ? 'warning' : 'success'">
+                        Outstanding: Rp {{ number_format($report['summary']['cod_unremitted'], 0, ',', '.') }}
+                    </x-filament::badge>
                 </div>
-                <table class="min-w-full divide-y divide-gray-200 text-xs dark:divide-white/10">
-                    <thead class="bg-gray-50 dark:bg-white/5">
-                        <tr>
-                            <th class="px-3 py-2 text-left">Order</th>
-                            <th class="px-3 py-2 text-right">Nominal</th>
-                            <th class="px-3 py-2 text-left">Status Setor</th>
-                            <th class="px-3 py-2 text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-white/10">
-                        @forelse ($report['cod_orders'] as $cod)
+                <div class="overflow-x-auto">
+                    <table class="fi-ta-table w-full table-auto divide-y divide-gray-200 text-start dark:divide-white/10">
+                        <thead>
                             <tr>
-                                <td class="px-3 py-2 font-medium">
-                                    <a href="{{ route('shopper.orders.detail', ['order' => $cod['order_id']]) }}" class="text-primary-600 hover:underline">
-                                        {{ $cod['order_number'] }}
-                                    </a>
-                                </td>
-                                <td class="px-3 py-2 text-right">Rp {{ number_format($cod['price_amount'], 0, ',', '.') }}</td>
-                                <td class="px-3 py-2">{{ $cod['cod_remitted_at'] ?: 'Belum Disetor' }}</td>
-                                <td class="px-3 py-2 text-right">
-                                    @if ($cod['can_remit'])
-                                        <button
-                                            type="button"
-                                            wire:click="markCodRemitted({{ $cod['order_id'] }})"
-                                            class="rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500"
-                                        >
-                                            Catat Lunas COD
-                                        </button>
-                                    @else
-                                        <span class="text-emerald-600 font-semibold">Lunas</span>
-                                    @endif
-                                </td>
+                                <th class="fi-ta-header-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-950 dark:text-white">Order</th>
+                                <th class="fi-ta-header-cell px-3 py-2.5 text-right text-xs font-semibold text-gray-950 dark:text-white">Nominal</th>
+                                <th class="fi-ta-header-cell px-3 py-2.5 text-left text-xs font-semibold text-gray-950 dark:text-white">Status Setor</th>
+                                <th class="fi-ta-header-cell px-4 py-2.5 text-right text-xs font-semibold text-gray-950 dark:text-white">Aksi</th>
                             </tr>
-                        @empty
-                            <tr><td colspan="4" class="px-3 py-6 text-center text-gray-500">Tidak ada pesanan COD pada periode ini.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 text-xs dark:divide-white/10">
+                            @forelse ($report['cod_orders'] as $cod)
+                                <tr>
+                                    <td class="fi-ta-cell px-4 py-2.5 font-medium">
+                                        <x-shopper::link
+                                            :href="route('shopper.orders.detail', ['order' => $cod['order_id']])"
+                                            wire:navigate
+                                            class="font-medium text-primary-600 hover:underline dark:text-primary-400"
+                                        >
+                                            {{ $cod['order_number'] }}
+                                        </x-shopper::link>
+                                    </td>
+                                    <td class="fi-ta-cell px-3 py-2.5 text-right om-tabular">Rp {{ number_format($cod['price_amount'], 0, ',', '.') }}</td>
+                                    <td class="fi-ta-cell px-3 py-2.5">
+                                        @if ($cod['cod_remitted_at'])
+                                            <span class="text-gray-700 dark:text-gray-300">{{ $cod['cod_remitted_at'] }}</span>
+                                        @else
+                                            <x-filament::badge size="sm" color="warning">Belum Disetor</x-filament::badge>
+                                        @endif
+                                    </td>
+                                    <td class="fi-ta-cell px-4 py-2.5 text-right">
+                                        @if ($cod['can_remit'])
+                                            <x-filament::button
+                                                type="button"
+                                                wire:click="markCodRemitted({{ $cod['order_id'] }})"
+                                                size="xs"
+                                                color="success"
+                                            >
+                                                Catat Lunas COD
+                                            </x-filament::button>
+                                        @else
+                                            <x-filament::badge size="sm" color="success">Lunas</x-filament::badge>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        Tidak ada pesanan COD pada periode ini.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </x-shopper::card>
         </div>
     @endif
 </x-shopper::container>

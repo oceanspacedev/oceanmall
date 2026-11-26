@@ -22,16 +22,13 @@ class OrderIndex extends \Shopper\Livewire\Pages\Order\Index
                     ->placeholder('-')
                     ->searchable()
                     ->toggleable(),
-                TextColumn::make('price_amount')
-                    ->label('Total Tagihan')
-                    ->formatStateUsing(static fn (mixed $state, $record): string => 'Rp '.number_format((int) $state, 0, ',', '.'))
-                    ->sortable(),
                 TextColumn::make('paid_at')
                     ->label('Dibayar')
                     ->dateTime('d M Y H:i')
                     ->placeholder('-')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->toggledHiddenByDefault(),
             ])
             ->toolbarActions([
                 BulkAction::make('print_pick_list')

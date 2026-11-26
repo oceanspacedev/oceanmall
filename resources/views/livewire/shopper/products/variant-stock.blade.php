@@ -47,31 +47,43 @@
         <h5 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
             Riwayat Mutasi Stok Varian (Terbaru)
         </h5>
-        <div class="mt-2 overflow-hidden rounded-xl bg-white ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10">
-            <table class="min-w-full divide-y divide-gray-200 text-xs dark:divide-white/10">
+        <div class="mt-2 overflow-x-auto rounded-xl bg-white ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-white/10">
                 <thead class="bg-gray-50 dark:bg-white/5">
                     <tr>
-                        <th class="px-3 py-2 text-left font-medium text-gray-500">Waktu</th>
-                        <th class="px-3 py-2 text-left font-medium text-gray-500">Gudang</th>
-                        <th class="px-3 py-2 text-left font-medium text-gray-500">Alasan / Catatan</th>
-                        <th class="px-3 py-2 text-left font-medium text-gray-500">Oleh</th>
-                        <th class="px-3 py-2 text-right font-medium text-gray-500">Delta</th>
+                        <x-shopper::tables.table-head>Waktu</x-shopper::tables.table-head>
+                        <x-shopper::tables.table-head>Gudang</x-shopper::tables.table-head>
+                        <x-shopper::tables.table-head>Alasan / Catatan</x-shopper::tables.table-head>
+                        <x-shopper::tables.table-head>Oleh</x-shopper::tables.table-head>
+                        <x-shopper::tables.table-head class="text-right">Delta</x-shopper::tables.table-head>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-white/10">
                     @forelse ($this->histories as $history)
                         <tr>
-                            <td class="px-3 py-2 text-gray-500">{{ $history->created_at?->diffForHumans() }}</td>
-                            <td class="px-3 py-2 text-gray-900 dark:text-gray-100">{{ $history->inventory?->name ?? '-' }}</td>
-                            <td class="px-3 py-2 text-gray-600 dark:text-gray-300">{{ $history->description ?: ($history->event ?: '-') }}</td>
-                            <td class="px-3 py-2 text-gray-600 dark:text-gray-300">{{ $history->user?->full_name ?? '-' }}</td>
-                            <td class="px-3 py-2 text-right font-semibold {{ $history->quantity < 0 ? 'text-red-600' : 'text-emerald-600' }}">
-                                {{ $history->quantity > 0 ? '+' . $history->quantity : $history->quantity }}
-                            </td>
+                            <x-shopper::tables.table-cell class="whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                {{ $history->created_at?->diffForHumans() }}
+                            </x-shopper::tables.table-cell>
+                            <x-shopper::tables.table-cell class="text-gray-900 dark:text-gray-100">
+                                {{ $history->inventory?->name ?? '-' }}
+                            </x-shopper::tables.table-cell>
+                            <x-shopper::tables.table-cell class="text-gray-600 dark:text-gray-300">
+                                {{ $history->description ?: ($history->event ?: '-') }}
+                            </x-shopper::tables.table-cell>
+                            <x-shopper::tables.table-cell class="text-gray-600 dark:text-gray-300">
+                                {{ $history->user?->full_name ?? '-' }}
+                            </x-shopper::tables.table-cell>
+                            <x-shopper::tables.table-cell class="text-right">
+                                <x-filament::badge size="sm" :color="$history->quantity < 0 ? 'danger' : 'success'">
+                                    {{ $history->quantity > 0 ? '+' . $history->quantity : $history->quantity }}
+                                </x-filament::badge>
+                            </x-shopper::tables.table-cell>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-3 py-4 text-center text-gray-500">Belum ada riwayat mutasi stok.</td>
+                            <td colspan="5" class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                Belum ada riwayat mutasi stok.
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>

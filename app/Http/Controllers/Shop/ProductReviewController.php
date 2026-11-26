@@ -10,7 +10,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Shopper\Core\Models\Review;
 
 final class ProductReviewController extends Controller
 {
@@ -55,6 +57,38 @@ final class ProductReviewController extends Controller
             'message' => 'Ulasan terkirim dan menunggu moderasi.',
         ]);
 
-        return back();
+        return back()->with('success', 'Ulasan terkirim dan menunggu moderasi.');
+    }
+
+    public function report(Request $request, Review $review): RedirectResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:200'],
+        ]);
+
+        abort_unless($review->reviewrateable_type === (new Product)->getMorphClass(), 404);
+
+        $userId = (int) $request->user()->getAuthIdentifier();
+
+        DB::transaction(function () use ($review, $userId, $data): void {
+            $inserted = DB::table('review_reports')->insertOrIgnore([
+                'review_id' => $review->id,
+                'user_id' => $userId,
+                'reason' => $data['reason'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            if ($inserted > 0 && $review->approved) {
+                $review->forceFill(['approved' => false])->save();
+            }
+        });
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Terima kasih, laporan ulasan sudah kami terima.',
+        ]);
+
+        return back()->with('success', 'Terima kasih, laporan ulasan sudah kami terima.');
     }
 }

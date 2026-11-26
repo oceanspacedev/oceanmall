@@ -46,18 +46,25 @@ class AllocationOverrideLogs extends Component implements HasActions, HasSchemas
                     ->sortable(),
                 TextColumn::make('order.number')
                     ->label('Pesanan')
+                    ->formatStateUsing(static fn (?string $state): string => $state ? '#'.$state : '-')
+                    ->weight('semibold')
                     ->searchable()
                     ->url(static fn (AllocationOverrideLog $record): ?string => $record->order instanceof Order
                         ? route('shopper.orders.detail', ['order' => $record->order])
                         : null),
                 TextColumn::make('fromInventory.name')
-                    ->label('Dari Gudang'),
+                    ->label('Dari Gudang')
+                    ->badge()
+                    ->color('gray'),
                 TextColumn::make('toInventory.name')
-                    ->label('Ke Gudang'),
+                    ->label('Ke Gudang')
+                    ->badge()
+                    ->color('primary'),
                 TextColumn::make('qty')
                     ->label('Qty')
                     ->state(static fn (AllocationOverrideLog $record): int => (int) data_get($record->payload, 'move.qty', 0))
-                    ->numeric(),
+                    ->numeric()
+                    ->alignRight(),
                 TextColumn::make('reason')
                     ->label('Alasan')
                     ->state(static fn (AllocationOverrideLog $record): string => (string) (data_get($record->payload, 'reason') ?: '-'))
@@ -65,7 +72,9 @@ class AllocationOverrideLogs extends Component implements HasActions, HasSchemas
                 TextColumn::make('actor.full_name')
                     ->label('Oleh Staf')
                     ->placeholder('-'),
-            ]);
+            ])
+            ->emptyStateHeading('Belum ada riwayat override alokasi gudang')
+            ->emptyStateDescription('Pemindahan alokasi stok gudang oleh staf akan tercatat secara kronologis di sini.');
     }
 
     public function render(): View

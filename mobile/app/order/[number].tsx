@@ -34,6 +34,8 @@ import {
 } from '@/lib/api';
 import { announce, useReducedMotion } from '@/lib/a11y';
 import { useAuth } from '@/lib/auth';
+import { WEB_URL } from '@/lib/config';
+import { confirmAlert } from '@/lib/confirm';
 import { TimeoutError } from '@/lib/network';
 import { HAS_SUPPORT_CHANNEL, sendSupportMessage } from '@/lib/support';
 import { usePolling } from '@/lib/countdown';
@@ -79,7 +81,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert as RNAlert, Pressable, ScrollView, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 
 const STAGE_STYLE: Record<string, { bg: string; icon: LucideIcon }> = {
@@ -140,6 +142,16 @@ export default function OrderScreen() {
   const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
   const [reviewing, setReviewing] = useState<ReviewTarget | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnReason, setReturnReason] = useState('Barang rusak / cacat');
+  const [returnDescription, setReturnDescription] = useState('');
+  const [returnQuantities, setReturnQuantities] = useState<Record<number, number>>({});
+  const [proofOpen, setProofOpen] = useState(false);
+  const [proofBank, setProofBank] = useState('');
+  const [proofSenderName, setProofSenderName] = useState('');
+  const [proofAmount, setProofAmount] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofFileName, setProofFileName] = useState<string | null>(null);
   const wasPaid = useRef<boolean | null>(null);
   const busyRef = useRef(false);
   const busy = busyAction !== null;
@@ -168,6 +180,19 @@ export default function OrderScreen() {
     setOrder((current) =>
       current && JSON.stringify(current) === JSON.stringify(next) ? current : next
     );
+    setReturnQuantities((current) => {
+      if (Object.keys(current).length > 0) {
+        return current;
+      }
+      const seeded: Record<number, number> = {};
+      for (const item of received.items) {
+        if (item.id) {
+          seeded[item.id] = item.quantity;
+        }
+      }
+      return seeded;
+    });
+    setProofAmount((current) => (current ? current : String(received.amount ?? '')));
     if (before === false && nowPaid) {
       setJustPaid(true);
       toast.show({ tone: 'success', message: 'Pembayaran diterima' });
@@ -413,7 +438,7 @@ export default function OrderScreen() {
       return;
     }
     const orderNumber = order.number;
-    RNAlert.alert(
+    confirmAlert(
       'Batalkan pesanan?',
       'Pesanan yang dibatalkan akan mengembalikan stok dan kupon promo ke akunmu.',
       [
@@ -444,7 +469,7 @@ export default function OrderScreen() {
       return;
     }
     const orderNumber = order.number;
-    RNAlert.alert(
+    confirmAlert(
       'Pesanan sudah diterima?',
       'Pastikan paket sudah sampai dan sesuai pesanan. Setelah dikonfirmasi, pesanan ditandai selesai.',
       [
@@ -545,6 +570,106 @@ export default function OrderScreen() {
     );
   }
 
+  function openInvoice() {
+    if (!order?.invoice_url) {
+      return;
+    }
+    void Linking.openURL(order.invoice_url);
+  }
+
+  function pickProofWebFile() {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      if (order) {
+        void Linking.openURL(`${WEB_URL}/account/orders/${order.id}`);
+      }
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.jpg,.jpeg,.png,.webp,.pdf';
+    input.onchange = () => {
+      const picked = input.files?.[0] ?? null;
+      setProofFile(picked);
+      setProofFileName(picked?.name ?? null);
+    };
+    input.click();
+  }
+
+  async function submitProof() {
+    if (!order || busy) {
+      return;
+    }
+    if (!proofFile) {
+      setError('Pilih file bukti transfer terlebih dahulu (.jpg, .png, atau .pdf).');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('proof', proofFile);
+    if (proofBank.trim()) {
+      formData.append('sender_bank', proofBank.trim());
+    }
+    if (proofSenderName.trim()) {
+      formData.append('sender_name', proofSenderName.trim());
+    }
+    if (proofAmount.trim()) {
+      formData.append('transfer_amount', proofAmount.trim());
+    }
+    const orderNumber = order.number;
+    await run('proof', async () => {
+      const res = await api<{ data: OrderDetail }>(`/orders/${orderNumber}/payment-proof`, {
+        method: 'POST',
+        body: formData,
+      });
+      applyOrder(res.data);
+      setProofOpen(false);
+      setProofFile(null);
+      setProofFileName(null);
+      toast.show({
+        tone: 'success',
+        message: 'Bukti transfer berhasil diunggah.',
+        bottomOffset: BAR_OFFSET,
+      });
+    });
+  }
+
+  async function submitReturnRequest() {
+    if (!order || busy) {
+      return;
+    }
+    const items = order.items
+      .filter(
+        (item): item is OrderDetail['items'][number] & { id: number } =>
+          typeof item.id === 'number' && (returnQuantities[item.id] ?? 0) > 0
+      )
+      .map((item) => ({
+        order_item_id: item.id,
+        qty: Math.min(item.quantity, Math.max(1, returnQuantities[item.id] ?? 0)),
+      }));
+    if (items.length === 0) {
+      setError('Pilih minimal 1 barang yang ingin diretur.');
+      return;
+    }
+    const orderNumber = order.number;
+    await run('return', async () => {
+      const res = await api<{ data: OrderDetail }>(`/orders/${orderNumber}/returns`, {
+        method: 'POST',
+        body: JSON.stringify({
+          reason: returnReason,
+          description: returnDescription.trim() || null,
+          items,
+        }),
+      });
+      applyOrder(res.data);
+      setReturnOpen(false);
+      setReturnDescription('');
+      toast.show({
+        tone: 'success',
+        message: 'Pengajuan retur (RMA) terkirim.',
+        bottomOffset: BAR_OFFSET,
+      });
+    });
+  }
+
   const style = STAGE_STYLE[stage.key] ?? STAGE_STYLE.processing;
   // Every parcel that still travels must have shipped (a cancelled one is not waited for).
   const liveShipments = order.shipments.filter((shipment) => shipment.status !== 'cancelled');
@@ -559,6 +684,8 @@ export default function OrderScreen() {
   const canConfirm =
     (order.payment_status === 'paid' || Boolean(order.is_cod)) &&
     hasAwb &&
+    order.shipping_status !== 'delivered' &&
+    liveShipments.some((shipment) => shipment.status.toLowerCase() !== 'delivered') &&
     order.status !== 'completed' &&
     order.status !== 'cancelled';
   const reviewable = canReviewOrder(order);
@@ -629,6 +756,13 @@ export default function OrderScreen() {
         {/* Progress */}
         <Section>
           <OrderStepper steps={orderSteps(order)} />
+          {order.shipping_status === 'delivered' && order.status !== 'completed' ? (
+            <View className="mt-3 rounded-sm bg-om-warning-soft px-3 py-2.5">
+              <Text className="text-[12px] font-medium text-om-warning">
+                Paket sudah diterima · Menunggu konfirmasi penyelesaian pembayaran oleh toko.
+              </Text>
+            </View>
+          ) : null}
         </Section>
 
         {/* Payment */}
@@ -915,36 +1049,232 @@ export default function OrderScreen() {
             </>
           )}
           <View className="my-1.5 h-px bg-border" />
-          <SummaryRow label="Total belanja" value={formatMoney(order.amount, order.currency)} strong />
+          <SummaryRow
+            label="Total belanja"
+            value={formatMoney(order.amount, order.currency)}
+            strong
+          />
         </Section>
 
-        {(order.payment_proofs?.length ?? 0) > 0 ? (
+        {order.can_upload_payment_proof || (order.payment_proofs?.length ?? 0) > 0 ? (
           <Section title="Bukti transfer bank" icon={CreditCard}>
-            {order.payment_proofs!.map((proof) => (
-              <View key={proof.id} className="py-1">
-                <Text className="text-[13px] font-semibold">
-                  {proof.original_name} · {proof.status}
-                </Text>
-                {proof.verification_notes ? (
-                  <Text className="text-[12px] text-muted-foreground">{proof.verification_notes}</Text>
-                ) : null}
+            {(order.payment_proofs?.length ?? 0) > 0 ? (
+              <View className="gap-1.5">
+                {order.payment_proofs!.map((proof) => (
+                  <View key={proof.id} className="rounded-sm bg-om-surface px-3 py-2">
+                    <Text className="text-[13px] font-semibold">
+                      {proof.original_name} · {proof.status}
+                    </Text>
+                    {proof.verification_notes ? (
+                      <Text className="mt-0.5 text-[12px] text-muted-foreground">
+                        {proof.verification_notes}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
               </View>
-            ))}
+            ) : null}
+            {order.can_upload_payment_proof ? (
+              <View className="mt-3">
+                {!proofOpen ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={() => setProofOpen(true)}
+                    className="min-h-10 self-start rounded-sm border-om-navy">
+                    <Text className="text-[12px] font-bold text-om-navy">
+                      Unggah bukti transfer
+                    </Text>
+                  </Button>
+                ) : (
+                  <View className="gap-2.5 rounded-sm border border-border p-3">
+                    <Text className="text-[13px] font-bold">Unggah Bukti Transfer</Text>
+                    <TextInput
+                      value={proofBank}
+                      onChangeText={setProofBank}
+                      placeholder="Bank pengirim (mis. BCA)"
+                      className="rounded-sm border border-border bg-white px-3 py-2 text-[13px] text-foreground"
+                    />
+                    <TextInput
+                      value={proofSenderName}
+                      onChangeText={setProofSenderName}
+                      placeholder="Nama pemilik rekening"
+                      className="rounded-sm border border-border bg-white px-3 py-2 text-[13px] text-foreground"
+                    />
+                    <TextInput
+                      value={proofAmount}
+                      onChangeText={setProofAmount}
+                      keyboardType="numeric"
+                      placeholder="Nominal transfer"
+                      className="rounded-sm border border-border bg-white px-3 py-2 text-[13px] text-foreground"
+                    />
+                    <View className="flex-row flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onPress={pickProofWebFile}
+                        className="min-h-10 rounded-sm border-om-navy">
+                        <Text className="text-[12px] font-bold text-om-navy">
+                          {Platform.OS === 'web'
+                            ? (proofFileName ?? 'Pilih file (.jpg/.png/.pdf)')
+                            : 'Unggah lewat Web'}
+                        </Text>
+                      </Button>
+                      {Platform.OS === 'web' ? (
+                        <Button
+                          size="sm"
+                          loading={busyAction === 'proof'}
+                          disabled={busy}
+                          onPress={() => void submitProof()}
+                          className="min-h-10 rounded-sm">
+                          <Text className="text-[12px] font-bold text-white">Kirim bukti</Text>
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => setProofOpen(false)}
+                        className="min-h-10 rounded-sm">
+                        <Text className="text-[12px] font-semibold text-muted-foreground">
+                          Batal
+                        </Text>
+                      </Button>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ) : null}
           </Section>
         ) : null}
 
-        {(order.return_requests?.length ?? 0) > 0 ? (
-          <Section title="Riwayat retur (RMA)" icon={FileText}>
-            {order.return_requests!.map((ret) => (
-              <View key={ret.id} className="py-1">
-                <Text className="text-[13px] font-semibold">
-                  RMA #{ret.id} · {ret.reason} ({ret.status})
-                </Text>
-                {ret.resolution_notes ? (
-                  <Text className="text-[12px] text-muted-foreground">{ret.resolution_notes}</Text>
-                ) : null}
+        {order.can_request_return || (order.return_requests?.length ?? 0) > 0 ? (
+          <Section title="Retur / Garansi (RMA)" icon={FileText}>
+            {(order.return_requests?.length ?? 0) > 0 ? (
+              <View className="gap-1.5">
+                {order.return_requests!.map((ret) => (
+                  <View key={ret.id} className="rounded-sm bg-om-surface px-3 py-2">
+                    <Text className="text-[13px] font-semibold">
+                      RMA #{ret.id} · {ret.reason} ({ret.status})
+                    </Text>
+                    {ret.resolution_notes ? (
+                      <Text className="mt-0.5 text-[12px] text-muted-foreground">
+                        {ret.resolution_notes}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
               </View>
-            ))}
+            ) : null}
+            {order.can_request_return ? (
+              <View className="mt-3">
+                {!returnOpen ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={() => setReturnOpen(true)}
+                    className="min-h-10 self-start rounded-sm border-om-navy">
+                    <Text className="text-[12px] font-bold text-om-navy">Ajukan retur</Text>
+                  </Button>
+                ) : (
+                  <View className="gap-2.5 rounded-sm border border-border p-3">
+                    <Text className="text-[13px] font-bold">Form Pengajuan Retur</Text>
+                    <View className="flex-row flex-wrap gap-1.5">
+                      {['Barang rusak / cacat', 'Barang tidak sesuai', 'Barang kurang lengkap'].map(
+                        (opt) => (
+                          <Pressable
+                            key={opt}
+                            accessibilityRole="button"
+                            onPress={() => setReturnReason(opt)}
+                            className={cn(
+                              'rounded-full border px-3 py-1.5',
+                              returnReason === opt
+                                ? 'border-om-navy bg-om-navy'
+                                : 'border-border bg-white'
+                            )}>
+                            <Text
+                              className={cn(
+                                'text-[12px] font-semibold',
+                                returnReason === opt ? 'text-white' : 'text-foreground'
+                              )}>
+                              {opt}
+                            </Text>
+                          </Pressable>
+                        )
+                      )}
+                    </View>
+                    <TextInput
+                      value={returnDescription}
+                      onChangeText={setReturnDescription}
+                      multiline
+                      placeholder="Jelaskan kondisi barang yang diterima"
+                      className="min-h-16 rounded-sm border border-border bg-white px-3 py-2 text-[13px] text-foreground"
+                    />
+                    {order.items
+                      .filter((item) => item.id)
+                      .map((item) => {
+                        const qty = returnQuantities[item.id as number] ?? 0;
+                        return (
+                          <View
+                            key={item.id}
+                            className="flex-row items-center justify-between gap-2 py-1">
+                            <Text className="flex-1 text-[12px]" numberOfLines={1}>
+                              {item.name} (Maks {item.quantity})
+                            </Text>
+                            <View className="flex-row items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onPress={() =>
+                                  setReturnQuantities((prev) => ({
+                                    ...prev,
+                                    [item.id as number]: Math.max(0, qty - 1),
+                                  }))
+                                }
+                                className="h-8 min-w-8 px-2">
+                                <Text className="font-bold">−</Text>
+                              </Button>
+                              <Text className="w-6 text-center text-[13px] font-bold">{qty}</Text>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onPress={() =>
+                                  setReturnQuantities((prev) => ({
+                                    ...prev,
+                                    [item.id as number]: Math.min(item.quantity, qty + 1),
+                                  }))
+                                }
+                                className="h-8 min-w-8 px-2">
+                                <Text className="font-bold">+</Text>
+                              </Button>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    <View className="flex-row gap-2">
+                      <Button
+                        size="sm"
+                        loading={busyAction === 'return'}
+                        disabled={busy}
+                        onPress={() => void submitReturnRequest()}
+                        className="min-h-10 rounded-sm">
+                        <Text className="text-[12px] font-bold text-white">
+                          Kirim pengajuan retur
+                        </Text>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => setReturnOpen(false)}
+                        className="min-h-10 rounded-sm">
+                        <Text className="text-[12px] font-semibold text-muted-foreground">
+                          Batal
+                        </Text>
+                      </Button>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ) : null}
           </Section>
         ) : null}
 
@@ -968,6 +1298,17 @@ export default function OrderScreen() {
             <Text className="text-[13px] text-muted-foreground">Status</Text>
             <StatusPill label={stage.label} tone={stage.tone} />
           </View>
+          {order.invoice_url ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={openInvoice}
+              className="mt-3 min-h-10 self-start rounded-sm border-om-navy">
+              <Text className="text-[12px] font-bold text-om-navy">
+                Lihat / Cetak Invoice{order.invoice_number ? ` (${order.invoice_number})` : ''}
+              </Text>
+            </Button>
+          ) : null}
         </Section>
 
         {HAS_SUPPORT_CHANNEL ? (

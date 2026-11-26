@@ -192,6 +192,13 @@ function confirmDelete(): void {
                     placeholder="Masukkan passwordmu *"
                     :error="deleteForm.errors.password"
                 />
+                <p
+                    v-if="deleteForm.errors.account"
+                    role="alert"
+                    class="rounded-md bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700 ring-1 ring-red-200"
+                >
+                    {{ deleteForm.errors.account }}
+                </p>
                 <div class="flex justify-end gap-2">
                     <button
                         type="button"

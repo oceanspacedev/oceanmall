@@ -459,7 +459,13 @@ export type Cart = {
     thumbnail?: string | null;
     purchasable_id: number;
   }[];
-  totals: { subtotal: number; discount: number; tax: number; tax_inclusive?: boolean; total: number };
+  totals: {
+    subtotal: number;
+    discount: number;
+    tax: number;
+    tax_inclusive?: boolean;
+    total: number;
+  };
 };
 
 export type PaymentInstructions = {
@@ -517,8 +523,7 @@ export function paymentFromAction(
       payment_url: action.data.url,
       expiry_date: typeof action.data.expiry_date === 'string' ? action.data.expiry_date : null,
       amount: typeof action.data.amount === 'number' ? action.data.amount : fallbackAmount,
-      bank_code:
-        typeof action.data.channel_code === 'string' ? action.data.channel_code : null,
+      bank_code: typeof action.data.channel_code === 'string' ? action.data.channel_code : null,
       payment_id: typeof action.data.payment_id === 'string' ? action.data.payment_id : undefined,
     };
   }
@@ -755,6 +760,8 @@ export type OrderDetail = OrderSummary & {
   can_cancel?: boolean;
   can_request_return?: boolean;
   can_upload_payment_proof?: boolean;
+  invoice_number?: string | null;
+  invoice_url?: string | null;
   is_cod?: boolean;
   payment_proofs?: {
     id: number;

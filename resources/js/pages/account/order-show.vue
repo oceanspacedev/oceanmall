@@ -38,6 +38,8 @@ type OrderItem = {
     sku: string | null;
     quantity: number;
     unit_price_amount: number;
+    thumbnail_url?: string | null;
+    product_slug?: string | null;
     product?: {
         slug?: string;
         thumbnail?: string | null;
@@ -230,6 +232,7 @@ const flashSuccess = computed(() => {
 
 function thumbnail(item: OrderItem): string | null {
     return (
+        item.thumbnail_url ??
         item.product?.thumbnail ??
         item.product?.images?.[0]?.url ??
         item.product?.product?.thumbnail ??
@@ -239,7 +242,7 @@ function thumbnail(item: OrderItem): string | null {
 }
 
 function itemProductSlug(item: OrderItem): string | null {
-    return item.product?.slug ?? item.product?.product?.slug ?? null;
+    return item.product_slug ?? item.product?.slug ?? item.product?.product?.slug ?? null;
 }
 
 function formatDate(value: string): string {
@@ -267,23 +270,24 @@ const trackingError = ref<{ id: number; message: string } | null>(null);
 const confirmingReceived = ref(false);
 const receivedError = ref<string | null>(null);
 
-const canConfirmReceived = computed(
-    () =>
+const canConfirmReceived = computed(() => {
+    const live = props.shipments.filter((shipment) => shipment.status !== 'cancelled');
+
+    return (
         props.order.status !== 'cancelled' &&
         props.order.status !== 'completed' &&
+        props.order.shipping_status !== 'delivered' &&
         (props.order.payment_status === 'paid' || Boolean(props.isCod)) &&
-        // Every parcel that still travels must have shipped (a cancelled one
-        // is not waited for), and none is returned/failed.
-        props.shipments.some((shipment) => shipment.status !== 'cancelled') &&
-        props.shipments
-            .filter((shipment) => shipment.status !== 'cancelled')
-            .every(
-                (shipment) =>
-                    shipment.status !== 'returned' &&
-                    shipment.status !== 'delivery_failed' &&
-                    Boolean(shipment.awb || shipment.tracking_number),
-            ),
-);
+        live.length > 0 &&
+        live.some((shipment) => shipment.status.toLowerCase() !== 'delivered') &&
+        live.every(
+            (shipment) =>
+                shipment.status !== 'returned' &&
+                shipment.status !== 'delivery_failed' &&
+                Boolean(shipment.awb || shipment.tracking_number),
+        )
+    );
+});
 
 function trackShipment(shipment: Shipment): void {
     trackingShipmentId.value = shipment.id;
@@ -619,7 +623,7 @@ function submitReturn(): void {
         </CardContent>
     </Card>
 
-    <div v-if="canConfirmReceived || canCancel || canRequestReturn || order.payment_status === 'paid'" class="mt-4 flex flex-wrap items-center gap-3">
+    <div v-if="canConfirmReceived || canCancel || canRequestReturn || (order.shipping_status === 'delivered' && order.status !== 'completed')" class="mt-4 flex flex-wrap items-center gap-3">
         <Button
             v-if="canConfirmReceived"
             type="button"
@@ -628,14 +632,6 @@ function submitReturn(): void {
             @click="confirmReceived"
         >
             {{ confirmingReceived ? 'Memproses…' : 'Tandai sudah diterima' }}
-        </Button>
-        <Button
-            v-if="order.payment_status === 'paid' || order.payment_status === 'partially_refunded'"
-            as-child
-            variant="outline"
-            size="default"
-        >
-            <a :href="`/account/orders/${order.id}/invoice`" target="_blank">Cetak Invoice</a>
         </Button>
         <Button
             v-if="canCancel"
@@ -656,6 +652,15 @@ function submitReturn(): void {
             Ajukan retur
         </Button>
     </div>
+    <Alert
+        v-if="order.shipping_status === 'delivered' && order.status !== 'completed'"
+        variant="info"
+        class="mt-4 py-2 text-[12px]"
+    >
+        <AlertDescription>
+            Paket sudah diterima · Menunggu konfirmasi penyelesaian pembayaran oleh toko.
+        </AlertDescription>
+    </Alert>
     <p v-if="receivedError" class="mt-2 text-sm text-destructive">
         {{ receivedError }}
     </p>

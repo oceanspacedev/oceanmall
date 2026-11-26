@@ -30,6 +30,8 @@ const sort = ref<string>(props.filters.sort);
 const sortOptions = [
     { value: 'latest', label: 'Terbaru' },
     { value: 'name', label: 'Nama' },
+    { value: 'price_asc', label: 'Harga terendah' },
+    { value: 'price_desc', label: 'Harga tertinggi' },
 ];
 
 const description = computed(() =>

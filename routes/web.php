@@ -9,10 +9,12 @@ use App\Http\Controllers\Account\OrderController as AccountOrderController;
 use App\Http\Controllers\Account\RetryOrderPaymentController;
 use App\Http\Controllers\Account\SyncOrderPaymentController;
 use App\Http\Controllers\Account\TrackShipmentController;
+use App\Http\Controllers\Auth\VerifyEmailLinkController;
 use App\Http\Controllers\Cpanel\OverrideAllocationController;
 use App\Http\Controllers\Cpanel\PrintShipmentLabelController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LegalPageController;
+use App\Http\Controllers\OrderInvoiceController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\CartCouponController;
 use App\Http\Controllers\Shop\CategoryController;
@@ -61,6 +63,16 @@ Route::get('shop/{product:slug}', [ProductController::class, 'show'])->name('sho
 Route::post('shop/{product:slug}/reviews', [ProductReviewController::class, 'store'])
     ->middleware(['auth', 'verified', 'throttle:10,1'])
     ->name('shop.product.reviews.store');
+Route::post('shop/reviews/{review}/report', [ProductReviewController::class, 'report'])
+    ->middleware(['auth', 'verified', 'throttle:10,1'])
+    ->whereNumber('review')
+    ->name('shop.reviews.report');
+Route::get('email/verify/{id}/{hash}', VerifyEmailLinkController::class)
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('verification.verify');
+Route::get('orders/{order:number}/invoice/signed', [OrderInvoiceController::class, 'signedCustomer'])
+    ->middleware(['signed', 'throttle:30,1'])
+    ->name('orders.invoice.signed');
 Route::get('categories', [CategoryController::class, 'index'])->name('shop.categories');
 Route::get('categories/{category:slug}', [CategoryController::class, 'show'])->name('shop.category');
 Route::get('collections/{collection:slug}', [CollectionController::class, 'show'])->name('shop.collection');

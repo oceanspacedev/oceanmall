@@ -1,38 +1,33 @@
-<x-shopper::container class="space-y-8 py-6">
-    <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <h1 class="font-heading text-2xl font-bold text-gray-900 dark:text-white">
-                {{ __('shopper::pages/dashboard.menu') }}
-            </h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Ringkasan operasional toko, antrean verifikasi, dan kesehatan pembayaran & logistik.
-            </p>
-        </div>
-
+<x-shopper::container class="space-y-8 py-8">
+    <x-shopper::heading :title="__('shopper::pages/dashboard.menu')">
         @if ($canViewFinance)
-            <a
-                href="{{ route('shopper.reports.finance') }}"
-                class="inline-flex items-center rounded-lg bg-primary-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-primary-500"
-            >
-                Buka Laporan Keuangan & PPN
-            </a>
+            <x-slot:action>
+                <x-filament::button
+                    tag="a"
+                    :href="route('shopper.reports.finance')"
+                    color="primary"
+                    icon="heroicon-o-chart-bar-square"
+                >
+                    Laporan Keuangan & PPN
+                </x-filament::button>
+            </x-slot:action>
         @endif
-    </div>
+    </x-shopper::heading>
 
     <livewire:oceanmall-dashboard.operational-alerts />
 
     @if ($canViewFinance)
         <livewire:oceanmall-dashboard.stat-cards />
-        <livewire:oceanmall-dashboard.revenue-chart />
+
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div class="lg:col-span-2">
+                <livewire:oceanmall-dashboard.revenue-chart />
+            </div>
+            <div>
+                <livewire:oceanmall-dashboard.top-selling-products />
+            </div>
+        </div>
     @endif
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        @if ($canViewFinance)
-            <livewire:oceanmall-dashboard.top-selling-products />
-        @endif
-
-        <div @class(['lg:col-span-2' => ! $canViewFinance])>
-            <livewire:oceanmall-dashboard.recent-orders />
-        </div>
-    </div>
+    <livewire:oceanmall-dashboard.recent-orders />
 </x-shopper::container>

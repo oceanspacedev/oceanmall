@@ -15,7 +15,7 @@
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Shopper hanya mencatat AWB resmi. Nomor resi tidak diketik manual.</p>
             @elseif ($hasPickupRequested)
-                <p>Pickup kurir sudah dijadwalkan (<span class="font-semibold text-amber-600 dark:text-amber-400">Sedang Dipacking</span>). Menunggu nomor resi diterbitkan kurir.</p>
+                <p>Pickup kurir sudah dijadwalkan (<x-filament::badge size="sm" color="warning">Sedang Dipacking</x-filament::badge>). Menunggu nomor resi diterbitkan kurir.</p>
             @elseif ($orderIsPaid)
                 <p>{{ ($isCodOrder ?? false) ? 'Pesanan COD siap diproses.' : 'Pembayaran lunas.' }} Terbitkan AWB dan stiker dari {{ $providerName }} — bukan form resi Shopper.</p>
             @else

@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Shopper\Core\Enum\OrderRefundStatus;
@@ -254,6 +255,10 @@ final class OrderController extends Controller
                 'can_cancel' => resolve(CancelCustomerOrder::class)->canCancel($order),
                 'can_request_return' => resolve(SubmitReturnRequest::class)->canRequest($order),
                 'can_upload_payment_proof' => resolve(UploadPaymentProof::class)->canUpload($order),
+                'invoice_number' => $order->invoice_number,
+                'invoice_url' => $order->status !== OrderStatus::Cancelled
+                    ? URL::temporarySignedRoute('orders.invoice.signed', now()->addHours(2), ['order' => $order->number])
+                    : null,
                 'is_cod' => OrderPaymentType::isCod($order),
                 'payment_proofs' => $proofs,
                 'return_requests' => $returns,

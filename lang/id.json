@@ -96,6 +96,7 @@
     "Verify your email address": "Verifikasi alamat email Anda",
     "Whoops!": "Aduh!",
     "You are receiving this email because we received a password reset request for your account.": "Anda menerima surel ini karena kami menerima permintaan pengaturan ulang kata sandi untuk akun anda.",
+    "Your email address is not verified.": "Verifikasi alamat emailmu terlebih dahulu sebelum melanjutkan.",
     "Your order was placed but payment setup failed. You can retry payment from this order page.": "Pesanan sudah dibuat, tetapi pembayaran gagal disiapkan. Kamu bisa mencoba bayar lagi dari halaman pesanan ini.",
     "Your payment is still being processed. Please wait a moment.": "Pembayaranmu masih diproses. Tunggu sebentar, ya."
 }

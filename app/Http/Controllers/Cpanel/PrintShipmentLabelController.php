@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Cpanel;
 
 use App\Actions\Shipping\PrintShipmentLabels;
 use App\Http\Controllers\Controller;
+use App\Models\OrderShipment;
+use App\Support\ActiveProvider;
 use App\Support\OrderShipmentOpsPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -38,6 +40,28 @@ final class PrintShipmentLabelController extends Controller
 
         $page = $validated['page'] ?? null;
         $shipmentId = isset($validated['shipment']) ? (int) $validated['shipment'] : null;
+
+        $targetShipments = OrderShipment::query()
+            ->where('order_id', $order->id)
+            ->when($shipmentId !== null, fn ($query) => $query->whereKey($shipmentId))
+            ->get();
+
+        $isPureManualStandalone = in_array(ActiveProvider::family('shipping'), [null, 'manual'], true)
+            && $targetShipments->isNotEmpty()
+            && $targetShipments->every(static fn (OrderShipment $s): bool => ($s->driver === null || $s->driver === 'manual') && empty($s->metadata));
+
+        if ($isPureManualStandalone) {
+            $allShipments = $presenter->shipments($order);
+            $shipmentPresentations = array_filter(
+                $allShipments,
+                static fn (array $s): bool => $shipmentId === null || (int) $s['id'] === $shipmentId,
+            );
+
+            return view('shopper.shipping.thermal-label', [
+                'order' => $order,
+                'shipmentPresentations' => $shipmentPresentations,
+            ]);
+        }
 
         try {
             $response = $printLabels->handle($order, $page, $shipmentId);

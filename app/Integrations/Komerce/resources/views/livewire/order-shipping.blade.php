@@ -3,7 +3,7 @@
         <x-slot:title>
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between py-1">
                 <div class="flex items-center gap-3.5 flex-wrap">
-                    <div class="flex items-center justify-center size-10 rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-500/15 dark:text-primary-400 shrink-0 shadow-2xs">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-200 dark:bg-primary-500/15 dark:text-primary-400 dark:ring-primary-500/30">
                         <x-heroicon-o-truck class="size-6" />
                     </div>
                     <div>
@@ -12,20 +12,11 @@
                                 Pengiriman RajaOngkir / Komerce
                             </span>
                             @if ($canPrintAnyLabel && ! $hasUnprocessedShipment)
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400">
-                                    <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    Terkirim ke Komerce
-                                </span>
+                                <x-filament::badge color="success" size="sm">Terkirim ke Komerce</x-filament::badge>
                             @elseif ($canPrintAnyLabel && $hasUnprocessedShipment)
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-400">
-                                    <span class="size-2 rounded-full bg-sky-500"></span>
-                                    Sebagian Terdaftar
-                                </span>
+                                <x-filament::badge color="info" size="sm">Sebagian Terdaftar</x-filament::badge>
                             @else
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400">
-                                    <span class="size-2 rounded-full bg-amber-500"></span>
-                                    Belum Terdaftar
-                                </span>
+                                <x-filament::badge color="warning" size="sm">Belum Terdaftar</x-filament::badge>
                             @endif
                         </div>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -98,45 +89,38 @@
         <div class="space-y-6 pt-2">
             {{-- Alerts --}}
             @if ($successMessage)
-                <div class="rounded-xl bg-emerald-50 p-4 text-xs text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-300 font-medium flex items-center gap-3" role="status">
-                    <x-heroicon-m-check-circle class="size-5 text-emerald-600 shrink-0" />
-                    <span>{{ $successMessage }}</span>
-                </div>
+                <x-shopper::alert color="success" icon="heroicon-m-check-circle" :message="$successMessage" />
             @endif
 
             @if ($overrideError)
-                <div class="rounded-xl bg-rose-50 p-4 text-xs text-rose-900 dark:bg-rose-500/10 dark:text-rose-300 font-medium flex items-center gap-3" role="alert">
-                    <x-heroicon-m-x-circle class="size-5 text-rose-600 shrink-0" />
-                    <span>{{ $overrideError }}</span>
-                </div>
+                <x-shopper::alert color="danger" icon="heroicon-m-x-circle" :message="$overrideError" />
             @endif
 
             {{-- Shipments List --}}
             @forelse ($shipments as $shipment)
                 @php
                     $status = $shipment['status'] ?? 'pending';
-                    $statusClasses = match ($status) {
-                        'delivered' => 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
-                        'picked_up', 'in_transit', 'shipped' => 'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-300',
-                        'labeled' => 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300',
-                        'cancelled' => 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-                        default => 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300',
+                    $statusColor = match ($status) {
+                        'delivered' => 'success',
+                        'picked_up', 'in_transit', 'shipped' => 'info',
+                        'labeled' => 'primary',
+                        'cancelled' => 'danger',
+                        default => 'warning',
                     };
                 @endphp
 
                 <div class="space-y-6 {{ ! $loop->first ? 'pt-6 border-t border-gray-100 dark:border-gray-800' : '' }}">
-                    {{-- Precision Shipment Container (No Harsh Borders) --}}
-                    <div class="rounded-xl bg-white dark:bg-gray-800 p-5 shadow-2xs space-y-5">
+                    <div class="rounded-xl bg-white p-5 ring-1 ring-gray-200 space-y-5 dark:bg-gray-900 dark:ring-white/10">
                         
                         {{-- 1. STRIP RINGKASAN 4-KOLOM PRESISI (Ekspedisi, Resi, Status, Ongkir) --}}
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-gray-50/90 dark:bg-gray-700/40">
                             {{-- Kolom 1: Ekspedisi & Layanan --}}
                             <div>
-                                <span class="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+                                <span class="block text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                     Ekspedisi Kurir
                                 </span>
                                 <div class="flex items-center gap-2.5 mt-1.5">
-                                    <div class="flex items-center justify-center w-12 h-7 bg-white dark:bg-white rounded p-0.5 shrink-0 overflow-hidden shadow-2xs">
+                                    <div class="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded bg-white p-0.5 ring-1 ring-gray-200 dark:bg-white dark:ring-white/10">
                                         @if (! empty($shipment['carrier_logo']))
                                             <img
                                                 src="{{ $shipment['carrier_logo'] }}"
@@ -153,7 +137,7 @@
                                         <span class="text-xs font-bold text-gray-900 dark:text-white truncate block leading-tight">
                                             {{ $shipment['carrier_name_display'] ?? $shipment['carrier'] }}
                                         </span>
-                                        <span class="text-[11px] font-semibold text-rose-600 dark:text-rose-400 block leading-tight mt-0.5">
+                                        <span class="mt-0.5 block text-xs font-semibold leading-tight text-primary-600 dark:text-primary-400">
                                             {{ $shipment['service'] }}
                                         </span>
                                     </div>
@@ -162,7 +146,7 @@
 
                             {{-- Kolom 2: Nomor Resi (AWB) dengan 1-Click Copy --}}
                             <div x-data="{ copied: false }">
-                                <span class="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+                                <span class="block text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                     Nomor Resi (AWB)
                                 </span>
                                 <div class="flex items-center gap-2 mt-1.5">
@@ -180,7 +164,7 @@
                                                 <x-heroicon-m-clipboard-document class="size-4 text-gray-400 hover:text-gray-600" />
                                             </template>
                                             <template x-if="copied">
-                                                <x-heroicon-m-check class="size-4 text-emerald-600" />
+                                                <x-heroicon-m-check class="size-4 text-success-600 dark:text-success-400" />
                                             </template>
                                         </button>
                                     @endif
@@ -189,34 +173,23 @@
 
                             {{-- Kolom 3: Status Pengiriman --}}
                             <div>
-                                <span class="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+                                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
                                     Status Pengiriman
                                 </span>
                                 <div class="mt-1.5">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusClasses }}">
-                                        @if ($status === 'delivered')
-                                            <x-heroicon-m-check-circle class="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                                        @elseif (in_array($status, ['picked_up', 'in_transit', 'shipped'], true))
-                                            <x-heroicon-m-truck class="size-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
-                                        @elseif ($status === 'labeled')
-                                            <x-heroicon-m-qr-code class="size-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
-                                        @elseif ($status === 'cancelled')
-                                            <x-heroicon-m-x-circle class="size-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
-                                        @else
-                                            <x-heroicon-m-clock class="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                                        @endif
+                                    <x-filament::badge :color="$statusColor" size="sm">
                                         {{ $shipment['status_label'] }}
-                                    </span>
+                                    </x-filament::badge>
                                 </div>
                             </div>
 
                             {{-- Kolom 4: Biaya Ongkir --}}
                             <div>
-                                <span class="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+                                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
                                     Biaya Ongkos Kirim
                                 </span>
                                 <div class="mt-1.5">
-                                    <span class="text-sm font-bold text-emerald-700 dark:text-emerald-400 leading-normal block">
+                                    <span class="text-sm font-bold text-success-600 dark:text-success-400 leading-normal block om-tabular">
                                         Rp {{ number_format($shipment['cost'], 0, ',', '.') }}
                                     </span>
                                 </div>
@@ -241,7 +214,7 @@
                                             <span class="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700 my-1 min-h-[20px]"></span>
                                         </div>
                                         <div class="pb-1 min-w-0">
-                                            <span class="text-[11px] font-medium text-gray-400 dark:text-gray-500 block">Gudang Asal Pengirim</span>
+                                            <span class="block text-xs font-medium text-gray-400 dark:text-gray-500">Gudang Asal Pengirim</span>
                                             <span class="text-xs font-bold text-gray-900 dark:text-white block mt-0.5">{{ $shipment['shipper_name'] }}</span>
                                             @if ($shipment['shipper_address'])
                                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{{ $shipment['shipper_address'] }}</p>
@@ -257,11 +230,11 @@
                                             </span>
                                         </div>
                                         <div class="min-w-0">
-                                            <span class="text-[11px] font-medium text-gray-400 dark:text-gray-500 block">Tujuan Pengiriman</span>
+                                            <span class="block text-xs font-medium text-gray-400 dark:text-gray-500">Tujuan Pengiriman</span>
                                             <div class="flex items-center gap-2 mt-0.5 flex-wrap">
                                                 <span class="text-xs font-bold text-gray-900 dark:text-white">{{ $shipment['receiver_name'] }}</span>
                                                 @if (! empty($shipment['receiver_phone']) && $shipment['receiver_phone'] !== '-')
-                                                    <span class="text-[11px] text-gray-500 dark:text-gray-400 font-mono flex items-center gap-1">
+                                                    <span class="flex items-center gap-1 font-mono text-xs text-gray-500 dark:text-gray-400">
                                                         <x-heroicon-m-phone class="size-3 text-gray-400" />
                                                         {{ $shipment['receiver_phone'] }}
                                                     </span>
@@ -289,17 +262,16 @@
                                             {{ $shipment['delivery_order_no'] ?? 'Belum terdaftar' }}
                                         </span>
                                         @if ($shipment['delivery_order_no'])
-                                            <span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                                                <x-heroicon-s-check-circle class="size-3.5 text-emerald-500" />
+                                            <x-filament::badge color="success" size="sm" icon="heroicon-s-check-circle">
                                                 Terdaftar
-                                            </span>
+                                            </x-filament::badge>
                                         @endif
                                     </div>
                                 </div>
 
                                 {{-- Daftar Barang (Tanpa Border) --}}
                                 <div class="space-y-1.5">
-                                    <span class="text-[11px] font-medium text-gray-400 dark:text-gray-500 block">
+                                    <span class="block text-xs font-medium text-gray-400 dark:text-gray-500">
                                         Item dalam Paket ({{ count($shipment['lines']) }}):
                                     </span>
                                     @foreach ($shipment['lines'] as $line)
@@ -308,17 +280,15 @@
                                                 <x-heroicon-o-cube class="size-3.5 text-gray-400 shrink-0" />
                                                 <span class="font-medium text-gray-900 dark:text-white truncate">{{ $line['name'] }}</span>
                                             </div>
-                                            <span class="font-bold text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/60 px-2 py-0.5 rounded text-[11px] shrink-0 ml-2">
+                                            <x-filament::badge color="primary" size="sm" class="ml-2 shrink-0">
                                                 × {{ $line['qty'] }}
-                                            </span>
+                                            </x-filament::badge>
                                         </div>
                                     @endforeach
                                 </div>
 
                                 @if (! empty($shipment['fulfillment_error']))
-                                    <div class="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-xs text-rose-700 dark:text-rose-200 border border-rose-200 dark:border-rose-800">
-                                        <span class="font-semibold">Kendala Fulfillment:</span> {{ $shipment['fulfillment_error'] }}
-                                    </div>
+                                    <x-shopper::alert color="danger" icon="heroicon-o-exclamation-triangle" title="Kendala Fulfillment" :message="$shipment['fulfillment_error']" />
                                 @endif
 
                                 {{-- Tombol Aksi Pengiriman --}}
@@ -392,17 +362,17 @@
 
                         {{-- 3. BARIS SIMULASI KURIR LAPANGAN (SANDBOX) JIKA AKTIF --}}
                         @if ($canSimulateCourier ?? false)
-                            <div class="p-4 rounded-xl bg-sky-50/70 dark:bg-sky-950/30 text-xs">
+                            <div class="rounded-xl bg-gray-50 p-4 text-xs ring-1 ring-gray-200 dark:bg-gray-950 dark:ring-white/10">
                                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                     <div class="flex items-center gap-3">
-                                        <div class="flex items-center justify-center size-9 rounded-lg bg-white dark:bg-sky-900/60 text-sky-600 dark:text-sky-300 shadow-2xs shrink-0">
+                                        <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-info-600 ring-1 ring-gray-200 dark:bg-gray-900 dark:text-info-400 dark:ring-white/10">
                                             <x-heroicon-o-beaker class="size-4.5" />
                                         </div>
                                         <div>
-                                            <span class="text-xs font-bold text-sky-950 dark:text-sky-100 block">
+                                            <span class="block text-xs font-bold text-gray-900 dark:text-white">
                                                 Simulasi Kurir Lapangan (Testing)
                                             </span>
-                                            <p class="text-xs text-sky-700/90 dark:text-sky-300/80 mt-0.5">
+                                            <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
                                                 Uji status kurir untuk memeriksa auto-complete status pesanan.
                                             </p>
                                         </div>
@@ -448,10 +418,9 @@
                                             @endif
 
                                             @if ($shipment['status'] === 'delivered')
-                                                <span class="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-800 dark:text-emerald-300 bg-emerald-100/90 dark:bg-emerald-950/60 px-3 py-1.5 rounded-lg">
-                                                    <x-heroicon-s-check-circle class="size-4 text-emerald-600 shrink-0" />
+                                                <x-filament::badge color="success" icon="heroicon-s-check-circle">
                                                     Paket Selesai Diantar (Delivered)
-                                                </span>
+                                                </x-filament::badge>
                                             @endif
                                         @endif
                                     </div>

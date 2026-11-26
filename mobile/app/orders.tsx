@@ -407,20 +407,19 @@ function OrderCard({ order, onOpen }: { order: OrderSummary; onOpen: () => void 
             {formatMoney(order.amount, order.currency)}
           </Text>
         </View>
-        <Button
-          size="sm"
-          variant={primaryCta ? 'default' : 'outline'}
-          onPress={onOpen}
-          importantForAccessibility="no-hide-descendants"
-          className={cn('min-h-11 rounded-sm px-4', !primaryCta && 'border-om-navy')}>
+        <View
+          className={cn(
+            'min-h-11 items-center justify-center rounded-sm border px-4',
+            primaryCta ? 'border-om-navy bg-om-navy' : 'border-om-navy bg-white'
+          )}>
           {/* Capped like the tab strip, so a large system font cannot push it off the card. */}
           <Text
             numberOfLines={1}
             maxFontSizeMultiplier={1.2}
-            className={cn('text-[12px] font-bold', !primaryCta && 'text-om-navy')}>
+            className={cn('text-[12px] font-bold', primaryCta ? 'text-white' : 'text-om-navy')}>
             {cta}
           </Text>
-        </Button>
+        </View>
       </View>
     </Pressable>
   );

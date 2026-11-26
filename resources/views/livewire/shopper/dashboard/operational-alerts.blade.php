@@ -1,55 +1,129 @@
-<div class="space-y-3">
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="{{ route('shopper.orders.payment-proofs') }}" class="block rounded-xl bg-white p-4 ring-1 ring-gray-200 transition hover:ring-primary-500 dark:bg-gray-900 dark:ring-white/10">
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Bukti Transfer Pending</p>
-            <p class="mt-1 text-2xl font-bold {{ $pendingProofs > 0 ? 'text-amber-600' : 'text-gray-900 dark:text-white' }}">
+<div class="space-y-4">
+    <div class="om-stat-grid-4">
+        <x-shopper::card>
+            <x-slot:title>
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Bukti Transfer</span>
+                    <x-filament::badge size="sm" :color="$pendingProofs > 0 ? 'warning' : 'gray'">
+                        {{ $pendingProofs > 0 ? 'Perlu Cek' : 'Aman' }}
+                    </x-filament::badge>
+                </div>
+            </x-slot:title>
+
+            <p class="font-heading text-2xl font-bold text-gray-900 dark:text-white om-tabular">
                 {{ $pendingProofs }}
             </p>
-            <p class="mt-1 text-[11px] text-primary-600">Buka antrean verifikasi &rarr;</p>
-        </a>
 
-        <a href="{{ route('shopper.orders.disputes') }}" class="block rounded-xl bg-white p-4 ring-1 ring-gray-200 transition hover:ring-primary-500 dark:bg-gray-900 dark:ring-white/10">
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Sengketa Pembayaran Open</p>
-            <p class="mt-1 text-2xl font-bold {{ $openDisputes > 0 ? 'text-rose-600' : 'text-gray-900 dark:text-white' }}">
+            <div class="mt-2 flex items-center justify-between">
+                <span class="text-xs text-gray-500 dark:text-gray-400">Menunggu verifikasi</span>
+                <x-shopper::link
+                    :href="route('shopper.orders.payment-proofs')"
+                    wire:navigate
+                    class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                >
+                    Lihat
+                    <x-untitledui-arrow-narrow-right class="size-3.5" />
+                </x-shopper::link>
+            </div>
+        </x-shopper::card>
+
+        <x-shopper::card>
+            <x-slot:title>
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Sengketa Dana</span>
+                    <x-filament::badge size="sm" :color="$openDisputes > 0 ? 'danger' : 'gray'">
+                        {{ $openDisputes > 0 ? 'Terbuka' : 'Bersih' }}
+                    </x-filament::badge>
+                </div>
+            </x-slot:title>
+
+            <p class="font-heading text-2xl font-bold text-gray-900 dark:text-white om-tabular">
                 {{ $openDisputes }}
             </p>
-            <p class="mt-1 text-[11px] text-primary-600">Tinjau sengketa dana &rarr;</p>
-        </a>
 
-        <a href="{{ route('shopper.orders.returns') }}" class="block rounded-xl bg-white p-4 ring-1 ring-gray-200 transition hover:ring-primary-500 dark:bg-gray-900 dark:ring-white/10">
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Permintaan Retur / RMA Baru</p>
-            <p class="mt-1 text-2xl font-bold {{ $pendingReturns > 0 ? 'text-amber-600' : 'text-gray-900 dark:text-white' }}">
+            <div class="mt-2 flex items-center justify-between">
+                <span class="text-xs text-gray-500 dark:text-gray-400">Antrean sengketa open</span>
+                <x-shopper::link
+                    :href="route('shopper.orders.disputes')"
+                    wire:navigate
+                    class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                >
+                    Tinjau
+                    <x-untitledui-arrow-narrow-right class="size-3.5" />
+                </x-shopper::link>
+            </div>
+        </x-shopper::card>
+
+        <x-shopper::card>
+            <x-slot:title>
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Retur / RMA</span>
+                    <x-filament::badge size="sm" :color="$pendingReturns > 0 ? 'warning' : 'gray'">
+                        {{ $pendingReturns > 0 ? 'Baru' : 'Normal' }}
+                    </x-filament::badge>
+                </div>
+            </x-slot:title>
+
+            <p class="font-heading text-2xl font-bold text-gray-900 dark:text-white om-tabular">
                 {{ $pendingReturns }}
             </p>
-            <p class="mt-1 text-[11px] text-primary-600">Proses antrean RMA &rarr;</p>
-        </a>
 
-        <a href="{{ route('shopper.orders.index') }}" class="block rounded-xl bg-white p-4 ring-1 ring-gray-200 transition hover:ring-primary-500 dark:bg-gray-900 dark:ring-white/10">
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Order Lunas Belum Kirim (&gt;24j)</p>
-            <p class="mt-1 text-2xl font-bold {{ $overdueShipments > 0 ? 'text-rose-600' : 'text-gray-900 dark:text-white' }}">
+            <div class="mt-2 flex items-center justify-between">
+                <span class="text-xs text-gray-500 dark:text-gray-400">Permintaan retur baru</span>
+                <x-shopper::link
+                    :href="route('shopper.orders.returns')"
+                    wire:navigate
+                    class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                >
+                    Proses
+                    <x-untitledui-arrow-narrow-right class="size-3.5" />
+                </x-shopper::link>
+            </div>
+        </x-shopper::card>
+
+        <x-shopper::card>
+            <x-slot:title>
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Lunas &gt; 24 Jam</span>
+                    <x-filament::badge size="sm" :color="$overdueShipments > 0 ? 'danger' : 'success'">
+                        {{ $overdueShipments > 0 ? 'Terlambat' : 'Tepat Waktu' }}
+                    </x-filament::badge>
+                </div>
+            </x-slot:title>
+
+            <p class="font-heading text-2xl font-bold text-gray-900 dark:text-white om-tabular">
                 {{ $overdueShipments }}
             </p>
-            <p class="mt-1 text-[11px] text-primary-600">Cek daftar pesanan &rarr;</p>
-        </a>
+
+            <div class="mt-2 flex items-center justify-between">
+                <span class="text-xs text-gray-500 dark:text-gray-400">Order belum dikirim</span>
+                <x-shopper::link
+                    :href="route('shopper.orders.index')"
+                    wire:navigate
+                    class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                >
+                    Cek
+                    <x-untitledui-arrow-narrow-right class="size-3.5" />
+                </x-shopper::link>
+            </div>
+        </x-shopper::card>
     </div>
 
     @if ($providerQuotas !== [])
-        <div class="flex flex-wrap items-center gap-3 rounded-xl bg-gray-50 px-4 py-2.5 text-xs ring-1 ring-gray-200 dark:bg-white/5 dark:ring-white/10">
-            <span class="font-semibold text-gray-700 dark:text-gray-200">Status Integrasi Pengiriman / Pembayaran:</span>
-            @foreach ($providerQuotas as $quota)
-                <span @class([
-                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium',
-                    'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' => $quota['exhausted'],
-                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' => ! $quota['exhausted'],
-                ])>
-                    {{ $quota['label'] }}:
-                    @if ($quota['limit'] !== null)
-                        {{ $quota['used'] }}/{{ $quota['limit'] }}
-                    @else
-                        {{ $quota['exhausted'] ? 'Terbatas' : 'Normal' }}
-                    @endif
-                </span>
-            @endforeach
-        </div>
+        <x-shopper::card>
+            <div class="flex flex-wrap items-center gap-2.5 text-xs">
+                <span class="font-semibold text-gray-700 dark:text-gray-200">Status Integrasi Eksternal:</span>
+                @foreach ($providerQuotas as $quota)
+                    <x-filament::badge size="sm" :color="$quota['exhausted'] ? 'danger' : 'success'">
+                        {{ $quota['label'] }}:
+                        @if ($quota['limit'] !== null)
+                            {{ $quota['used'] }}/{{ $quota['limit'] }}
+                        @else
+                            {{ $quota['exhausted'] ? 'Terbatas' : 'Normal' }}
+                        @endif
+                    </x-filament::badge>
+                @endforeach
+            </div>
+        </x-shopper::card>
     @endif
 </div>

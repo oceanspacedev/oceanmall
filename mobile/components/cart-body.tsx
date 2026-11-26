@@ -13,6 +13,7 @@ import { KeyboardAvoider } from '@/components/keyboard-avoider';
 import { api, ApiError, errorMessage, SESSION_EXPIRED_MESSAGE, type Cart } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { cartItemCount, useCart } from '@/lib/cart';
+import { confirmAlert } from '@/lib/confirm';
 import { formatMoney, mediaUrl } from '@/lib/format';
 import { useNetwork } from '@/lib/network';
 import { ripple } from '@/lib/ripple';
@@ -32,7 +33,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
-import { Alert as RNAlert, Keyboard, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, View } from 'react-native';
 
 /** Mirrors CustomerCart::MAX_LINE_QUANTITY on the API. */
 const MAX_LINE_QUANTITY = 10;
@@ -57,7 +58,7 @@ function useClearCart(): () => void {
       }
     }
 
-    RNAlert.alert('Kosongkan keranjang?', 'Semua produk akan dihapus.', [
+    confirmAlert('Kosongkan keranjang?', 'Semua produk akan dihapus.', [
       { text: 'Batal', style: 'cancel' },
       { text: 'Kosongkan', style: 'destructive', onPress: () => void clear() },
     ]);
@@ -246,7 +247,7 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
 
   function confirmRemove(line: CartLine) {
     // Keep Batal first: Android ignores the button styles and lists them in order.
-    RNAlert.alert('Hapus produk dari keranjang?', line.name, [
+    confirmAlert('Hapus produk dari keranjang?', line.name, [
       { text: 'Batal', style: 'cancel' },
       { text: 'Hapus', style: 'destructive', onPress: () => void removeLine(line) },
     ]);
@@ -352,7 +353,9 @@ export function CartBody({ inTabs = false }: { inTabs?: boolean }) {
                     Kode {cart.coupon_code} dipakai
                   </Text>
                   {discount > 0 ? (
-                    <Text className="text-[12px] text-om-success">Hemat {formatMoney(discount, cart?.currency)}</Text>
+                    <Text className="text-[12px] text-om-success">
+                      Hemat {formatMoney(discount, cart?.currency)}
+                    </Text>
                   ) : null}
                 </View>
                 <Pressable

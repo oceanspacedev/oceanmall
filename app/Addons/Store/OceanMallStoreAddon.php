@@ -94,6 +94,7 @@ final class OceanMallStoreAddon extends BaseAddon
         Livewire::component('oceanmall-dashboard.recent-orders', RecentOrders::class);
 
         $panel->addonSidebar(OceanMallStoreSidebar::class);
+        $panel->addonStyles(['css/cpanel-addon.css']);
 
         $panel->addonRoutes(static function (): void {
             Route::get('orders/payment-proofs', ManualPaymentProofs::class)->name('orders.payment-proofs');

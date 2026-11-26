@@ -21,6 +21,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
+import { confirmAlert } from '@/lib/confirm';
 import { COLORS } from '@/lib/theme';
 import { toast } from '@/lib/toast';
 import { useRefresh } from '@/lib/use-refresh';
@@ -28,14 +29,7 @@ import { cn } from '@/lib/utils';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CircleAlert, MapPin, Pencil, Plus, Trash2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Alert as RNAlert,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  View,
-} from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useBottomPad } from '@/components/safe-area-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -127,7 +121,9 @@ export default function AddressesScreen() {
     }
     let cancelled = false;
     const handle = setTimeout(() => {
-      api<{ data: Destination[] }>(`/checkout/destinations?q=${encodeURIComponent(destQuery.trim())}`)
+      api<{ data: Destination[] }>(
+        `/checkout/destinations?q=${encodeURIComponent(destQuery.trim())}`
+      )
         .then((res) => {
           if (!cancelled) {
             setDestResults(res.data ?? []);
@@ -171,7 +167,9 @@ export default function AddressesScreen() {
     setLastName(address.last_name ?? '');
     setPhone(address.phone_number ?? '');
     setStreet(address.street_address ?? '');
-    setStreetPlus((address as SavedAddress & { street_address_plus?: string | null }).street_address_plus ?? '');
+    setStreetPlus(
+      (address as SavedAddress & { street_address_plus?: string | null }).street_address_plus ?? ''
+    );
     setCity(address.city ?? '');
     setStateName(address.state ?? '');
     setPostalCode(address.postal_code ?? '');
@@ -200,7 +198,14 @@ export default function AddressesScreen() {
 
   async function submitAddress() {
     if (saving) return;
-    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !street.trim() || !city.trim() || !postalCode.trim()) {
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !phone.trim() ||
+      !street.trim() ||
+      !city.trim() ||
+      !postalCode.trim()
+    ) {
       setFormError('Lengkapi nama, nomor HP, alamat, kota, dan kode pos.');
       return;
     }
@@ -224,7 +229,9 @@ export default function AddressesScreen() {
         postal_code: postalCode.trim(),
         country_id: countryId,
         type: 'shipping',
-        ...(destinationId ? { destination_id: destinationId, destination_label: destinationLabel } : {}),
+        ...(destinationId
+          ? { destination_id: destinationId, destination_label: destinationLabel }
+          : {}),
         ...(pinPoint.trim() ? { pin_point: pinPoint.trim() } : {}),
       };
       if (editing) {
@@ -276,7 +283,7 @@ export default function AddressesScreen() {
   }
 
   function confirmRemove(id: number) {
-    RNAlert.alert('Hapus alamat?', 'Alamat ini akan dihapus dari buku alamat.', [
+    confirmAlert('Hapus alamat?', 'Alamat ini akan dihapus dari buku alamat.', [
       { text: 'Batal', style: 'cancel' },
       { text: 'Hapus', style: 'destructive', onPress: () => void remove(id) },
     ]);
@@ -330,7 +337,9 @@ export default function AddressesScreen() {
 
   const formModal = (
     <Modal visible={formOpen} animationType="slide" onRequestClose={() => setFormOpen(false)}>
-      <View className="flex-1 bg-white" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      <View
+        className="flex-1 bg-white"
+        style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
           <Text className="text-[16px] font-extrabold">
             {editing ? 'Ubah alamat' : 'Tambah alamat'}
@@ -436,7 +445,10 @@ export default function AddressesScreen() {
                 placeholder="-6.200000,106.816666"
               />
             ) : null}
-            <Button loading={saving} onPress={() => void submitAddress()} className="mt-2 min-h-12 rounded-sm">
+            <Button
+              loading={saving}
+              onPress={() => void submitAddress()}
+              className="mt-2 min-h-12 rounded-sm">
               <Text className="font-bold">Simpan alamat</Text>
             </Button>
           </ScrollView>

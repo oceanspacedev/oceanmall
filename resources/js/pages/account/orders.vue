@@ -19,6 +19,8 @@ type OrderItem = {
     sku: string | null;
     quantity: number;
     unit_price_amount: number;
+    thumbnail_url?: string | null;
+    product_slug?: string | null;
     product?: {
         slug?: string;
         thumbnail?: string | null;
@@ -95,10 +97,20 @@ function formatDate(value: string): string {
 
 function itemThumbnail(item: OrderItem): string | null {
     return (
+        item.thumbnail_url ??
         item.product?.thumbnail ??
         item.product?.images?.[0]?.url ??
         item.product?.product?.thumbnail ??
         item.product?.product?.images?.[0]?.url ??
+        null
+    );
+}
+
+function itemProductSlug(item: OrderItem): string | null {
+    return (
+        item.product_slug ??
+        item.product?.slug ??
+        item.product?.product?.slug ??
         null
     );
 }
@@ -243,10 +255,10 @@ return 'Selesai';
                             </div>
                             <div class="min-w-0 flex-1">
                                 <Link
-                                    v-if="item.product?.slug"
+                                    v-if="itemProductSlug(item)"
                                     :href="
                                         shop.product.url({
-                                            product: item.product.slug,
+                                            product: itemProductSlug(item)!,
                                         })
                                     "
                                     class="line-clamp-2 text-[13px] font-medium text-foreground"

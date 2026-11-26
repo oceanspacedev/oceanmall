@@ -1,9 +1,17 @@
-<x-shopper::container class="py-6 space-y-6">
-    <x-shopper::heading title="Log Override Alokasi Gudang" />
+<x-shopper::container class="py-5">
+    <x-shopper::breadcrumb :back="route('shopper.orders.index')">
+        <x-untitledui-chevron-left class="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+        <x-shopper::breadcrumb.link
+            :link="route('shopper.orders.index')"
+            :title="__('shopper::pages/orders.menu')"
+        />
+    </x-shopper::breadcrumb>
 
-    <p class="text-sm text-gray-500 dark:text-gray-400">
-        Riwayat pemindahan alokasi paket antar gudang beserta staf pelaksana dan alasannya.
-    </p>
+    <x-shopper::heading class="mt-5" title="Log Override Alokasi Gudang" />
 
-    {{ $this->table }}
+    <div class="mt-8 space-y-4">
+        {{ $this->table }}
+    </div>
+
+    <x-filament-actions::modals />
 </x-shopper::container>

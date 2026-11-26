@@ -23,6 +23,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
 import { WEB_URL } from '@/lib/config';
+import { confirmAlert } from '@/lib/confirm';
 import {
   discountPercent,
   formatCount,
@@ -49,7 +50,6 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -129,13 +129,13 @@ export default function ProductScreen() {
     const reasons = REPORT_REASONS.map((reason) => ({ text: reason, onPress: () => send(reason) }));
     const title = 'Laporkan ulasan ini?';
     const message = 'Ulasan disembunyikan sampai tim OceanMall meninjaunya.';
-    if (Platform.OS === 'ios') {
-      Alert.alert(title, message, [...reasons, { text: 'Batal', style: 'cancel' }]);
+    if (Platform.OS === 'ios' || Platform.OS === 'web') {
+      confirmAlert(title, message, [...reasons, { text: 'Batal', style: 'cancel' }]);
       return;
     }
     // Android shows at most 3 buttons (a 4th "Batal" would be dropped) and its dialog ignores
     // Back unless cancelable, so it confirms first and then asks for the reason.
-    Alert.alert(
+    confirmAlert(
       title,
       message,
       [
@@ -143,7 +143,7 @@ export default function ProductScreen() {
         {
           text: 'Laporkan',
           onPress: () =>
-            Alert.alert('Pilih alasan', 'Tekan Kembali untuk batal.', reasons, {
+            confirmAlert('Pilih alasan', 'Tekan Kembali untuk batal.', reasons, {
               cancelable: true,
             }),
         },
@@ -168,14 +168,13 @@ export default function ProductScreen() {
         setProduct(res.data);
         const variants = res.data.variants ?? [];
         const available = variants.find(
-          (variant) => variant.stock == null || variant.stock > 0 || Boolean(variant.allow_backorder)
+          (variant) =>
+            variant.stock == null || variant.stock > 0 || Boolean(variant.allow_backorder)
         );
         const picked = available ?? variants[0] ?? null;
         setVariantId(picked?.id ?? null);
         if (picked && res.data.options?.hasStructuredAttributes) {
-          const entry = Object.values(res.data.options.variantMap).find(
-            (v) => v.id === picked.id
-          );
+          const entry = Object.values(res.data.options.variantMap).find((v) => v.id === picked.id);
           if (entry) {
             const initial: Record<number, number> = {};
             res.data.options.productOptions.forEach((opt) => {
@@ -314,7 +313,9 @@ export default function ProductScreen() {
   const off = unpriced ? 0 : discountPercent(price, compare);
   const stock = selectedVariant ? (selectedVariant.stock ?? null) : (product.stock ?? null);
   const allowBackorder = Boolean(
-    selectedVariant ? (selectedVariant.allow_backorder ?? product.allow_backorder) : product.allow_backorder
+    selectedVariant
+      ? (selectedVariant.allow_backorder ?? product.allow_backorder)
+      : product.allow_backorder
   );
   const soldOut = stock !== null && stock < 1 && !allowBackorder;
   const unavailable = soldOut || unpriced;
@@ -453,7 +454,9 @@ export default function ProductScreen() {
             ) : null}
             <Text
               className={cn(
-                unpriced ? 'text-[18px] font-semibold text-muted-foreground' : 'text-[24px] font-extrabold',
+                unpriced
+                  ? 'text-[18px] font-semibold text-muted-foreground'
+                  : 'text-[24px] font-extrabold',
                 !unpriced && (off ? 'text-om-sale' : 'text-om-navy')
               )}>
               {unpriced ? 'Harga belum tersedia' : formatMoney(price, product.currency)}
@@ -508,12 +511,9 @@ export default function ProductScreen() {
           </View>
 
           {/* Variants */}
-          {product.options?.hasStructuredAttributes &&
-          product.options.productOptions.length > 0 ? (
+          {product.options?.hasStructuredAttributes && product.options.productOptions.length > 0 ? (
             <Section
-              title={
-                selectedVariant?.name ? `Pilih opsi: ${selectedVariant.name}` : 'Pilih opsi'
-              }>
+              title={selectedVariant?.name ? `Pilih opsi: ${selectedVariant.name}` : 'Pilih opsi'}>
               <View className="gap-3">
                 {product.options.productOptions.map((opt) => (
                   <View key={opt.id}>

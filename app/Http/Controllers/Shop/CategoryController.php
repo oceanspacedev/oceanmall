@@ -31,6 +31,10 @@ final class CategoryController extends Controller
         abort_unless((bool) $category->is_enabled, 404);
 
         $sort = (string) $request->string('sort', 'latest');
+        $allowedSorts = ['latest', 'name', 'price_asc', 'price_desc'];
+        if (! in_array($sort, $allowedSorts, true)) {
+            $sort = 'latest';
+        }
 
         $query = Product::query()
             ->scopes('publish')
@@ -38,10 +42,7 @@ final class CategoryController extends Controller
             ->with(['media', 'brand'])
             ->withCurrentPrices();
 
-        $query = match ($sort) {
-            'name' => $query->orderBy('name'),
-            default => $query->latest(),
-        };
+        $query = Product::applyCatalogSort($query, $sort);
 
         return Inertia::render('shop/category', [
             'category' => $category->load('media'),

@@ -40,6 +40,13 @@ class FinanceReports extends Component
         }
     }
 
+    public function updatedActiveTab(string $tab): void
+    {
+        if (! in_array($tab, ['margin', 'ppn', 'promo', 'settlement'], true)) {
+            $this->activeTab = 'margin';
+        }
+    }
+
     public function markCodRemitted(int $orderId): void
     {
         abort_unless(Gate::allows('orders-mark-paid'), 403);

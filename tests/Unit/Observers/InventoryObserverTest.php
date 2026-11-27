@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Observers;
 
+use App\Integrations\Komerce\Support\KomerceCapabilities;
 use App\Shipping\InventoryOrigins;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -82,9 +83,45 @@ final class InventoryObserverTest extends TestCase
         $this->assertNull($this->origin($inventory));
     }
 
-    public function test_delivery_key_does_not_enable_inventory_destination_lookup(): void
+    public function test_delivery_key_resolves_komerce_origin_via_delivery_destination_search(): void
     {
+        $this->requireModules('Komerce');
+
         config()->set('komerce.shipping_delivery_api_key', 'delivery-key');
+        config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
+        Http::fake([
+            'https://delivery.example.test/tariff/api/v1/destination/search*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [
+                    [
+                        'id' => 17248,
+                        'label' => 'KERTAWINANGUN, KEDAWUNG, CIREBON, 45153',
+                        'city_name' => 'CIREBON',
+                        'district_name' => 'KEDAWUNG',
+                        'subdistrict_name' => 'KERTAWINANGUN',
+                        'zip_code' => '45153',
+                    ],
+                ],
+            ]),
+        ]);
+
+        $inventory = Inventory::factory()->create([
+            'street_address' => 'Jl. Tuparev, Kertawinangun',
+            'city' => 'Cirebon',
+            'postal_code' => '45153',
+        ]);
+
+        $this->assertSame('17248', resolve(InventoryOrigins::class)->get($inventory, 'komerce'));
+        $this->assertNull($this->origin($inventory));
+        Http::assertSentCount(1);
+    }
+
+    public function test_origin_matcher_skips_http_when_shipping_cost_quota_is_exhausted(): void
+    {
+        $this->requireModules('Komerce');
+
+        $this->enableCost();
+        resolve(KomerceCapabilities::class)->observe('shipping_cost', 429, json_encode(['meta' => ['message' => 'Daily limit exceeded']]));
         Http::fake();
 
         $inventory = Inventory::factory()->create([
@@ -95,6 +132,29 @@ final class InventoryObserverTest extends TestCase
 
         $this->assertNull($this->origin($inventory));
         Http::assertNothingSent();
+    }
+
+    public function test_origin_matcher_stops_after_first_429_without_sending_fallback_queries(): void
+    {
+        $this->requireModules('Komerce');
+
+        $this->enableCost();
+        Http::fake([
+            'https://shipping.example.test/api/v1/destination/domestic-destination*' => Http::response(
+                ['meta' => ['code' => 429, 'message' => 'Daily request limit exceeded']],
+                429,
+            ),
+        ]);
+
+        $inventory = Inventory::factory()->create([
+            'street_address' => 'Jl. Tuparev No. 10',
+            'city' => 'Cirebon',
+            'postal_code' => '45153',
+        ]);
+
+        $this->assertNull($this->origin($inventory));
+        $this->assertTrue(resolve(KomerceCapabilities::class)->quotaExhausted('shipping_cost'));
+        Http::assertSentCount(1);
     }
 
     public function test_without_shipping_providers_no_lookup_is_made(): void

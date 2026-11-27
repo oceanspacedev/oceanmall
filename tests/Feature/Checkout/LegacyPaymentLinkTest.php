@@ -6,6 +6,9 @@ namespace Tests\Feature\Checkout;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Order;
 use Tests\TestCase;
 
@@ -20,7 +23,14 @@ final class LegacyPaymentLinkTest extends TestCase
     public function test_old_payment_page_link_redirects_the_owner_to_the_order(): void
     {
         $user = User::factory()->create();
-        $order = Order::factory()->create(['customer_id' => $user->id, 'number' => 'ORD-LEGACY-1']);
+        $order = Order::factory()->create([
+            'customer_id' => $user->id,
+            'number' => 'ORD-LEGACY-1',
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         $this->actingAs($user)
             ->get('/checkout/payment/ORD-LEGACY-1')
@@ -29,7 +39,14 @@ final class LegacyPaymentLinkTest extends TestCase
 
     public function test_another_customers_order_is_not_found(): void
     {
-        Order::factory()->create(['customer_id' => User::factory()->create()->id, 'number' => 'ORD-LEGACY-2']);
+        Order::factory()->create([
+            'customer_id' => User::factory()->create()->id,
+            'number' => 'ORD-LEGACY-2',
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         $this->actingAs(User::factory()->create())
             ->get('/checkout/payment/ORD-LEGACY-2')

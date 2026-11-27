@@ -26,11 +26,13 @@ const redirectUrl = computed<string | null>(() => {
 
 const redirectExpiry = computed<string | null>(() => {
     const raw = props.action.data.expiry_date ?? props.action.data.expires_at;
+
     if (typeof raw !== 'string' || !raw.trim()) {
         return null;
     }
 
     const d = new Date(raw);
+
     if (Number.isNaN(d.getTime())) {
         return null;
     }

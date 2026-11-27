@@ -350,6 +350,11 @@ final class ShippingQuoteContext
         $this->lastFailure = new ShippingQuoteFailure($driver, $reason, $message, $retryAfter);
     }
 
+    public function restoreFailure(?ShippingQuoteFailure $failure = null): void
+    {
+        $this->lastFailure = $failure;
+    }
+
     public function lastFailure(): ?ShippingQuoteFailure
     {
         return $this->lastFailure;

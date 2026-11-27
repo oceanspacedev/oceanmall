@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
+use App\Shipping\InventoryOrigins;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Shopper\Core\Models\Carrier;
@@ -139,6 +142,70 @@ final class SyncKomerceCarriersTest extends TestCase
         $this->assertFalse((bool) Carrier::query()->where('slug', 'gosend')->value('is_enabled'));
         $this->assertStringContainsString('no Delivery API', (string) data_get(Carrier::query()->where('slug', 'jne')->first()?->metadata, 'sync_reason'));
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '/tariff/api/v1/calculate'));
+    }
+
+    public function test_delivery_only_tier_syncs_carriers_without_cost_key(): void
+    {
+        config()->set('komerce.shipping_cost_api_key', '');
+        $inventory = Inventory::query()->where('is_default', true)->firstOrFail();
+        resolve(InventoryOrigins::class)->put($inventory, 'komerce', '17248');
+
+        $this->fakeProviders();
+
+        $this->artisan('shipping:sync-carriers')->assertSuccessful();
+
+        $enabled = Carrier::query()->where('is_enabled', true)->pluck('slug')->sort()->values()->all();
+        $this->assertSame(['ide', 'jne', 'jnt', 'spx'], $enabled);
+        $this->assertSame('rajaongkir', Carrier::query()->where('slug', 'jne')->value('driver'));
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'domestic-cost'));
+    }
+
+    public function test_cold_cache_starter_degrades_to_cost_only_sync_on_first_delivery_401(): void
+    {
+        $this->fakeProviders([
+            'https://delivery.example.test/tariff/api/v1/calculate*' => Http::response(
+                ['meta' => ['code' => 401, 'status' => 'failed', 'message' => 'Invalid API Key']],
+                401,
+            ),
+        ]);
+        Carrier::query()->create(['slug' => 'gosend', 'name' => 'GoSend', 'driver' => 'rajaongkir', 'is_enabled' => true]);
+
+        $this->artisan('shipping:sync-carriers')->assertSuccessful();
+
+        $enabled = Carrier::query()->where('is_enabled', true)->pluck('slug')->sort()->values()->all();
+        $this->assertSame(['jne', 'jnt', 'pos', 'spx'], $enabled);
+        $this->assertFalse(Komerce::shippingDeliveryEnabled());
+    }
+
+    public function test_sync_fails_cleanly_without_calling_cost_when_quota_is_exhausted(): void
+    {
+        config()->set('komerce.shipping_delivery_api_key', '');
+        resolve(KomerceCapabilities::class)->observe('shipping_cost', 429, json_encode(['meta' => ['message' => 'Daily limit']]));
+        Carrier::query()->create(['slug' => 'jne', 'name' => 'JNE', 'driver' => 'rajaongkir', 'is_enabled' => true]);
+        Http::fake();
+
+        $this->artisan('shipping:sync-carriers')->assertFailed();
+
+        $this->assertTrue((bool) Carrier::query()->where('slug', 'jne')->value('is_enabled'));
+        Http::assertNothingSent();
+    }
+
+    public function test_delivery_only_sync_marks_quota_exhausted_on_http_200_quota_envelope(): void
+    {
+        config()->set('komerce.shipping_cost_api_key', '');
+        $inventory = Inventory::query()->where('is_default', true)->firstOrFail();
+        resolve(InventoryOrigins::class)->put($inventory, 'komerce', '17248');
+
+        $this->fakeProviders([
+            'https://delivery.example.test/tariff/api/v1/calculate*' => Http::response([
+                'meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily limit exceeded'],
+                'data' => null,
+            ], 200),
+        ]);
+
+        $this->artisan('shipping:sync-carriers')->assertFailed();
+
+        $this->assertTrue(resolve(KomerceCapabilities::class)->quotaExhausted('shipping_delivery'));
     }
 
     /**

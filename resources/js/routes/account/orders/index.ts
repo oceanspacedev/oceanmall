@@ -1,8 +1,11 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 import shipments from './shipments'
+import returns from './returns'
+import paymentProof from './payment-proof'
+import paymentProofs from './payment-proofs'
 /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:41
+ * @see app/Http/Controllers/Account/OrderController.php:98
  * @route '/account/orders/{order}'
  */
 export const show = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +20,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:41
+ * @see app/Http/Controllers/Account/OrderController.php:98
  * @route '/account/orders/{order}'
  */
 show.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -50,7 +53,7 @@ show.url = (args: { order: number | { id: number } } | [order: number | { id: nu
 
 /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:41
+ * @see app/Http/Controllers/Account/OrderController.php:98
  * @route '/account/orders/{order}'
  */
 show.get = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +62,7 @@ show.get = (args: { order: number | { id: number } } | [order: number | { id: nu
 })
 /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:41
+ * @see app/Http/Controllers/Account/OrderController.php:98
  * @route '/account/orders/{order}'
  */
 show.head = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +72,7 @@ show.head = (args: { order: number | { id: number } } | [order: number | { id: n
 
     /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:41
+ * @see app/Http/Controllers/Account/OrderController.php:98
  * @route '/account/orders/{order}'
  */
     const showForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +82,7 @@ show.head = (args: { order: number | { id: number } } | [order: number | { id: n
 
             /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:41
+ * @see app/Http/Controllers/Account/OrderController.php:98
  * @route '/account/orders/{order}'
  */
         showForm.get = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -88,7 +91,7 @@ show.head = (args: { order: number | { id: number } } | [order: number | { id: n
         })
             /**
 * @see \App\Http\Controllers\Account\OrderController::show
- * @see app/Http/Controllers/Account/OrderController.php:41
+ * @see app/Http/Controllers/Account/OrderController.php:98
  * @route '/account/orders/{order}'
  */
         showForm.head = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -103,8 +106,110 @@ show.head = (args: { order: number | { id: number } } | [order: number | { id: n
     
     show.form = showForm
 /**
+* @see \App\Http\Controllers\OrderInvoiceController::invoice
+ * @see app/Http/Controllers/OrderInvoiceController.php:22
+ * @route '/account/orders/{order}/invoice'
+ */
+export const invoice = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: invoice.url(args, options),
+    method: 'get',
+})
+
+invoice.definition = {
+    methods: ["get","head"],
+    url: '/account/orders/{order}/invoice',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\OrderInvoiceController::invoice
+ * @see app/Http/Controllers/OrderInvoiceController.php:22
+ * @route '/account/orders/{order}/invoice'
+ */
+invoice.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { order: args }
+    }
+
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { order: args.id }
+        }
+    
+    if (Array.isArray(args)) {
+        args = {
+                    order: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        order: typeof args.order === 'object'
+                ? args.order.id
+                : args.order,
+                }
+
+    return invoice.definition.url
+            .replace('{order}', parsedArgs.order.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\OrderInvoiceController::invoice
+ * @see app/Http/Controllers/OrderInvoiceController.php:22
+ * @route '/account/orders/{order}/invoice'
+ */
+invoice.get = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: invoice.url(args, options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\OrderInvoiceController::invoice
+ * @see app/Http/Controllers/OrderInvoiceController.php:22
+ * @route '/account/orders/{order}/invoice'
+ */
+invoice.head = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: invoice.url(args, options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\OrderInvoiceController::invoice
+ * @see app/Http/Controllers/OrderInvoiceController.php:22
+ * @route '/account/orders/{order}/invoice'
+ */
+    const invoiceForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: invoice.url(args, options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\OrderInvoiceController::invoice
+ * @see app/Http/Controllers/OrderInvoiceController.php:22
+ * @route '/account/orders/{order}/invoice'
+ */
+        invoiceForm.get = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: invoice.url(args, options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\OrderInvoiceController::invoice
+ * @see app/Http/Controllers/OrderInvoiceController.php:22
+ * @route '/account/orders/{order}/invoice'
+ */
+        invoiceForm.head = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: invoice.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    invoice.form = invoiceForm
+/**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
 export const retryPayment = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -119,7 +224,7 @@ retryPayment.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
 retryPayment.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -152,7 +257,7 @@ retryPayment.url = (args: { order: number | { id: number } } | [order: number | 
 
 /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
 retryPayment.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -162,7 +267,7 @@ retryPayment.post = (args: { order: number | { id: number } } | [order: number |
 
     /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
     const retryPaymentForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -172,7 +277,7 @@ retryPayment.post = (args: { order: number | { id: number } } | [order: number |
 
             /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
         retryPaymentForm.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -339,12 +444,96 @@ confirmReceived.post = (args: { order: number | { id: number } } | [order: numbe
         })
     
     confirmReceived.form = confirmReceivedForm
+/**
+* @see \App\Http\Controllers\Account\OrderActionController::cancel
+ * @see app/Http/Controllers/Account/OrderActionController.php:22
+ * @route '/account/orders/{order}/cancel'
+ */
+export const cancel = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: cancel.url(args, options),
+    method: 'post',
+})
+
+cancel.definition = {
+    methods: ["post"],
+    url: '/account/orders/{order}/cancel',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Account\OrderActionController::cancel
+ * @see app/Http/Controllers/Account/OrderActionController.php:22
+ * @route '/account/orders/{order}/cancel'
+ */
+cancel.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { order: args }
+    }
+
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { order: args.id }
+        }
+    
+    if (Array.isArray(args)) {
+        args = {
+                    order: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        order: typeof args.order === 'object'
+                ? args.order.id
+                : args.order,
+                }
+
+    return cancel.definition.url
+            .replace('{order}', parsedArgs.order.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Account\OrderActionController::cancel
+ * @see app/Http/Controllers/Account/OrderActionController.php:22
+ * @route '/account/orders/{order}/cancel'
+ */
+cancel.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: cancel.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Account\OrderActionController::cancel
+ * @see app/Http/Controllers/Account/OrderActionController.php:22
+ * @route '/account/orders/{order}/cancel'
+ */
+    const cancelForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: cancel.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Account\OrderActionController::cancel
+ * @see app/Http/Controllers/Account/OrderActionController.php:22
+ * @route '/account/orders/{order}/cancel'
+ */
+        cancelForm.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: cancel.url(args, options),
+            method: 'post',
+        })
+    
+    cancel.form = cancelForm
 const orders = {
     show: Object.assign(show, show),
+invoice: Object.assign(invoice, invoice),
 retryPayment: Object.assign(retryPayment, retryPayment),
 syncPayment: Object.assign(syncPayment, syncPayment),
 shipments: Object.assign(shipments, shipments),
 confirmReceived: Object.assign(confirmReceived, confirmReceived),
+cancel: Object.assign(cancel, cancel),
+returns: Object.assign(returns, returns),
+paymentProof: Object.assign(paymentProof, paymentProof),
+paymentProofs: Object.assign(paymentProofs, paymentProofs),
 }
 
 export default orders

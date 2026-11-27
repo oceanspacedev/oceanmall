@@ -56,6 +56,38 @@ final class InventoryRajaOngkirOriginTest extends TestCase
         $this->assertNull(resolve(InventoryOrigins::class)->get($inventory, 'rajaongkir'));
     }
 
+    public function test_location_form_exposes_and_saves_komerce_origin_id_in_delivery_only_mode(): void
+    {
+        config()->set('komerce.shipping_cost_api_key', '');
+        config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
+        config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
+        Http::fake(['*' => Http::response(['data' => []])]);
+
+        $this->configureShopperCpanel();
+        $admin = User::factory()->create();
+        Role::query()->firstOrCreate([
+            'name' => config('shopper.admin.roles.admin'),
+            'guard_name' => 'web',
+        ]);
+        $admin->assignRole(config('shopper.admin.roles.admin'));
+
+        $inventory = $this->inventory();
+
+        Livewire::actingAs($admin)
+            ->test(InventoryForm::class, ['inventory' => $inventory])
+            ->set('data.priority', 0)
+            ->set('data.shipping_origins.komerce', '18456')
+            ->call('store')
+            ->assertHasNoErrors();
+
+        $this->assertSame('18456', resolve(InventoryOrigins::class)->get($inventory, 'komerce'));
+        $this->assertDatabaseHas('inventory_shipping_origins', [
+            'inventory_id' => $inventory->id,
+            'driver' => 'komerce',
+            'external_id' => '18456',
+        ]);
+    }
+
     private function admin(): User
     {
         // Origin IDs are offered for configured drivers that quote from provider areas.

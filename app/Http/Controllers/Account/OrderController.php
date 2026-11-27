@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Account;
 use App\Actions\Account\CancelCustomerOrder;
 use App\Actions\Account\SubmitReturnRequest;
 use App\Actions\Account\UploadPaymentProof;
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\OrderPaymentProof;
 use App\Models\OrderReturnRequest;
@@ -14,6 +15,7 @@ use App\Models\OrderShipment;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Payment\PaymentActions;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShipmentTimeline;
 use App\Shipping\ShippingCapabilities;
 use App\Support\CarrierLogos;
@@ -132,13 +134,21 @@ final class OrderController extends Controller
         $shippingCapabilities = resolve(ShippingCapabilities::class);
 
         $shipments = $orderShipments
-            ->map(static function (OrderShipment $shipment) use ($timelines, $shippingCapabilities): array {
+            ->map(static function (OrderShipment $shipment) use ($orderShipments, $timelines, $shippingCapabilities): array {
                 $history = $timelines[(int) $shipment->id] ?? [];
+                $hasAwb = filled($shipment->awb)
+                    || filled($shipment->tracking_number)
+                    || collect((array) $shipment->metadata)->contains(
+                        static fn (mixed $bucket): bool => is_array($bucket) && filled($bucket['awb'] ?? null),
+                    );
+                $isCancelled = strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED;
+                $isSuperseded = ShipmentMetadata::isSupersededByReship($shipment, $orderShipments);
 
                 return [
                     'id' => $shipment->id,
                     'inventory_name' => $shipment->inventory?->name,
                     'status' => $shipment->status,
+                    'is_superseded' => $isSuperseded,
                     'awb' => $shipment->awb,
                     'tracking_number' => $shipment->tracking_number,
                     'carrier' => $shipment->carrier_name ?? $shipment->carrier_code,
@@ -146,7 +156,7 @@ final class OrderController extends Controller
                     'carrier_logo' => resolve(CarrierLogos::class)->forCode($shipment->carrier_code),
                     'cost' => $shipment->cost,
                     'currency' => $shipment->currency_code,
-                    'can_track' => $shippingCapabilities->trackerFor($shipment) !== null,
+                    'can_track' => ! $isCancelled && $hasAwb && $shippingCapabilities->trackerFor($shipment) !== null,
                     'tracking_history' => $history,
                 ];
             });
@@ -155,9 +165,12 @@ final class OrderController extends Controller
             static fn ($item): int => (int) $item->unit_price_amount * (int) $item->quantity,
         );
         $discountTotal = (int) $order->items->sum(static fn ($item): int => (int) $item->discount_amount);
-        $liveShipments = $orderShipments->where('status', '!=', 'cancelled');
-        $shippingTotal = $liveShipments->isNotEmpty()
-            ? (int) $liveShipments->sum('cost')
+        $liveShipments = $orderShipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED,
+        );
+        $activeCost = (int) $liveShipments->sum('cost');
+        $shippingTotal = ($liveShipments->isNotEmpty() && $activeCost > 0)
+            ? $activeCost
             : ($orderShipments->isNotEmpty() ? (int) $orderShipments->sum('cost') : (int) ($order->shippingOption?->price ?? 0));
         $taxTotal = (int) ($order->tax_amount ?? 0);
         $taxInclusive = ($grossSubtotal - $discountTotal + $shippingTotal) === (int) $order->price_amount;

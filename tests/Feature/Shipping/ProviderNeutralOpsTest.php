@@ -28,6 +28,7 @@ use Laravel\Sanctum\Sanctum;
 use Livewire\Livewire;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
 use Shopper\Core\Models\Country;
@@ -73,6 +74,8 @@ final class ProviderNeutralOpsTest extends TestCase
         $order = Order::factory()->create([
             'currency_code' => 'IDR',
             'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
         $registered = $this->shipment($order, 'areaship', [
             'external_reference' => 'AREA-ORDER-1',
@@ -110,6 +113,8 @@ final class ProviderNeutralOpsTest extends TestCase
         $order = Order::factory()->create([
             'currency_code' => 'IDR',
             'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
         $shipment = $this->shipment($order, 'rajaongkir');
 
@@ -137,7 +142,13 @@ final class ProviderNeutralOpsTest extends TestCase
     public function test_customer_pages_show_the_neutral_tracking_history_of_any_driver(): void
     {
         $user = User::factory()->create();
-        $order = Order::factory()->create(['customer_id' => $user->id, 'currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'customer_id' => $user->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $this->shipment($order, 'areaship', [
             'awb' => 'AREA-AWB',
             'metadata' => [
@@ -183,6 +194,8 @@ final class ProviderNeutralOpsTest extends TestCase
         $order = Order::factory()->create([
             'currency_code' => 'IDR',
             'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
 
         for ($i = 0; $i < 3; $i++) {
@@ -282,6 +295,8 @@ final class ProviderNeutralOpsTest extends TestCase
         $order = Order::factory()->create([
             'currency_code' => 'IDR',
             'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
         // An enabled carrier that has nothing to do with the parcel.
         Carrier::query()->create(['name' => 'Unrelated', 'slug' => 'unrelated', 'is_enabled' => true, 'driver' => 'manual']);
@@ -329,7 +344,12 @@ final class ProviderNeutralOpsTest extends TestCase
 
     public function test_migration_copies_neutral_shipment_metadata_and_drops_provider_cdn_logos(): void
     {
-        $order = Order::factory()->create();
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $inventory = Inventory::factory()->create();
         $id = (int) DB::table('order_shipments')->insertGetId([
             'order_id' => $order->id,
@@ -417,7 +437,12 @@ final class ProviderNeutralOpsTest extends TestCase
     {
         // An open order: the factory picks a random status, and a cancelled /
         // completed / archived order is (rightly) never booked.
-        return Order::factory()->create(['currency_code' => 'IDR', 'status' => OrderStatus::Processing, 'payment_status' => PaymentStatus::Paid]);
+        return Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
     }
 
     /**

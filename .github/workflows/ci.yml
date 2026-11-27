@@ -105,6 +105,9 @@ jobs:
       - name: Typecheck, Prettier and color tokens
         run: npm run check
 
+      - name: Helper unit tests
+        run: npm test
+
       # Non-blocking: staging currently has known expo-doctor findings (duplicate
       # react-native-screens via expo-router, Hermes V1 regression on SDK 56, non-CNG app.json fields).
       - name: expo-doctor

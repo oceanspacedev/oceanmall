@@ -12,6 +12,7 @@ use App\Integrations\Komerce\Shipping\RajaOngkirCourier;
 use App\Jobs\FulfillOrderShipment;
 use App\Models\OrderShipment;
 use App\Models\Product;
+use App\Shipping\InventoryOrigins;
 use App\Support\OrderShipmentOpsPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -1058,5 +1059,48 @@ final class ShippingDeliveryTest extends TestCase
         $presenter = resolve(OrderShipmentOpsPresenter::class);
         $this->assertFalse($presenter->needsPickup($shipment));
         $this->assertFalse($presenter->canPrintLabel($shipment));
+    }
+
+    public function test_delivery_only_order_fulfills_using_komerce_origin_and_komerce_destination(): void
+    {
+        $this->fakeDeliveryConfig();
+        config()->set('komerce.shipping_cost_api_key', '');
+
+        [$order, $shipment] = $this->createShipmentReadyForDelivery();
+        $inventory = $shipment->inventory;
+        resolve(InventoryOrigins::class)->forget($inventory, 'rajaongkir');
+        resolve(InventoryOrigins::class)->put($inventory, 'komerce', '17248');
+
+        $metadata = is_string($order->metadata) ? json_decode($order->metadata, true) : (array) $order->metadata;
+        unset($metadata['shipping_address']['rajaongkir_destination_id']);
+        $metadata['shipping_address']['destination_id'] = '17601';
+        $metadata['shipping_address']['destination_driver'] = 'komerce';
+        $order->update(['metadata' => $metadata]);
+
+        Http::fake([
+            'https://delivery.example.test/order/api/v1/orders/store' => Http::response([
+                'meta' => ['code' => 201, 'status' => 'success'],
+                'data' => ['order_id' => 19689, 'order_no' => 'KOM-DELONLY-1'],
+            ]),
+            'https://delivery.example.test/order/api/v1/pickup/request' => Http::response([
+                'meta' => ['code' => 201, 'status' => 'success'],
+                'data' => [['status' => 'success', 'order_no' => 'KOM-DELONLY-1', 'awb' => 'JNE-DELONLY-1']],
+            ]),
+            'https://delivery.example.test/order/api/v1/orders/detail*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => ['order_no' => 'KOM-DELONLY-1', 'airway_bill' => 'JNE-DELONLY-1', 'last_status' => 'ON_PROCESS'],
+            ]),
+        ]);
+
+        resolve(CreateRajaOngkirDeliveryForShipment::class, [
+            'orderShipmentId' => $shipment->id,
+        ])->handle();
+
+        $shipment->refresh();
+        $this->assertSame('JNE-DELONLY-1', $shipment->awb);
+        $this->assertSame('KOM-DELONLY-1', data_get($shipment->metadata, 'komerce.order_no'));
+        Http::assertSent(static fn (Request $request): bool => str_contains($request->url(), '/orders/store')
+            && (int) $request['shipper_destination_id'] === 17248
+            && (int) $request['receiver_destination_id'] === 17601);
     }
 }

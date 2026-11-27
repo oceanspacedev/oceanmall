@@ -48,6 +48,13 @@ import {
   parseApiDate,
   statusLabel,
 } from '@/lib/format';
+import {
+  canConfirmOrderReceived,
+  canTrackShipment,
+  paymentNeedsRenewal,
+  trackingToastMessage,
+  trimmedAwb,
+} from '@/lib/order-helpers';
 import { canReviewOrder, isCancelled, orderStage, orderSteps } from '@/lib/order-status';
 import { getSecureItem, setSecureItem } from '@/lib/storage';
 import { COLORS } from '@/lib/theme';
@@ -97,19 +104,6 @@ const HISTORY_PREVIEW = 6;
 /** Toasts clear the sticky action bar by this much. */
 const BAR_OFFSET = 96;
 
-/** A fresh charge is only useful when there is none, or the current one has expired. */
-function paymentNeedsRenewal(payment: OrderDetail['payment'], now: number): boolean {
-  if (
-    !payment ||
-    (!payment.virtual_account_number && !payment.qris_string && !payment.payment_url)
-  ) {
-    return true;
-  }
-  const expires = parseApiDate(payment.expiry_date)?.getTime();
-
-  return expires !== undefined && expires < now;
-}
-
 function reviewedKey(userId: number, slug: string): string {
   // SecureStore keys may only hold letters, digits, '.', '-' and '_' (a ':' throws).
   return `oceanmall.reviewed.${userId}.${slug.replace(/[^A-Za-z0-9._-]/g, '_')}`;
@@ -137,6 +131,7 @@ export default function OrderScreen() {
   const [error, setError] = useState<string | null>(null);
   // Bumped when the payment deadline passes, so the "renew" check is re-evaluated.
   const [now, setNow] = useState(() => serverNow());
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
   const [justPaid, setJustPaid] = useState(false);
   const [expandedTracking, setExpandedTracking] = useState<Record<number, boolean>>({});
   const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
@@ -163,6 +158,7 @@ export default function OrderScreen() {
     setLoading(true);
     setLoadError(null);
     setError(null);
+    setNoticeDismissed(false);
     setJustPaid(false);
     setReviewed({});
     wasPaid.current = null;
@@ -194,6 +190,7 @@ export default function OrderScreen() {
     });
     setProofAmount((current) => (current ? current : String(received.amount ?? '')));
     if (before === false && nowPaid) {
+      setError(null);
       setJustPaid(true);
       toast.show({ tone: 'success', message: 'Pembayaran diterima' });
       announce('Pembayaran diterima');
@@ -222,7 +219,12 @@ export default function OrderScreen() {
     }, [load])
   );
 
-  const { refreshing, onRefresh } = useRefresh(load);
+  const handleRefresh = useCallback(() => {
+    setError(null);
+    return load();
+  }, [load]);
+
+  const { refreshing, onRefresh } = useRefresh(handleRefresh);
 
   // Right after checkout the screen under this one is the cart that has just been emptied (or
   // the product page), so Back, from the header arrow or Android's button, goes to Beranda
@@ -292,7 +294,7 @@ export default function OrderScreen() {
   const offline = order ? isOfflinePayment(order) : false;
   const needsOnlinePayment = unpaid && !offline;
   const paymentExpiry = parseApiDate(order?.payment?.expiry_date)?.getTime();
-  const paymentExpired = paymentExpiry !== undefined && paymentExpiry < now;
+  const paymentExpired = paymentExpiry !== undefined && paymentExpiry <= now;
 
   // Paid in a banking app and came back: the status flips without a tap. It stops once the order
   // is paid, cancelled or past its deadline (the deadline handler refetches once itself).
@@ -351,7 +353,7 @@ export default function OrderScreen() {
               ...current,
               payment_status: res.data.payment_status,
               payment_action: res.data.payment_action,
-              payment: paymentFromAction(res.data),
+              payment: paymentFromAction(res.data, current.amount),
             }
           : current
       );
@@ -399,6 +401,7 @@ export default function OrderScreen() {
         throw e;
       }
       setNow(serverNow());
+      setNoticeDismissed(true);
       setOrder((current) =>
         current
           ? {
@@ -422,12 +425,9 @@ export default function OrderScreen() {
       );
       applyOrder(res.data);
       toast.show({
-        tone: 'success',
+        tone: res.tracking_refreshed === false ? 'info' : 'success',
         // false: the parcel is final or was refreshed minutes ago (stored tracking returned).
-        message:
-          res.tracking_refreshed === false
-            ? 'Status pengiriman sudah yang terbaru'
-            : 'Status pengiriman diperbarui',
+        message: trackingToastMessage(res.tracking_refreshed),
         bottomOffset: BAR_OFFSET,
       });
     });
@@ -671,23 +671,7 @@ export default function OrderScreen() {
   }
 
   const style = STAGE_STYLE[stage.key] ?? STAGE_STYLE.processing;
-  // Every parcel that still travels must have shipped (a cancelled one is not waited for).
-  const liveShipments = order.shipments.filter((shipment) => shipment.status !== 'cancelled');
-  const hasAwb =
-    liveShipments.length > 0 &&
-    liveShipments.every(
-      (shipment) =>
-        shipment.status !== 'returned' &&
-        shipment.status !== 'delivery_failed' &&
-        Boolean(shipment.awb || shipment.tracking_number)
-    );
-  const canConfirm =
-    (order.payment_status === 'paid' || Boolean(order.is_cod)) &&
-    hasAwb &&
-    order.shipping_status !== 'delivered' &&
-    liveShipments.some((shipment) => shipment.status.toLowerCase() !== 'delivered') &&
-    order.status !== 'completed' &&
-    order.status !== 'cancelled';
+  const canConfirm = canConfirmOrderReceived(order);
   const reviewable = canReviewOrder(order);
   const firstSlug = order.items.find((item) => item.slug)?.slug;
   const showStickyBar =
@@ -751,7 +735,9 @@ export default function OrderScreen() {
           </Animated.View>
         ) : null}
 
-        {notice && unpaid ? <ErrorBanner message={notice} /> : null}
+        {notice && !noticeDismissed && unpaid && paymentNeedsRenewal(order.payment, now) ? (
+          <ErrorBanner message={notice} />
+        ) : null}
 
         {/* Progress */}
         <Section>
@@ -809,7 +795,7 @@ export default function OrderScreen() {
             </Text>
           ) : (
             order.shipments.map((shipment, index) => {
-              const awb = shipment.awb || shipment.tracking_number;
+              const awb = trimmedAwb(shipment);
               const history = shipment.tracking_history ?? [];
               const expanded = Boolean(expandedTracking[shipment.id]);
               const shown = expanded ? history : history.slice(0, HISTORY_PREVIEW);
@@ -827,6 +813,7 @@ export default function OrderScreen() {
                       </Text>
                       <Text className="text-[12px] text-muted-foreground">
                         {statusLabel(shipment.status)}
+                        {shipment.is_superseded ? ' · Dikirim ulang' : ''}
                       </Text>
                     </View>
                   </View>
@@ -891,7 +878,7 @@ export default function OrderScreen() {
                     </View>
                   ) : null}
 
-                  {awb && shipment.can_track !== false ? (
+                  {canTrackShipment(shipment) ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -1063,7 +1050,7 @@ export default function OrderScreen() {
                 {order.payment_proofs!.map((proof) => (
                   <View key={proof.id} className="rounded-sm bg-om-surface px-3 py-2">
                     <Text className="text-[13px] font-semibold">
-                      {proof.original_name} · {proof.status}
+                      {proof.original_name} · {statusLabel(proof.status)}
                     </Text>
                     {proof.verification_notes ? (
                       <Text className="mt-0.5 text-[12px] text-muted-foreground">
@@ -1154,7 +1141,7 @@ export default function OrderScreen() {
                 {order.return_requests!.map((ret) => (
                   <View key={ret.id} className="rounded-sm bg-om-surface px-3 py-2">
                     <Text className="text-[13px] font-semibold">
-                      RMA #{ret.id} · {ret.reason} ({ret.status})
+                      RMA #{ret.id} · {ret.reason} ({statusLabel(ret.status)})
                     </Text>
                     {ret.resolution_notes ? (
                       <Text className="mt-0.5 text-[12px] text-muted-foreground">

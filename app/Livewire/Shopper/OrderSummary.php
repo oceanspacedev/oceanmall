@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Shopper;
 
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderShipment;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
@@ -23,7 +24,16 @@ class OrderSummary extends BaseOrderSummary
         $paymentMethod = $this->order->paymentMethod;
         $subtotal = (float) $this->order->total();
 
-        $shipmentsCost = (float) OrderShipment::query()->where('order_id', $this->order->id)->sum('cost');
+        $shipments = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->get(['status', 'cost']);
+        $activeShipments = $shipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED,
+        );
+        $activeCost = (float) $activeShipments->sum('cost');
+        $shipmentsCost = ($activeShipments->isNotEmpty() && $activeCost > 0)
+            ? $activeCost
+            : (float) $shipments->sum('cost');
         $shippingPrice = $shippingOption?->price
             ?? ($shipmentsCost > 0 ? $shipmentsCost : max(0, (float) ($this->order->price_amount - $subtotal)));
 

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Livewire\Shopper;
 
 use App\Actions\Shipping\IssueOrderFulfillment;
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\RefreshShipmentTracking;
 use App\Actions\Shipping\ReshipOrderShipment;
 use App\Models\OrderShipment;
-use App\Shipping\Contracts\PrintsLabels;
 use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
 use App\Support\OrderPaymentType;
@@ -38,10 +38,34 @@ final class OrderFulfillment extends ShopperFulfillment
      */
     public function hasUnfulfilledItems(): bool
     {
-        return $this->fulfiller() === null && parent::hasUnfulfilledItems();
+        $capabilities = resolve(ShippingCapabilities::class);
+
+        if ($capabilities->hasUnlabelledManualShipment($this->order)) {
+            return true;
+        }
+
+        if ($this->fulfiller() === null) {
+            return parent::hasUnfulfilledItems();
+        }
+
+        return false;
     }
 
     public function openShippingLabel(): void
+    {
+        $capabilities = resolve(ShippingCapabilities::class);
+        $fulfiller = $this->fulfiller();
+
+        if ($fulfiller === null || $capabilities->hasUnlabelledManualShipment($this->order)) {
+            parent::openShippingLabel();
+
+            return;
+        }
+
+        $this->issueProviderFulfillment();
+    }
+
+    public function issueProviderFulfillment(): void
     {
         $fulfiller = $this->fulfiller();
 
@@ -103,6 +127,24 @@ final class OrderFulfillment extends ShopperFulfillment
             ->where('order_id', $this->order->id)
             ->findOrFail($shipmentId);
 
+        if (strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED) {
+            Notification::make()
+                ->title('Pengiriman yang sudah dibatalkan tidak dapat dilacak.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if (trim((string) $shipment->awb) === '' && trim((string) $shipment->tracking_number) === '') {
+            Notification::make()
+                ->title('Nomor resi belum tersedia untuk paket ini.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         try {
             resolve(RefreshShipmentTracking::class)->handle($shipment);
             $this->order->refresh();
@@ -152,36 +194,67 @@ final class OrderFulfillment extends ShopperFulfillment
         $view = parent::render();
         $fulfiller = $this->fulfiller();
 
-        if ($fulfiller === null) {
-            return $view;
-        }
-
         $shipments = OrderShipment::query()
             ->where('order_id', $this->order->id)
             ->orderBy('id')
             ->get();
 
-        $awbs = $shipments
+        $activeShipments = $shipments->reject(
+            static fn (OrderShipment $s): bool => strtolower((string) $s->status) === NormalizeShipmentStatus::CANCELLED
+                || ShipmentMetadata::isSupersededByReship($s, $shipments),
+        );
+
+        $allShipmentsCancelled = $shipments->isNotEmpty() && $activeShipments->isEmpty();
+
+        if ($fulfiller === null && ! $allShipmentsCancelled) {
+            return $view;
+        }
+
+        $capabilities = resolve(ShippingCapabilities::class);
+        $providerShipments = $activeShipments->filter(
+            static fn (OrderShipment $s): bool => $capabilities->fulfillerFor($s) !== null,
+        );
+        $providerAwbs = $providerShipments
             ->map(static fn (OrderShipment $shipment): string => trim((string) ($shipment->awb ?: $shipment->tracking_number)))
             ->filter()
             ->values()
             ->all();
-
-        $shipmentCards = resolve(OrderShipmentOpsPresenter::class)->shipments($this->order);
-        $fulfillmentErrors = $shipments
-            ->map(static fn (OrderShipment $s): ?string => ShipmentMetadata::fulfillmentError($s))
+        $allAwbs = $activeShipments
+            ->map(static fn (OrderShipment $shipment): string => trim((string) ($shipment->awb ?: $shipment->tracking_number)))
             ->filter()
             ->values()
             ->all();
+        $hasUnfulfilledProviderShipment = $providerShipments->contains(
+            static fn (OrderShipment $shipment): bool => trim((string) ($shipment->awb ?: $shipment->tracking_number)) === '',
+        );
+        $hasProviderRegisteredShipment = $providerShipments->contains(
+            static fn (OrderShipment $shipment): bool => filled($shipment->external_reference),
+        );
+
+        $presenter = resolve(OrderShipmentOpsPresenter::class);
+        $shipmentCards = $presenter->shipments($this->order);
+        $fulfillmentErrors = $fulfiller !== null
+            ? $activeShipments
+                ->filter(static fn (OrderShipment $s): bool => trim((string) ($s->awb ?: $s->tracking_number)) === '')
+                ->map(static fn (OrderShipment $s): ?string => ShipmentMetadata::fulfillmentError($s))
+                ->filter()
+                ->values()
+                ->all()
+            : [];
 
         return view('shopper.livewire.order-fulfillment', [
             ...$view->getData(),
-            'providerName' => $fulfiller->name(),
+            'providerName' => $fulfiller?->name(),
             'orderIsPaid' => OrderPaymentType::canFulfill($this->order),
             'isCodOrder' => OrderPaymentType::isCod($this->order),
-            'providerAwbs' => $awbs,
-            'hasPickupRequested' => $awbs === [] && $this->hasRegisteredShipment(),
-            'canPrintProviderLabel' => $awbs !== [] && ($fulfiller instanceof PrintsLabels || $shipments->isNotEmpty()),
+            'providerAwbs' => $providerAwbs,
+            'hasUnfulfilledProviderShipment' => $fulfiller !== null && $hasUnfulfilledProviderShipment,
+            'hasPickupRequested' => $fulfiller !== null && $hasUnfulfilledProviderShipment && $hasProviderRegisteredShipment,
+            'allShipmentsCancelled' => $allShipmentsCancelled,
+            'canPrintProviderLabel' => $fulfiller !== null && $allAwbs !== [] && $presenter->printableCount($shipmentCards) > 0,
+            'printProviderLabelText' => ($providerAwbs !== [] && $fulfiller !== null)
+                ? "Cetak Stiker {$fulfiller->name()}"
+                : 'Cetak Stiker Resi',
             'printProviderLabelRoute' => route('shopper.orders.fulfillment.print-label', $this->order),
             'shipmentCards' => $shipmentCards,
             'fulfillmentErrors' => $fulfillmentErrors,
@@ -195,10 +268,20 @@ final class OrderFulfillment extends ShopperFulfillment
 
     private function hasRegisteredShipment(): bool
     {
-        return OrderShipment::query()
+        $shipments = OrderShipment::query()
             ->where('order_id', $this->order->id)
-            ->whereNotNull('external_reference')
-            ->where('external_reference', '!=', '')
-            ->exists();
+            ->get();
+
+        return $shipments->contains(static function (OrderShipment $shipment) use ($shipments): bool {
+            if (strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED) {
+                return false;
+            }
+
+            if (ShipmentMetadata::isSupersededByReship($shipment, $shipments)) {
+                return false;
+            }
+
+            return filled($shipment->external_reference);
+        });
     }
 }

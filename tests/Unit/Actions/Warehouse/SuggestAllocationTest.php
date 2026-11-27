@@ -138,6 +138,31 @@ final class SuggestAllocationTest extends TestCase
         $this->assertSame($withOrigin->id, $plan->shipments[0]->inventory_id);
     }
 
+    public function test_delivery_only_mode_allocates_inventory_holding_migrated_rajaongkir_origin(): void
+    {
+        $this->requireModules('Komerce');
+
+        config()->set('komerce.enabled', true);
+        config()->set('komerce.shipping_cost_api_key', '');
+        config()->set('komerce.shipping_delivery_api_key', 'delivery-key');
+        Http::fake();
+
+        $cart = $this->cart();
+        $inventoryWithRajaongkirOrigin = Inventory::factory()->create([
+            'is_default' => true,
+            'rajaongkir_origin_id' => '17248',
+        ]);
+        $product = Product::factory()->standard()->create();
+        $product->mutateStock($inventoryWithRajaongkirOrigin->id, 5);
+        $this->addCartLine($cart, $product, 2);
+
+        $plan = resolve(SuggestAllocation::class)->handle($cart, ['city' => 'Jakarta']);
+
+        $this->assertCount(1, $plan->shipments);
+        $this->assertSame($inventoryWithRajaongkirOrigin->id, $plan->shipments[0]->inventory_id);
+        Http::assertNothingSent();
+    }
+
     private function cart(): Cart
     {
         return Cart::query()->create(['currency_code' => 'IDR']);

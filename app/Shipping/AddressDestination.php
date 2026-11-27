@@ -52,8 +52,9 @@ final class AddressDestination
      * provider switch).
      *
      * @param  array<string, mixed>  $address
+     * @param  string|list<string>|null  $driver
      */
-    public static function id(array $address, ?string $driver = null): ?string
+    public static function id(array $address, string|array|null $driver = null): ?string
     {
         $id = self::string($address[self::ID] ?? null)
             ?? self::string($address['rajaongkir_destination_id'] ?? null);
@@ -65,8 +66,12 @@ final class AddressDestination
         if ($driver !== null) {
             $owner = self::driver($address);
 
-            if ($owner !== null && $owner !== $driver) {
-                return null;
+            if ($owner !== null) {
+                $allowed = is_array($driver) ? $driver : [$driver];
+
+                if (! in_array($owner, $allowed, true)) {
+                    return null;
+                }
             }
         }
 
@@ -340,13 +345,14 @@ final class AddressDestination
      * (stale after a provider switch, or no destination driver at all).
      *
      * @param  array<string, mixed>  $address
+     * @param  string|list<string>|null  $driver
      * @return array<string, mixed>
      */
-    public static function forDriver(array $address, ?string $driver): array
+    public static function forDriver(array $address, string|array|null $driver): array
     {
         $address = self::normalize($address);
 
-        if ($driver === null || self::id($address, $driver) === null) {
+        if ($driver === null || $driver === [] || self::id($address, $driver) === null) {
             $address[self::ID] = null;
             $address[self::LABEL] = null;
             unset($address[self::DRIVER]);

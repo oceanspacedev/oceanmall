@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Cpanel;
 use App\Http\Controllers\Controller;
 use App\Support\OrderShipmentOpsPresenter;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Shopper\Core\Models\Order;
@@ -63,7 +64,7 @@ final class WarehouseDocsController extends Controller
         ]);
     }
 
-    public function bulkLabels(Request $request, OrderShipmentOpsPresenter $presenter): View
+    public function bulkLabels(Request $request, OrderShipmentOpsPresenter $presenter): View|Response
     {
         Gate::authorize('print-shipment-label');
 
@@ -75,16 +76,52 @@ final class WarehouseDocsController extends Controller
             ->get();
 
         $labels = [];
+        $hasCancelledShipments = false;
+        $hasActiveShipments = false;
+
         foreach ($orders as $order) {
             foreach ($presenter->shipments($order) as $shipment) {
                 if (strtolower((string) ($shipment['status'] ?? '')) === 'cancelled') {
+                    $hasCancelledShipments = true;
+
                     continue;
                 }
+
+                if ((bool) ($shipment['is_superseded'] ?? false)) {
+                    continue;
+                }
+
+                $hasActiveShipments = true;
+
+                if (($shipment['can_print_label'] ?? false) !== true) {
+                    continue;
+                }
+
+                $awb = trim((string) ($shipment['awb'] ?: $shipment['tracking_number'] ?: ''));
+                if ($awb === '') {
+                    continue;
+                }
+
                 $labels[] = [
                     'order' => $order,
                     'shipment' => $shipment,
                 ];
             }
+        }
+
+        if ($labels === []) {
+            $primaryOrder = $orders->count() === 1 ? $orders->first() : null;
+            $message = (! $hasActiveShipments && $hasCancelledShipments)
+                ? 'Stiker resi tidak tersedia untuk pengiriman yang sudah dibatalkan.'
+                : 'Belum ada paket dengan nomor resi (AWB) valid yang siap dicetak.';
+
+            return response()->view('shopper.shipping.label-error', [
+                'order' => $primaryOrder,
+                'message' => $message,
+                'orderUrl' => $primaryOrder !== null
+                    ? route('shopper.orders.detail', $primaryOrder)
+                    : route('shopper.orders.index'),
+            ], 422);
         }
 
         return view('shopper.shipping.bulk-labels', [

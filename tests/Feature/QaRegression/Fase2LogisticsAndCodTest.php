@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Event;
 use Laravel\Sanctum\Sanctum;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderPaid;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
@@ -176,7 +177,12 @@ final class Fase2LogisticsAndCodTest extends TestCase
         $admin = User::factory()->create(['email' => 'wh-admin@example.com']);
         $admin->assignRole(config('shopper.admin.roles.admin'));
 
-        $order = Order::factory()->create(['currency_code' => 'IDR', 'status' => OrderStatus::Processing]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $inventory = Inventory::factory()->create(['name' => 'Gudang Utama']);
         OrderShipment::query()->create([
             'order_id' => $order->id,

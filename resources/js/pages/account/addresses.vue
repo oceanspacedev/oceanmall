@@ -35,10 +35,14 @@ import type {
 type CountryOption = { id: number; name: string; cca2: string };
 
 type DestinationOption = {
-    destination_id: string | number;
+    id?: string | number;
+    destination_id?: string | number;
     label: string;
-    province_name?: string | null;
+    city?: string | null;
     city_name?: string | null;
+    state?: string | null;
+    province_name?: string | null;
+    postal_code?: string | null;
     zip_code?: string | null;
 };
 
@@ -66,6 +70,7 @@ const props = defineProps<{
 
 const editing = ref<Address | null>(null);
 const open = ref<boolean>(false);
+const hadInitialDestination = ref<boolean>(false);
 
 const defaults: AddressForm = {
     first_name: '',
@@ -88,6 +93,7 @@ const form = useForm<AddressForm>({ ...defaults });
 const destinationQuery = ref('');
 const destinationResults = ref<DestinationOption[]>([]);
 const destinationSearching = ref(false);
+const destinationSearchError = ref<string | null>(null);
 let destinationTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(destinationQuery, (value) => {
@@ -95,27 +101,59 @@ watch(destinationQuery, (value) => {
         clearTimeout(destinationTimer);
     }
 
-    if (!props.shippingCapabilities?.destinationSearch || value.trim().length < 2) {
-        destinationResults.value = [];
+    const matchesSelected =
+        Boolean(form.destination_id) &&
+        (value === form.destination_label ||
+            (!form.destination_label && value === form.destination_id));
+
+    if (matchesSelected) {
+        destinationSearchError.value = null;
 
         return;
     }
 
-    if (form.destination_id && value === form.destination_label) {
+    if (form.destination_id) {
+        form.destination_id = '';
+        form.destination_label = '';
+    }
+
+    if (!props.shippingCapabilities?.destinationSearch || value.trim().length < 2) {
+        destinationResults.value = [];
+        destinationSearchError.value = null;
+
         return;
     }
 
     destinationTimer = setTimeout(async () => {
         destinationSearching.value = true;
+        destinationSearchError.value = null;
+
         try {
             const res = await fetch(`/checkout/destinations?q=${encodeURIComponent(value.trim())}&limit=8`, {
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'same-origin',
             });
-            const json = (await res.json()) as { data?: DestinationOption[] };
+            const json = (await res.json().catch(() => ({}))) as {
+                data?: DestinationOption[];
+                message?: string;
+            };
+
+            if (!res.ok) {
+                destinationResults.value = [];
+                destinationSearchError.value =
+                    typeof json.message === 'string' && json.message.trim() !== ''
+                        ? json.message
+                        : res.status === 429
+                          ? 'Batas kuota pencarian destinasi harian sudah tercapai. Silakan coba lagi nanti.'
+                          : 'Tidak dapat mencari lokasi saat ini.';
+
+                return;
+            }
+
             destinationResults.value = Array.isArray(json.data) ? json.data : [];
         } catch {
             destinationResults.value = [];
+            destinationSearchError.value = 'Tidak dapat mencari lokasi saat ini.';
         } finally {
             destinationSearching.value = false;
         }
@@ -123,13 +161,29 @@ watch(destinationQuery, (value) => {
 });
 
 function pickDestination(opt: DestinationOption): void {
-    form.destination_id = String(opt.destination_id);
+    const pickedId = opt.id ?? opt.destination_id;
+    form.destination_id = pickedId !== undefined && pickedId !== null ? String(pickedId) : '';
     form.destination_label = opt.label;
     destinationQuery.value = opt.label;
-    if (opt.city_name) form.city = opt.city_name;
-    if (opt.province_name) form.state = opt.province_name;
-    if (opt.zip_code) form.postal_code = opt.zip_code;
+    const city = opt.city ?? opt.city_name;
+    const state = opt.state ?? opt.province_name;
+    const postalCode = opt.postal_code ?? opt.zip_code;
+
+    if (city) {
+form.city = city;
+}
+
+    if (state) {
+form.state = state;
+}
+
+    if (postalCode) {
+form.postal_code = postalCode;
+}
+
     destinationResults.value = [];
+    destinationSearchError.value = null;
+    form.clearErrors('destination_id');
 }
 
 function parseMeta(raw: unknown): AddressDestinationFields {
@@ -172,19 +226,24 @@ const canSaveAddress = computed(
 
 function startCreate(): void {
     editing.value = null;
+    hadInitialDestination.value = false;
     form.reset();
     Object.assign(form, defaults);
+
     if (props.countries.length === 1) {
         form.country_id = props.countries[0].id;
     }
+
     destinationQuery.value = '';
     destinationResults.value = [];
+    destinationSearchError.value = null;
     open.value = true;
 }
 
 function startEdit(address: Address & { metadata?: AddressDestinationFields | string | null }): void {
     editing.value = address;
     const meta = parseMeta(address.metadata);
+    hadInitialDestination.value = Boolean(meta.destination_id);
     form.first_name = address.first_name ?? '';
     form.last_name = address.last_name;
     form.street_address = address.street_address;
@@ -198,8 +257,9 @@ function startEdit(address: Address & { metadata?: AddressDestinationFields | st
     form.destination_id = meta.destination_id ? String(meta.destination_id) : '';
     form.destination_label = meta.destination_label ?? '';
     form.pin_point = meta.pin_point ?? '';
-    destinationQuery.value = form.destination_label;
+    destinationQuery.value = form.destination_label || form.destination_id;
     destinationResults.value = [];
+    destinationSearchError.value = null;
     open.value = true;
 }
 
@@ -214,9 +274,23 @@ function submit(): void {
     };
 
     if (editing.value) {
-        form.patch(AddressController.update.url(editing.value.id), opts);
+        const omitDestination =
+            !props.shippingCapabilities?.destinationSearch ||
+            (!hadInitialDestination.value && !form.destination_id);
+
+        form.transform((data) => {
+            if (!omitDestination) {
+                return data;
+            }
+
+            const rest: Partial<AddressForm> = { ...data };
+            delete rest.destination_id;
+            delete rest.destination_label;
+
+            return rest;
+        }).patch(AddressController.update.url(editing.value.id), opts);
     } else {
-        form.post(AddressController.store.url(), opts);
+        form.transform((data) => data).post(AddressController.store.url(), opts);
     }
 }
 
@@ -487,13 +561,19 @@ function setDefaultBilling(address: Address): void {
                         >
                             Mencari lokasi…
                         </div>
+                        <p
+                            v-else-if="destinationSearchError"
+                            class="mt-1 text-xs text-red-600"
+                        >
+                            {{ destinationSearchError }}
+                        </p>
                         <ul
                             v-else-if="destinationResults.length"
                             class="mt-1 max-h-40 overflow-y-auto rounded-md border border-border bg-background text-xs shadow-sm"
                         >
                             <li
                                 v-for="opt in destinationResults"
-                                :key="opt.destination_id"
+                                :key="String(opt.id ?? opt.destination_id ?? opt.label)"
                                 class="cursor-pointer px-3 py-2 hover:bg-muted"
                                 @click="pickDestination(opt)"
                             >

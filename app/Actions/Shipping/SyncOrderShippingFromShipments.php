@@ -12,6 +12,7 @@ use App\Shipping\ShipmentTimeline;
 use App\Support\EnabledCarriers;
 use App\Support\OrderPaymentType;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Shopper\Core\Enum\FulfillmentStatus;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
@@ -75,11 +76,23 @@ final class SyncOrderShippingFromShipments
             return $order;
         }
 
-        foreach ($shipments as $shipment) {
+        $activeShipments = $shipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED,
+        );
+        $cancelledShipments = $shipments->filter(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED,
+        );
+        $effectiveShipments = $activeShipments->reject(
+            static fn (OrderShipment $shipment): bool => ShipmentMetadata::isSupersededByReship($shipment, $shipments),
+        );
+
+        $this->releaseCancelledShipmentBindings($order, $activeShipments, $cancelledShipments);
+
+        foreach ($effectiveShipments as $shipment) {
             $this->syncShopperOrderShipping($order, $shipment);
         }
 
-        $statuses = $shipments->pluck('status')
+        $statuses = $effectiveShipments->pluck('status')
             ->map(static fn (mixed $status): string => strtolower(trim((string) $status)))
             ->filter(static fn (string $status): bool => $status !== '' && $status !== NormalizeShipmentStatus::CANCELLED)
             ->values()
@@ -214,8 +227,58 @@ final class SyncOrderShippingFromShipments
         return $match instanceof Carrier ? (int) $match->id : null;
     }
 
+    /**
+     * @param  Collection<int, OrderShipment>  $activeShipments
+     * @param  Collection<int, OrderShipment>  $cancelledShipments
+     */
+    private function releaseCancelledShipmentBindings(
+        Order $order,
+        Collection $activeShipments,
+        Collection $cancelledShipments,
+    ): void {
+        if ($cancelledShipments->isEmpty()) {
+            return;
+        }
+
+        if ($activeShipments->isEmpty() && $order->status === OrderStatus::Cancelled) {
+            return;
+        }
+
+        $activeAwbs = $activeShipments
+            ->map(static fn (OrderShipment $s): string => strtolower(trim((string) ($s->awb ?: $s->tracking_number))))
+            ->filter()
+            ->values()
+            ->all();
+
+        foreach ($cancelledShipments as $cancelled) {
+            $cancelledAwb = trim((string) ($cancelled->awb ?: $cancelled->tracking_number));
+
+            if ($cancelledAwb === '' || in_array(strtolower($cancelledAwb), $activeAwbs, true)) {
+                continue;
+            }
+
+            $staleShippings = OrderShipping::query()
+                ->where('order_id', $order->id)
+                ->where('tracking_number', $cancelledAwb)
+                ->get();
+
+            foreach ($staleShippings as $staleShipping) {
+                $order->items()
+                    ->where('order_shipping_id', $staleShipping->id)
+                    ->update([
+                        'order_shipping_id' => null,
+                        'fulfillment_status' => FulfillmentStatus::Pending,
+                    ]);
+            }
+        }
+    }
+
     private function syncShopperOrderShipping(Order $order, OrderShipment $shipment): void
     {
+        if (strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED) {
+            return;
+        }
+
         $awb = $shipment->awb ?? $shipment->tracking_number;
         if (! $awb) {
             return;
@@ -234,7 +297,7 @@ final class SyncOrderShippingFromShipments
         $itemFulfillmentStatus = match (strtolower((string) $shipment->status)) {
             'delivered' => FulfillmentStatus::Delivered,
             'picked_up', 'in_transit', 'labeled', 'delivery_failed', 'failed' => FulfillmentStatus::Shipped,
-            'returned', 'cancelled' => FulfillmentStatus::Cancelled,
+            'returned' => FulfillmentStatus::Cancelled,
             default => FulfillmentStatus::Processing,
         };
 

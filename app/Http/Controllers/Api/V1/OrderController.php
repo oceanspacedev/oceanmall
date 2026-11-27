@@ -10,6 +10,7 @@ use App\Actions\Account\SubmitReturnRequest;
 use App\Actions\Account\UploadPaymentProof;
 use App\Actions\Orders\RetryOrderPayment;
 use App\Actions\Orders\SyncOrderPayment;
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\RefreshShipmentTracking;
 use App\Http\Controllers\Controller;
 use App\Models\OrderPaymentProof;
@@ -21,6 +22,7 @@ use App\Models\User;
 use App\Payment\Exceptions\PaymentRetryRefused;
 use App\Payment\PaymentActions;
 use App\Shipping\AddressDestination;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShipmentTimeline;
 use App\Shipping\ShippingCapabilities;
 use App\Support\CarrierLogos;
@@ -110,7 +112,7 @@ final class OrderController extends Controller
     {
         $order = $this->ownedOrder($request, $number);
         $user = $this->customer($request);
-        $order->load(['items.product', 'shippingAddress', 'paymentMethod']);
+        $order->load(['items.product', 'shippingAddress', 'shippingOption', 'paymentMethod']);
 
         $orderShipments = OrderShipment::query()
             ->where('order_id', $order->id)
@@ -120,22 +122,30 @@ final class OrderController extends Controller
         $shippingCapabilities = resolve(ShippingCapabilities::class);
 
         $shipments = $orderShipments
-            ->map(static function (OrderShipment $shipment) use ($timelines, $shippingCapabilities): array {
+            ->map(static function (OrderShipment $shipment) use ($orderShipments, $timelines, $shippingCapabilities): array {
                 $history = array_map(
                     static fn (array $event): array => [...$event, 'date' => $event['datetime']],
                     $timelines[(int) $shipment->id] ?? [],
                 );
+                $hasAwb = filled($shipment->awb)
+                    || filled($shipment->tracking_number)
+                    || collect((array) $shipment->metadata)->contains(
+                        static fn (mixed $bucket): bool => is_array($bucket) && filled($bucket['awb'] ?? null),
+                    );
+                $isCancelled = strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED;
+                $isSuperseded = ShipmentMetadata::isSupersededByReship($shipment, $orderShipments);
 
                 return [
                     'id' => $shipment->id,
                     'status' => $shipment->status,
+                    'is_superseded' => $isSuperseded,
                     'awb' => $shipment->awb,
                     'tracking_number' => $shipment->tracking_number,
                     'carrier' => $shipment->carrier_name ?? $shipment->carrier_code,
                     'service' => $shipment->service_name ?? $shipment->service_code,
                     'carrier_logo' => resolve(CarrierLogos::class)->forCode($shipment->carrier_code),
                     'cost' => $shipment->cost,
-                    'can_track' => $shippingCapabilities->trackerFor($shipment) !== null,
+                    'can_track' => ! $isCancelled && $hasAwb && $shippingCapabilities->trackerFor($shipment) !== null,
                     'tracking_history' => $history,
                 ];
             })
@@ -147,7 +157,13 @@ final class OrderController extends Controller
         $presenter = resolve(CustomerCatalogPresenter::class);
         $subtotal = (int) $order->items->sum(static fn ($item): int => (int) $item->unit_price_amount * (int) $item->quantity);
         $discountTotal = (int) $order->items->sum(static fn ($item): int => (int) $item->discount_amount);
-        $shippingTotal = (int) collect($shipments)->sum(static fn (array $shipment): int => (int) ($shipment['cost'] ?? 0));
+        $liveShipments = $orderShipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED,
+        );
+        $activeCost = (int) $liveShipments->sum('cost');
+        $shippingTotal = ($liveShipments->isNotEmpty() && $activeCost > 0)
+            ? $activeCost
+            : ($orderShipments->isNotEmpty() ? (int) $orderShipments->sum('cost') : (int) ($order->shippingOption?->price ?? 0));
         $taxTotal = (int) ($order->tax_amount ?? 0);
         $taxInclusive = ($subtotal - $discountTotal + $shippingTotal) === (int) $order->price_amount;
 
@@ -330,7 +346,7 @@ final class OrderController extends Controller
         try {
             $asked = resolve(RefreshShipmentTracking::class)->handleForCustomer($row);
         } catch (RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => $this->normalizeTrackingErrorMessage($e)], 422);
         } catch (Throwable $e) {
             report($e);
 
@@ -527,5 +543,26 @@ final class OrderController extends Controller
         $user = $request->user();
 
         return $user;
+    }
+
+    private function normalizeTrackingErrorMessage(RuntimeException $e): string
+    {
+        $message = trim($e->getMessage());
+
+        if ($message === 'This shipment has no airway bill (AWB) to track yet.') {
+            return 'Nomor resi belum tersedia untuk paket ini.';
+        }
+
+        if ($message === 'No configured shipping provider can track this airway bill.') {
+            return 'Pelacakan otomatis tidak tersedia untuk pengiriman ini. Riwayat pengiriman diperbarui oleh toko.';
+        }
+
+        if ($message === '' || preg_match('/\b(API error|not configured|exception|failed|http|invalid|airway bill|shipping provider)\b/i', $message) === 1) {
+            report($e);
+
+            return 'Gagal memperbarui pelacakan dari penyedia pengiriman. Coba lagi sebentar.';
+        }
+
+        return $message;
     }
 }

@@ -19,10 +19,7 @@ export function formatIdr(amount: number | null | undefined): string {
  * Formats an amount using its currency code. IDR delegates to formatIdr; other currencies
  * format cleanly without decimal division assumptions unless minor units are expected.
  */
-export function formatMoney(
-  amount: number | null | undefined,
-  currency = 'IDR'
-): string {
+export function formatMoney(amount: number | null | undefined, currency = 'IDR'): string {
   const code = (currency || 'IDR').toUpperCase();
   if (code === 'IDR') {
     return formatIdr(amount);
@@ -227,6 +224,7 @@ export const STATUS_LABELS: Record<string, string> = {
   shipped: 'Dikirim',
   in_transit: 'Dalam perjalanan',
   delivered: 'Tiba di tujuan',
+  delivery_failed: 'Pengiriman gagal',
   cancelled: 'Dibatalkan',
   canceled: 'Dibatalkan',
   failed: 'Gagal',
@@ -238,6 +236,10 @@ export const STATUS_LABELS: Record<string, string> = {
   fulfilled: 'Sudah diproses',
   partially_shipped: 'Dikirim sebagian',
   ready_for_pickup: 'Siap diambil',
+  approved: 'Disetujui',
+  rejected: 'Ditolak',
+  requested: 'Diajukan',
+  under_review: 'Sedang ditinjau',
 };
 
 export function statusLabel(status?: string | null): string {

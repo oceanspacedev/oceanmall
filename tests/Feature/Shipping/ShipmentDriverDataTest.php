@@ -12,6 +12,9 @@ use App\Shipping\ShippingCapabilities;
 use App\Support\OrderShipmentOpsPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
 use Shopper\Core\Models\Country;
@@ -143,7 +146,13 @@ final class ShipmentDriverDataTest extends TestCase
             'is_enabled' => true,
         ]);
         Inventory::factory()->create(['is_default' => true]);
-        $order = Order::factory()->create(['shipping_option_id' => $option->id]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+            'shipping_option_id' => $option->id,
+        ]);
 
         $shipments = resolve(EnsureOrderShipments::class)->handle($order);
 
@@ -154,7 +163,12 @@ final class ShipmentDriverDataTest extends TestCase
     {
         $this->requireModules('Komerce');
 
-        $order = Order::factory()->create();
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         PaymentTransaction::query()->create([
             'order_id' => $order->id,
             'driver' => 'komerce',
@@ -169,8 +183,18 @@ final class ShipmentDriverDataTest extends TestCase
         $driver = Payment::driver('komerce');
 
         $this->assertSame('2026-11-20 10:00:00', $driver->paymentExpiresAt($order)?->format('Y-m-d H:i:s'));
-        $this->assertNull($driver->paymentExpiresAt(Order::factory()->create()));
-        $this->assertSame(ReconcilesPayments::NO_PAYMENT, $driver->reconcilePayment(Order::factory()->create()));
+        $this->assertNull($driver->paymentExpiresAt(Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ])));
+        $this->assertSame(ReconcilesPayments::NO_PAYMENT, $driver->reconcilePayment(Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ])));
         $this->assertNull($driver->paymentCatalog(), 'No catalog without a payment key.');
     }
 
@@ -180,7 +204,12 @@ final class ShipmentDriverDataTest extends TestCase
     private function shipment(array $attributes = []): OrderShipment
     {
         return OrderShipment::query()->create([
-            'order_id' => Order::factory()->create()->id,
+            'order_id' => Order::factory()->create([
+                'currency_code' => 'IDR',
+                'status' => OrderStatus::Processing,
+                'payment_status' => PaymentStatus::Paid,
+                'shipping_status' => ShippingStatus::Unfulfilled,
+            ])->id,
             'inventory_id' => Inventory::factory()->create()->id,
             'carrier_code' => 'jne',
             'service_code' => 'REG',

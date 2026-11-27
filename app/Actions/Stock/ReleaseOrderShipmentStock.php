@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Stock;
 
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderShipment;
 use App\Models\OrderShipmentLine;
 use Illuminate\Database\Eloquent\Model;
@@ -37,9 +38,31 @@ final class ReleaseOrderShipmentStock
             ->with('lines')
             ->get();
 
-        $targets = $onlyShipments === null
-            ? $allShipments
-            : $allShipments->whereIn('id', collect($onlyShipments)->pluck('id')->all());
+        $activeShipments = $allShipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED,
+        )->values();
+
+        if ($onlyShipments === null) {
+            // When active shipments exist, cancelled historical shipments were
+            // superseded and must never double-release or release stock held
+            // by an already-shipped (AWB-bearing) active shipment.
+            $targets = $activeShipments->isNotEmpty()
+                ? $activeShipments->reject(
+                    static fn (OrderShipment $shipment): bool => trim((string) ($shipment->awb ?: $shipment->tracking_number)) !== '',
+                )->values()
+                : $allShipments->reject(
+                    static fn (OrderShipment $shipment): bool => filled(data_get($shipment->metadata, 'reshipped_to_shipment_id')),
+                )->values();
+        } else {
+            $onlyIds = collect($onlyShipments)->pluck('id')->map(static fn ($id): int => (int) $id)->all();
+            $targets = ($activeShipments->isNotEmpty() ? $activeShipments : $allShipments)
+                ->whereIn('id', $onlyIds)
+                ->values();
+        }
+
+        if ($targets->isEmpty() && $activeShipments->isNotEmpty()) {
+            return;
+        }
 
         foreach ($targets as $shipment) {
             if (in_array((int) $shipment->id, $releasedIds, true)) {
@@ -57,7 +80,8 @@ final class ReleaseOrderShipmentStock
         // Shopper's Order does not cast it, so it is stored as JSON text.
         $metadata['released_shipment_ids'] = array_values(array_unique($releasedIds));
 
-        if ($onlyShipments === null || count($releasedIds) >= $allShipments->count()) {
+        $expectedScope = $activeShipments->isNotEmpty() ? $activeShipments : $allShipments;
+        if (($onlyShipments === null && $targets->count() === $expectedScope->count()) || count($metadata['released_shipment_ids']) >= $expectedScope->count()) {
             $metadata['stock_released_at'] = now()->toIso8601String();
         }
 

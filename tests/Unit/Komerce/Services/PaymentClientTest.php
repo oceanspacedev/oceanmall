@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Komerce\Services;
 
+use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Services\PaymentClient;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -258,5 +261,83 @@ final class PaymentClientTest extends TestCase
                 && $request['payment_id'] === 'pay_123'
                 && $request['reason'] === 'Payment expired';
         });
+    }
+
+    public function test_list_methods_does_not_cache_http_200_error_envelopes_and_recovers_after_cooldown(): void
+    {
+        config()->set('komerce.payment_api_key', 'test-komerce-key');
+        config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
+
+        $badPayloads = [
+            ['payload' => ['success' => false, 'meta' => ['code' => 500, 'status' => 'error', 'message' => 'Internal server error'], 'data' => []], 'revokes' => false],
+            ['payload' => ['meta' => ['code' => 401, 'status' => 'failed', 'message' => 'Invalid API Key'], 'data' => []], 'revokes' => true],
+            ['payload' => ['meta' => ['code' => 200, 'status' => 'success'], 'data' => null], 'revokes' => false],
+        ];
+
+        $sequence = Http::sequence();
+        foreach ($badPayloads as $case) {
+            $sequence->push($case['payload'], 200)->push([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [['payment_type' => 'va', 'bank_code' => 'BCA', 'min_amount' => 10000]],
+            ], 200);
+        }
+
+        Http::fake([
+            'https://payment.example.test/user/api/v1/user/methods' => $sequence,
+        ]);
+
+        foreach ($badPayloads as $case) {
+            Cache::flush();
+            resolve(KomerceCapabilities::class)->forget();
+
+            try {
+                (new PaymentClient)->listMethods();
+                $this->fail('Expected listMethods() to reject HTTP 200 error/invalid payload.');
+            } catch (\RuntimeException) {
+                $this->assertFalse(Cache::has('komerce:payment-methods'));
+                $this->assertTrue(Cache::has('komerce:payment-methods:unavailable'));
+                $this->assertSame(! $case['revokes'], Komerce::paymentEnabled());
+            }
+
+            if ($case['revokes']) {
+                resolve(KomerceCapabilities::class)->forget();
+            }
+
+            $this->travel(46)->seconds();
+
+            $recovered = (new PaymentClient)->listMethods();
+            $this->assertSame('BCA', data_get($recovered, 'data.0.bank_code'));
+            $this->assertTrue(Cache::has('komerce:payment-methods'));
+        }
+    }
+
+    public function test_get_status_and_cancel_reject_http_200_error_envelopes_without_caching(): void
+    {
+        config()->set('komerce.payment_api_key', 'test-komerce-key');
+        config()->set('komerce.payment_base_url', 'https://payment.example.test/user');
+
+        Http::fake([
+            'https://payment.example.test/user/api/v1/user/payment/status/pay_err' => Http::response([
+                'success' => false,
+                'meta' => ['code' => 500, 'status' => 'error', 'message' => 'Gateway error'],
+                'data' => [],
+            ], 200),
+            'https://payment.example.test/user/api/v1/user/payment/cancel' => Http::response([
+                'success' => false,
+                'meta' => ['code' => 500, 'status' => 'error', 'message' => 'Cancel failed'],
+            ], 200),
+        ]);
+
+        try {
+            (new PaymentClient)->getStatus('pay_err');
+            $this->fail('Expected getStatus() to throw on HTTP 200 error envelope.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Gateway error', $e->getMessage());
+            $this->assertFalse(Cache::has('komerce:payment-status:'.hash('sha256', 'pay_err')));
+        }
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Cancel failed');
+        (new PaymentClient)->cancel('pay_err');
     }
 }

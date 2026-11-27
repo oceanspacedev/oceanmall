@@ -76,6 +76,12 @@ final readonly class CancelCustomerOrder
             ]);
         }
 
+        if ($result->status !== OrderStatus::Cancelled) {
+            throw ValidationException::withMessages([
+                'cancel' => __('Pesanan belum dapat dibatalkan karena status pembayaran sedang ditinjau. Hubungi layanan pelanggan.'),
+            ]);
+        }
+
         OrderPaymentProof::query()
             ->where('order_id', $result->id)
             ->where('status', OrderPaymentProof::STATUS_PENDING)

@@ -22,13 +22,14 @@ use Shopper\Core\Enum\DiscountRequirement;
 use Shopper\Core\Enum\DiscountType;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
+use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Models\Country;
 use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Discount;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\PaymentMethod;
-use Shopper\Core\Models\Price;
 use Shopper\Core\Models\Zone;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -70,6 +71,8 @@ final class Fase2WebMobileParityTest extends TestCase
         Order::factory()->create([
             'customer_id' => $activeCustomer->id,
             'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
             'currency_code' => 'IDR',
         ]);
 
@@ -107,6 +110,7 @@ final class Fase2WebMobileParityTest extends TestCase
             'discount_id' => $discount->id,
             'status' => OrderStatus::New,
             'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
             'currency_code' => 'IDR',
         ]);
 
@@ -114,7 +118,7 @@ final class Fase2WebMobileParityTest extends TestCase
         $this->assertTrue(DiscountRedemption::hasActiveRedemption($discount->id, 'promouser@example.com'));
 
         resolve(ReleaseDiscountOnOrderCancelled::class)->handle(
-            new \Shopper\Core\Events\Orders\OrderCancelled($order),
+            new OrderCancelled($order),
         );
 
         $this->assertFalse(DiscountRedemption::hasActiveRedemption($discount->id, 'promouser@example.com'));
@@ -156,6 +160,9 @@ final class Fase2WebMobileParityTest extends TestCase
             'payment_method_id' => $manualMethod->id,
             'price_amount' => 100000,
             'currency_code' => shopper_currency(),
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
 
         resolve(InitiateOrderPayment::class)->handle($order, [], [

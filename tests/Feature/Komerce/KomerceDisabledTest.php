@@ -13,6 +13,9 @@ use App\Models\OrderShipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Spatie\Permission\Models\Role;
@@ -103,7 +106,12 @@ final class KomerceDisabledTest extends TestCase
         $this->disableKomerce();
         Http::fake();
 
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $inventory = Inventory::factory()->create(['rajaongkir_origin_id' => '501']);
         $shipment = OrderShipment::query()->create([
             'order_id' => $order->id,
@@ -158,15 +166,20 @@ final class KomerceDisabledTest extends TestCase
         $this->disableKomerce();
         Http::fake();
 
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $inventory = Inventory::factory()->create();
         OrderShipment::query()->create([
             'order_id' => $order->id,
             'inventory_id' => $inventory->id,
             'carrier_code' => 'jne',
             'service_code' => 'REG',
-            'status' => 'labeled',
-            'awb' => 'JNE-AWB',
+            'status' => 'pending',
+            'awb' => null,
             'metadata' => ['komerce' => ['order_no' => 'RO-ORDER-1']],
         ]);
 
@@ -184,7 +197,13 @@ final class KomerceDisabledTest extends TestCase
         Http::fake();
 
         $customer = User::factory()->create();
-        $order = Order::factory()->create(['customer_id' => $customer->id, 'currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'customer_id' => $customer->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $inventory = Inventory::factory()->create();
         $shipment = OrderShipment::query()->create([
             'order_id' => $order->id,

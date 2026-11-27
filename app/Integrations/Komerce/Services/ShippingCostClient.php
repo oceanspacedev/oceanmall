@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Services;
 
 use App\Integrations\Komerce\Services\Concerns\UsesKomerceHttp;
+use Illuminate\Http\Client\RequestException;
 use InvalidArgumentException;
+use RuntimeException;
 
 final class ShippingCostClient
 {
@@ -74,7 +76,15 @@ final class ShippingCostClient
             ->throw()
             ->json();
 
-        return is_array($response) ? $response : [];
+        if (! is_array($response)) {
+            return [];
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            throw new RuntimeException($this->envelopeMessage($response));
+        }
+
+        return $response;
     }
 
     /**
@@ -93,6 +103,15 @@ final class ShippingCostClient
         }
 
         $json = $response->throw()->json();
+
+        if (! is_array($json)) {
+            return [];
+        }
+
+        if ($this->isErrorEnvelope($json)) {
+            throw new RuntimeException($this->envelopeMessage($json));
+        }
+
         $rows = data_get($json, 'data', []);
 
         if (! is_array($rows)) {
@@ -115,18 +134,34 @@ final class ShippingCostClient
             return [];
         }
 
-        $response = $this->shippingCostHttp()
-            ->get(self::DOMESTIC_DESTINATION_ENDPOINT, [
-                'search' => $query,
-                'limit' => max(1, min($limit, 99)),
-                'offset' => max(0, $offset),
-            ]);
+        try {
+            $response = $this->shippingCostHttp()
+                ->get(self::DOMESTIC_DESTINATION_ENDPOINT, [
+                    'search' => $query,
+                    'limit' => max(1, min($limit, 99)),
+                    'offset' => max(0, $offset),
+                ]);
+        } catch (RequestException $e) {
+            if ($e->response->status() === 404) {
+                return [];
+            }
+
+            throw $e;
+        }
 
         if ($response->status() === 404) {
             return [];
         }
 
         $json = $response->throw()->json();
+
+        if (! is_array($json)) {
+            return [];
+        }
+
+        if ($this->isErrorEnvelope($json)) {
+            throw new RuntimeException($this->envelopeMessage($json));
+        }
 
         $rows = data_get($json, 'data', []);
 
@@ -178,6 +213,15 @@ final class ShippingCostClient
         }
 
         $json = $response->throw()->json();
+
+        if (! is_array($json)) {
+            return [];
+        }
+
+        if ($this->isErrorEnvelope($json)) {
+            throw new RuntimeException($this->envelopeMessage($json));
+        }
+
         $rows = data_get($json, 'data', []);
 
         if (! is_array($rows)) {
@@ -248,7 +292,15 @@ final class ShippingCostClient
             ->throw()
             ->json();
 
-        return is_array($response) ? $response : [];
+        if (! is_array($response)) {
+            return [];
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            throw new RuntimeException($this->envelopeMessage($response));
+        }
+
+        return $response;
     }
 
     /**
@@ -291,7 +343,15 @@ final class ShippingCostClient
             ->throw()
             ->json();
 
-        return is_array($response) ? $response : [];
+        if (! is_array($response)) {
+            return [];
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            throw new RuntimeException($this->envelopeMessage($response));
+        }
+
+        return $response;
     }
 
     private function positiveDestinationId(mixed $value, string $field): int
@@ -338,5 +398,40 @@ final class ShippingCostClient
         }
 
         return array_keys($normalized);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function isErrorEnvelope(array $response): bool
+    {
+        if (($response['success'] ?? null) === false) {
+            return true;
+        }
+
+        $status = strtolower(trim((string) (data_get($response, 'meta.status') ?? '')));
+        if ($status !== '' && ! in_array($status, ['success', 'succeeded', 'ok'], true)) {
+            return true;
+        }
+
+        $codeRaw = data_get($response, 'meta.code');
+
+        return is_numeric($codeRaw) && ((int) $codeRaw < 200 || (int) $codeRaw >= 300);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function envelopeMessage(array $response): string
+    {
+        foreach (['meta.message', 'message'] as $path) {
+            $value = data_get($response, $path);
+
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return 'RajaOngkir Shipping Cost returned an error response.';
     }
 }

@@ -11,8 +11,10 @@ use App\Actions\Orders\SyncOrderPayment;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderNote;
 use App\Models\OrderShipment;
+use App\Models\User;
 use App\Payment\Contracts\ExpiresPayments;
 use App\Payment\PaymentActions;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
 use App\Support\OrderPaymentType;
 use Filament\Actions\Action;
@@ -21,13 +23,14 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
 use Shopper\Core\Enum\OrderRefundStatus;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderCompleted;
 use Shopper\Core\Models\OrderRefund;
+use Shopper\Core\Models\OrderShipping;
 use Shopper\Livewire\Pages\Order\Detail as ShopperOrderDetail;
+use Throwable;
 
 /**
  * Shopper's order detail, deciding per order: an order whose payment driver
@@ -66,7 +69,7 @@ final class OrderDetail extends ShopperOrderDetail
                     ])
                     ->action(function (array $data): void {
                         $actor = Auth::user();
-                        if ($actor instanceof \App\Models\User) {
+                        if ($actor instanceof User) {
                             resolve(RemitCodOrder::class)->handle(
                                 $this->order,
                                 $actor,
@@ -168,7 +171,11 @@ final class OrderDetail extends ShopperOrderDetail
         $action = parent::markCompleteAction()->authorize('manage-order-fulfillment');
 
         if (! $this->hasProviderShipments()) {
-            return $action;
+            return $action->visible(
+                fn (): bool => $this->order->isProcessing()
+                    && $this->order->isPaid()
+                    && ! $this->hasOnlyCancelledShipmentsWithoutManualLabel(),
+            );
         }
 
         return $action
@@ -225,14 +232,26 @@ final class OrderDetail extends ShopperOrderDetail
                 $reason = filled($data['reason'] ?? null)
                     ? trim((string) $data['reason'])
                     : 'Cancelled by staff';
-                $actor = Auth::user() instanceof \App\Models\User ? Auth::user() : null;
+                $actor = Auth::user() instanceof User ? Auth::user() : null;
 
-                resolve(CancelOrderWithProviders::class)->handle(
-                    order: $this->order,
-                    throughPaymentProvider: true,
-                    reason: $reason,
-                    actor: $actor,
-                );
+                try {
+                    resolve(CancelOrderWithProviders::class)->handle(
+                        order: $this->order,
+                        throughPaymentProvider: true,
+                        reason: $reason,
+                        actor: $actor,
+                    );
+                } catch (Throwable $e) {
+                    report($e);
+
+                    Notification::make()
+                        ->title('Gagal membatalkan pesanan.')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
 
                 if ($wasPaid && ($data['create_refund_ticket'] ?? false)) {
                     OrderRefund::query()->firstOrCreate(
@@ -285,13 +304,25 @@ final class OrderDetail extends ShopperOrderDetail
             // voided, shipments closed, customer told), then archive it. A
             // shipped or delivered order (e.g. COD cash not yet marked paid)
             // is only archived, as Shopper does.
-            return $action->before(function (): void {
+            return $action->before(function () use ($action): void {
                 $cancel = resolve(CancelOrderWithProviders::class);
 
                 if ($this->order->status !== OrderStatus::Cancelled
                     && $this->order->canBeCancelled()
                     && ! $cancel->hasShipped($this->order)) {
-                    $cancel->handle($this->order);
+                    try {
+                        $cancel->handle($this->order);
+                    } catch (Throwable $e) {
+                        report($e);
+
+                        Notification::make()
+                            ->title('Gagal membatalkan pesanan.')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+
+                        $action->halt();
+                    }
                 }
 
                 $this->order->refresh();
@@ -338,14 +369,74 @@ final class OrderDetail extends ShopperOrderDetail
 
     private function allShipmentsDelivered(): bool
     {
-        $shipments = OrderShipment::query()->where('order_id', $this->order->id)->get();
+        $allShipments = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->get();
+
+        $shipments = $allShipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED
+                || ShipmentMetadata::isSupersededByReship($shipment, $allShipments),
+        );
 
         if ($shipments->isEmpty()) {
             return false;
         }
 
         return $shipments->every(
-            static fn (OrderShipment $shipment): bool => strtolower((string) $shipment->status) === NormalizeShipmentStatus::DELIVERED,
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::DELIVERED,
         );
+    }
+
+    private function hasOnlyCancelledShipmentsWithoutManualLabel(): bool
+    {
+        $shipments = OrderShipment::query()
+            ->where('order_id', $this->order->id)
+            ->get();
+
+        if ($shipments->isEmpty()) {
+            return false;
+        }
+
+        $hasActiveShipment = $shipments->contains(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) !== NormalizeShipmentStatus::CANCELLED,
+        );
+
+        if ($hasActiveShipment) {
+            return false;
+        }
+
+        $boundShippingIds = $this->order->items()
+            ->whereNotNull('order_shipping_id')
+            ->pluck('order_shipping_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($boundShippingIds === []) {
+            return true;
+        }
+
+        $cancelledAwbs = $shipments
+            ->flatMap(static fn (OrderShipment $shipment): array => [
+                strtolower(trim((string) $shipment->awb)),
+                strtolower(trim((string) $shipment->tracking_number)),
+            ])
+            ->filter(static fn (string $value): bool => $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        $hasGenuineRecoveryLabel = OrderShipping::query()
+            ->where('order_id', $this->order->id)
+            ->whereIn('id', $boundShippingIds)
+            ->get()
+            ->contains(static function (OrderShipping $shipping) use ($cancelledAwbs): bool {
+                $tracking = strtolower(trim((string) $shipping->tracking_number));
+
+                return $tracking !== '' && ! in_array($tracking, $cancelledAwbs, true);
+            });
+
+        return ! $hasGenuineRecoveryLabel;
     }
 }

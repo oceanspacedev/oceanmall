@@ -8,6 +8,7 @@ use App\Models\OrderShipment;
 use App\Shipping\Contracts\PrintsLabels;
 use App\Shipping\Contracts\ReconcilesShipments;
 use App\Shipping\ShipmentFulfillment;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
 use App\Support\OrderPaymentType;
 use RuntimeException;
@@ -42,10 +43,19 @@ final readonly class IssueOrderFulfillment
             throw new RuntimeException('Pesanan ini belum punya alokasi gudang untuk pengiriman.');
         }
 
+        $activeShipments = $shipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED
+                || ShipmentMetadata::isSupersededByReship($shipment, $shipments),
+        )->values();
+
+        if ($activeShipments->isEmpty()) {
+            throw new RuntimeException('Semua pengiriman pada pesanan ini sudah dibatalkan.');
+        }
+
         $errors = [];
         $printable = false;
 
-        foreach ($shipments as $shipment) {
+        foreach ($activeShipments as $shipment) {
             $driver = $this->capabilities->fulfillerFor($shipment);
 
             if ($driver === null) {
@@ -64,6 +74,10 @@ final readonly class IssueOrderFulfillment
                 } catch (Throwable $e) {
                     report($e);
                 }
+            }
+
+            if (strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED) {
+                continue;
             }
 
             if ($this->labelled($shipment)) {
@@ -88,7 +102,19 @@ final readonly class IssueOrderFulfillment
 
         resolve(SyncOrderShippingFromShipments::class)->handle($order->refresh());
 
-        $freshShipments = OrderShipment::query()->where('order_id', $order->id)->get();
+        $allFreshShipments = OrderShipment::query()
+            ->where('order_id', $order->id)
+            ->get();
+        $freshShipments = $allFreshShipments
+            ->reject(
+                static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED
+                    || ShipmentMetadata::isSupersededByReship($shipment, $allFreshShipments),
+            )
+            ->values();
+
+        if ($freshShipments->isEmpty()) {
+            throw new RuntimeException($errors[0] ?? 'Semua pengiriman pada pesanan ini sudah dibatalkan.');
+        }
 
         $awbs = $freshShipments
             ->map(static fn (OrderShipment $shipment): string => trim((string) ($shipment->awb ?: $shipment->tracking_number)))

@@ -38,6 +38,9 @@ Schedule::command('shipping:fulfill-paid')
     ->onOneServer()
     ->when($shippingServices(FulfillsShipments::class));
 
+// Polling runs only while a fulfilling provider is configured (on Starter /
+// quote-only plans, the daily Cost quota is protected for checkout quotes and
+// staff/customers refresh on demand; see RefreshPendingShipmentTracking).
 Schedule::command('shipping:refresh-tracking')
     ->hourly()
     ->withoutOverlapping(120)

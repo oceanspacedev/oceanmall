@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Shop\CartCouponController::store
- * @see app/Http/Controllers/Shop/CartCouponController.php:20
+ * @see app/Http/Controllers/Shop/CartCouponController.php:22
  * @route '/cart/coupon'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\CartCouponController::store
- * @see app/Http/Controllers/Shop/CartCouponController.php:20
+ * @see app/Http/Controllers/Shop/CartCouponController.php:22
  * @route '/cart/coupon'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Shop\CartCouponController::store
- * @see app/Http/Controllers/Shop/CartCouponController.php:20
+ * @see app/Http/Controllers/Shop/CartCouponController.php:22
  * @route '/cart/coupon'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Shop\CartCouponController::store
- * @see app/Http/Controllers/Shop/CartCouponController.php:20
+ * @see app/Http/Controllers/Shop/CartCouponController.php:22
  * @route '/cart/coupon'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Shop\CartCouponController::store
- * @see app/Http/Controllers/Shop/CartCouponController.php:20
+ * @see app/Http/Controllers/Shop/CartCouponController.php:22
  * @route '/cart/coupon'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\Shop\CartCouponController::destroy
- * @see app/Http/Controllers/Shop/CartCouponController.php:68
+ * @see app/Http/Controllers/Shop/CartCouponController.php:78
  * @route '/cart/coupon'
  */
 export const destroy = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -71,7 +71,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\CartCouponController::destroy
- * @see app/Http/Controllers/Shop/CartCouponController.php:68
+ * @see app/Http/Controllers/Shop/CartCouponController.php:78
  * @route '/cart/coupon'
  */
 destroy.url = (options?: RouteQueryOptions) => {
@@ -80,7 +80,7 @@ destroy.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Shop\CartCouponController::destroy
- * @see app/Http/Controllers/Shop/CartCouponController.php:68
+ * @see app/Http/Controllers/Shop/CartCouponController.php:78
  * @route '/cart/coupon'
  */
 destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -90,7 +90,7 @@ destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
 
     /**
 * @see \App\Http\Controllers\Shop\CartCouponController::destroy
- * @see app/Http/Controllers/Shop/CartCouponController.php:68
+ * @see app/Http/Controllers/Shop/CartCouponController.php:78
  * @route '/cart/coupon'
  */
     const destroyForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -105,7 +105,7 @@ destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
 
             /**
 * @see \App\Http\Controllers\Shop\CartCouponController::destroy
- * @see app/Http/Controllers/Shop/CartCouponController.php:68
+ * @see app/Http/Controllers/Shop/CartCouponController.php:78
  * @route '/cart/coupon'
  */
         destroyForm.delete = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

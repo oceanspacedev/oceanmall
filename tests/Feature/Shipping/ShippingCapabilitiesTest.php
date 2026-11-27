@@ -13,12 +13,16 @@ use App\Payment\Contracts\ProvidesPaymentCatalog;
 use App\Payment\Contracts\ReconcilesPayments;
 use App\Shipping\Contracts\CancelsShipments;
 use App\Shipping\Contracts\FulfillsShipments;
+use App\Shipping\Contracts\PresentsCarriers;
 use App\Shipping\Contracts\PrintsLabels;
 use App\Shipping\Contracts\ReconcilesShipments;
 use App\Shipping\Contracts\RequiresCoordinates;
 use App\Shipping\Contracts\RequiresDestination;
+use App\Shipping\Contracts\RequiresOriginId;
 use App\Shipping\Contracts\ResolvesDestinations;
 use App\Shipping\Contracts\SyncsCarriers;
+use App\Shipping\Contracts\TracksShipments;
+use App\Shipping\Contracts\ValidatesOriginIds;
 use App\Shipping\ShippingCapabilities;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -69,7 +73,7 @@ final class ShippingCapabilitiesTest extends TestCase
         $this->assertSame('rajaongkir', $capabilities->originDriverCode());
     }
 
-    public function test_delivery_key_alone_needs_coordinates_but_cannot_require_a_destination(): void
+    public function test_delivery_key_alone_needs_coordinates_and_enables_destination_search(): void
     {
         $this->requireModules('Komerce');
 
@@ -77,10 +81,24 @@ final class ShippingCapabilitiesTest extends TestCase
         $capabilities = resolve(ShippingCapabilities::class);
 
         $this->assertSame(['komerce'], $capabilities->drivers()->keys()->all());
-        $this->assertFalse($capabilities->destinationSearch());
-        // Nothing can provide a destination id, so checkout must not demand one.
-        $this->assertFalse($capabilities->requiresDestination());
+        $this->assertTrue($capabilities->destinationSearch());
+        $this->assertTrue($capabilities->requiresDestination());
         $this->assertTrue($capabilities->requiresCoordinates());
+        $this->assertSame('komerce', $capabilities->destinationDriverCode());
+        $this->assertSame('komerce', $capabilities->originDriverCode());
+    }
+
+    public function test_komship_mode_deduplicates_origin_drivers_by_provider_family(): void
+    {
+        $this->requireModules('Komerce');
+
+        config()->set('komerce.shipping_cost_api_key', 'cost-key');
+        config()->set('komerce.shipping_delivery_api_key', 'delivery-key');
+        $capabilities = resolve(ShippingCapabilities::class);
+
+        $this->assertSame(['rajaongkir'], $capabilities->originDrivers()->keys()->all());
+        $this->assertSame('rajaongkir', $capabilities->destinationDriverCode());
+        $this->assertSame('rajaongkir', $capabilities->originDriverCode());
     }
 
     public function test_a_third_party_driver_plugs_in_through_shipping_extend(): void
@@ -146,10 +164,22 @@ final class ShippingCapabilitiesTest extends TestCase
 
         $komerce = Shipping::driver('komerce');
         $this->assertInstanceOf(KomerceShippingDriver::class, $komerce);
-        foreach ([RequiresDestination::class, RequiresCoordinates::class, FulfillsShipments::class, PrintsLabels::class, CancelsShipments::class, ReconcilesShipments::class] as $contract) {
+        foreach ([
+            RequiresDestination::class,
+            RequiresCoordinates::class,
+            RequiresOriginId::class,
+            ResolvesDestinations::class,
+            ValidatesOriginIds::class,
+            PresentsCarriers::class,
+            SyncsCarriers::class,
+            FulfillsShipments::class,
+            PrintsLabels::class,
+            CancelsShipments::class,
+            ReconcilesShipments::class,
+            TracksShipments::class,
+        ] as $contract) {
             $this->assertInstanceOf($contract, $komerce);
         }
-        $this->assertNotInstanceOf(ResolvesDestinations::class, $komerce);
 
         $payment = Payment::driver('komerce');
         $this->assertInstanceOf(KomerceDriver::class, $payment);

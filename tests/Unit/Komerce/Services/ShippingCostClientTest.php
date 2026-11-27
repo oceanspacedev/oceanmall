@@ -10,6 +10,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use RuntimeException;
 use Tests\TestCase;
 
 final class ShippingCostClientTest extends TestCase
@@ -322,5 +323,26 @@ final class ShippingCostClientTest extends TestCase
                 && $request['courier'] === 'jne'
                 && $request['price'] === 'lowest';
         });
+    }
+
+    public function test_search_domestic_throws_on_http_200_error_envelope_while_404_returns_empty(): void
+    {
+        config()->set('komerce.shipping_cost_api_key', 'test-komerce-key');
+        config()->set('komerce.rajaongkir.cost_base_url', 'https://shipping.example.test');
+
+        Http::fake([
+            'https://shipping.example.test/api/v1/destination/domestic-destination*' => Http::sequence()
+                ->push(['meta' => ['code' => 404, 'status' => 'error', 'message' => 'Not found']], 404)
+                ->push(['meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily limit exceeded'], 'data' => []], 200),
+        ]);
+
+        $client = new ShippingCostClient;
+
+        $this->assertSame([], $client->searchDomestic('unknown', 10));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Daily limit exceeded');
+
+        $client->searchDomestic('jakarta', 10);
     }
 }

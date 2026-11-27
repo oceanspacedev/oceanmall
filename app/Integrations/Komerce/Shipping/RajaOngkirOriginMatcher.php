@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Shipping;
 
 use App\Integrations\Komerce\Services\ShippingCostClient;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
+use Illuminate\Support\Facades\Cache;
 use Shopper\Core\Models\Inventory;
+use Throwable;
 
 /**
  * Find the single RajaOngkir destination id that matches a warehouse address.
@@ -21,6 +24,37 @@ final readonly class RajaOngkirOriginMatcher
      */
     public function match(Inventory $inventory): ?array
     {
+        return $this->matchWith(
+            $inventory,
+            function (string $query): array {
+                $normalized = mb_strtolower(trim($query));
+
+                if ($normalized === '') {
+                    return [];
+                }
+
+                $cacheKey = 'rajaongkir:destinations:v1:'.sha1("{$normalized}|50");
+                $cached = Cache::get($cacheKey);
+
+                if (is_array($cached)) {
+                    return $cached;
+                }
+
+                $rows = $this->client->searchDomestic($normalized, 50);
+                Cache::put($cacheKey, $rows, now()->addDays(30));
+
+                return $rows;
+            },
+            'shipping_cost',
+        );
+    }
+
+    /**
+     * @param  callable(string): list<array<string, mixed>>  $search
+     * @return array{id: string, label: string|null}|null
+     */
+    public function matchWith(Inventory $inventory, callable $search, string $product = 'shipping_cost'): ?array
+    {
         $postalCode = trim((string) $inventory->getAttribute('postal_code'));
         $city = trim((string) $inventory->getAttribute('city'));
         $street = trim((string) $inventory->getAttribute('street_address'));
@@ -30,17 +64,59 @@ final readonly class RajaOngkirOriginMatcher
             return null;
         }
 
+        $capabilities = resolve(KomerceCapabilities::class);
         $results = [];
-        if ($postalCode !== '') {
-            $results = $this->client->searchDomestic($postalCode, 50);
-        }
 
-        if (empty($results) && ($city !== '' || $street !== '')) {
-            $results = $this->client->searchDomestic(trim("{$street} {$city}"), 50);
-        }
+        $queries = array_values(array_unique(array_filter([
+            $postalCode !== '' ? $postalCode : null,
+            ($city !== '' || $street !== '') ? trim("{$street} {$city}") : null,
+            $city !== '' ? $city : null,
+        ], static fn (?string $query): bool => $query !== null && $query !== '')));
 
-        if (empty($results) && $city !== '') {
-            $results = $this->client->searchDomestic($city, 50);
+        foreach ($queries as $query) {
+            if ($product === 'shipping_cost') {
+                $cacheKey = 'rajaongkir:destinations:v1:'.sha1(mb_strtolower(trim($query)).'|50');
+                $cached = Cache::get($cacheKey);
+
+                if (is_array($cached)) {
+                    $results = $cached;
+                    if ($results !== []) {
+                        break;
+                    }
+
+                    continue;
+                }
+            } elseif ($product === 'shipping_delivery') {
+                $cacheKey = 'komerce:delivery:destinations:v1:'.sha1(mb_strtolower(trim($query)));
+                $cached = Cache::get($cacheKey);
+
+                if (is_array($cached)) {
+                    $results = $cached;
+                    if ($results !== []) {
+                        break;
+                    }
+
+                    continue;
+                }
+            }
+
+            if ($capabilities->quotaExhausted($product)) {
+                return null;
+            }
+
+            try {
+                $results = $search($query);
+            } catch (Throwable $e) {
+                if ($capabilities->quotaExhausted($product)) {
+                    return null;
+                }
+
+                throw $e;
+            }
+
+            if (! empty($results)) {
+                break;
+            }
         }
 
         if (empty($results)) {

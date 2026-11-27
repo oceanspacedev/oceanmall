@@ -12,7 +12,9 @@ use App\Integrations\Komerce\Services\ShippingCostClient;
 use App\Integrations\Komerce\Support\KomerceCapabilities;
 use App\Integrations\Komerce\Support\KomerceTrackingContext;
 use App\Integrations\Komerce\Support\RajaOngkirCouriers;
+use App\Models\InventoryShippingOrigin;
 use App\Models\OrderShipment;
+use App\Shipping\AddressDestination;
 use App\Shipping\CarrierSyncResult;
 use App\Shipping\Contracts\DelegatesFulfillment;
 use App\Shipping\Contracts\DelegatesQuotes;
@@ -23,6 +25,7 @@ use App\Shipping\Contracts\ResolvesDestinations;
 use App\Shipping\Contracts\SyncsCarriers;
 use App\Shipping\Contracts\TracksShipments;
 use App\Shipping\Contracts\ValidatesOriginIds;
+use App\Shipping\ShippingCapabilities;
 use App\Shipping\ShippingQuoteContext;
 use App\Shipping\ShippingQuoteFailure;
 use App\Support\EnabledCarriers;
@@ -110,11 +113,29 @@ final class RajaOngkirDriver extends Driver implements DelegatesFulfillment, Del
             return [];
         }
 
-        $rows = Cache::remember(
-            'rajaongkir:destinations:v1:'.sha1("{$query}|{$limit}"),
-            now()->addDays(30),
-            fn (): array => $this->costClient->searchDomestic($query, $limit),
-        );
+        $cacheKey = 'rajaongkir:destinations:v1:'.sha1("{$query}|{$limit}");
+        $rows = Cache::get($cacheKey);
+
+        if (! is_array($rows)) {
+            $capabilities = resolve(KomerceCapabilities::class);
+
+            if ($capabilities->quotaExhausted('shipping_cost')) {
+                throw ShippingException::apiError($this->code(), 'Shipping Cost daily quota exhausted.');
+            }
+
+            try {
+                $rows = $this->costClient->searchDomestic($query, $limit);
+            } catch (Throwable $e) {
+                throw ShippingException::apiError(
+                    $this->code(),
+                    $capabilities->quotaExhausted('shipping_cost')
+                        ? 'Shipping Cost daily quota exhausted.'
+                        : $e->getMessage(),
+                );
+            }
+
+            Cache::put($cacheKey, $rows, now()->addDays(30));
+        }
 
         // Neutral region keys of the ResolvesDestinations contract, next to the
         // RajaOngkir names that app builds released before them still read.
@@ -131,6 +152,22 @@ final class RajaOngkirDriver extends Driver implements DelegatesFulfillment, Del
     {
         if (! $this->isConfigured()) {
             return null;
+        }
+
+        if ($inventory->getKey() !== null) {
+            $existing = InventoryShippingOrigin::query()
+                ->where('inventory_id', $inventory->getKey())
+                ->where('driver', KomerceShippingDriver::CODE)
+                ->first(['external_id', 'label']);
+
+            if ($existing !== null && trim((string) $existing->external_id) !== '') {
+                return [
+                    'id' => trim((string) $existing->external_id),
+                    'label' => is_scalar($existing->label) && trim((string) $existing->label) !== ''
+                        ? trim((string) $existing->label)
+                        : null,
+                ];
+            }
         }
 
         return resolve(RajaOngkirOriginMatcher::class)->match($inventory);
@@ -243,8 +280,18 @@ final class RajaOngkirDriver extends Driver implements DelegatesFulfillment, Del
      */
     private function quote(ShippingQuoteContext $context, array $packages): Collection
     {
-        $originId = (string) $context->originId($this->code());
-        $destinationId = (string) $context->destinationId($this->code());
+        $originId = (string) ($context->originId($this->code()) ?? $context->originId(KomerceShippingDriver::CODE));
+        $address = $context->address();
+        $shippingCapabilities = resolve(ShippingCapabilities::class);
+        $primaryDriver = $shippingCapabilities->destinationDriverCode();
+        $sameFamilyPrimary = $primaryDriver !== null
+            && $shippingCapabilities->providerFamily($primaryDriver) === $shippingCapabilities->providerFamily($this->code());
+
+        $destinationId = (string) (
+            AddressDestination::id($address, $this->code())
+            ?? AddressDestination::id($address, KomerceShippingDriver::CODE)
+            ?? ($sameFamilyPrimary ? null : $context->destinationId($this->code()))
+        );
 
         // Shopper's Address DTO has no subdistrict id: without a warehouse
         // origin and a destination id there is nothing to quote.
@@ -274,23 +321,57 @@ final class RajaOngkirDriver extends Driver implements DelegatesFulfillment, Del
         $weightGrams = $this->totalWeightGrams($packages);
         $cacheKey = 'shipping_rates:'.sha1("{$originId}:{$destinationId}:{$weightGrams}:".implode(',', $couriers));
 
-        try {
-            // Free Collaborator plan allows 100 Shipping Cost requests/day; tariffs
-            // change rarely, so keep a route+weight quote for hours.
-            $response = Cache::remember($cacheKey, now()->addHours(12), function () use ($originId, $destinationId, $weightGrams, $couriers): array {
-                return $this->costClient->calculate(
+        $response = Cache::get($cacheKey);
+
+        if (! is_array($response)) {
+            try {
+                // Free Collaborator plan allows 100 Shipping Cost requests/day; tariffs
+                // change rarely, so keep a route+weight quote for hours.
+                $response = $this->costClient->calculate(
                     origin: ['id' => $originId],
                     destination: ['id' => $destinationId],
                     weightGrams: $weightGrams,
                     couriers: $couriers,
                 );
-            });
-        } catch (Throwable $e) {
-            throw ShippingException::apiError($this->code(), $e->getMessage());
-        }
+            } catch (Throwable $e) {
+                if ($capabilities->quotaExhausted('shipping_cost')) {
+                    $context->markFailure(
+                        $this->code(),
+                        ShippingQuoteFailure::QUOTA,
+                        $e->getMessage(),
+                        $capabilities->quotaExhaustedUntil('shipping_cost'),
+                    );
 
-        if (! is_array($response)) {
-            throw ShippingException::invalidResponse($this->code());
+                    return collect();
+                }
+
+                throw ShippingException::apiError($this->code(), $e->getMessage());
+            }
+
+            if (! is_array($response)) {
+                throw ShippingException::invalidResponse($this->code());
+            }
+
+            if ($this->isErrorEnvelope($response)) {
+                $message = $this->envelopeMessage($response);
+                $metaCode = (int) data_get($response, 'meta.code', 400);
+                $capabilities->observe('shipping_cost', $metaCode >= 400 ? $metaCode : 400, json_encode($response) ?: '');
+
+                if ($capabilities->quotaExhausted('shipping_cost')) {
+                    $context->markFailure(
+                        $this->code(),
+                        ShippingQuoteFailure::QUOTA,
+                        $message,
+                        $capabilities->quotaExhaustedUntil('shipping_cost'),
+                    );
+
+                    return collect();
+                }
+
+                throw ShippingException::apiError($this->code(), $message);
+            }
+
+            Cache::put($cacheKey, $response, now()->addHours(12));
         }
 
         $rates = $this->mapper->toShopperRates($response, $couriers);
@@ -356,6 +437,12 @@ final class RajaOngkirDriver extends Driver implements DelegatesFulfillment, Del
             throw ShippingException::apiError($this->code(), 'RajaOngkir courier code is required to track a waybill.');
         }
 
+        $capabilities = resolve(KomerceCapabilities::class);
+
+        if ($capabilities->quotaExhausted('shipping_cost')) {
+            throw ShippingException::apiError($this->code(), 'Shipping Cost daily quota exhausted.');
+        }
+
         try {
             $response = $this->costClient->trackWaybill(
                 $trackingNumber,
@@ -363,11 +450,28 @@ final class RajaOngkirDriver extends Driver implements DelegatesFulfillment, Del
                 $trackingContext->lastPhoneNumber(),
             );
         } catch (Throwable $e) {
+            if ($capabilities->quotaExhausted('shipping_cost')) {
+                throw ShippingException::apiError($this->code(), 'Shipping Cost daily quota exhausted.');
+            }
+
             throw ShippingException::apiError($this->code(), $e->getMessage());
         }
 
         if (! is_array($response)) {
             throw ShippingException::invalidResponse($this->code());
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            $message = $this->envelopeMessage($response);
+            $metaCodeRaw = data_get($response, 'meta.code');
+            $metaCode = is_numeric($metaCodeRaw) ? (int) $metaCodeRaw : 400;
+            $capabilities->observe('shipping_cost', $metaCode >= 400 ? $metaCode : 400, json_encode($response) ?: '');
+
+            if ($capabilities->quotaExhausted('shipping_cost')) {
+                throw ShippingException::apiError($this->code(), 'Shipping Cost daily quota exhausted.');
+            }
+
+            throw ShippingException::apiError($this->code(), $message);
         }
 
         $trackingContext->setLastRaw($response);
@@ -461,5 +565,40 @@ final class RajaOngkirDriver extends Driver implements DelegatesFulfillment, Del
         }
 
         return max(1, (int) ceil($weight * 1000));
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function isErrorEnvelope(array $response): bool
+    {
+        if (($response['success'] ?? null) === false) {
+            return true;
+        }
+
+        $status = strtolower(trim((string) (data_get($response, 'meta.status') ?? '')));
+        if ($status !== '' && ! in_array($status, ['success', 'succeeded', 'ok'], true)) {
+            return true;
+        }
+
+        $codeRaw = data_get($response, 'meta.code');
+
+        return is_numeric($codeRaw) && ((int) $codeRaw < 200 || (int) $codeRaw >= 300);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function envelopeMessage(array $response): string
+    {
+        foreach (['meta.message', 'message'] as $path) {
+            $value = data_get($response, $path);
+
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return 'RajaOngkir Shipping Cost returned an error response.';
     }
 }

@@ -352,6 +352,7 @@ const maxQuantity = computed<number>(() => {
 
 watch(selectedVariant, (variant) => {
     const url = variant?.thumbnail ?? variant?.images?.[0]?.url ?? null;
+
     if (url && !url.includes('placeholder')) {
         activeImage.value = url;
     }

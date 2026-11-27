@@ -10,6 +10,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Order;
 use Shopper\Livewire\Pages\Auth\Login;
 use Spatie\Permission\Models\Permission;
@@ -64,7 +67,13 @@ final class CustomerCannotAccessCpanelTest extends TestCase
     {
         $this->configureShopperCpanel();
         $customer = $this->customer();
-        $order = Order::factory()->create(['customer_id' => $customer->id]);
+        $order = Order::factory()->create([
+            'customer_id' => $customer->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         $this->actingAs($customer)
             ->get(route('shopper.dashboard'))
@@ -98,7 +107,13 @@ final class CustomerCannotAccessCpanelTest extends TestCase
     {
         $this->configureShopperCpanel();
         $customer = $this->customer();
-        $order = Order::factory()->create(['customer_id' => $customer->id]);
+        $order = Order::factory()->create([
+            'customer_id' => $customer->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         $this->actingAs($customer)
             ->get(route('shopper.orders.fulfillment.print-label', $order))
@@ -191,7 +206,12 @@ final class CustomerCannotAccessCpanelTest extends TestCase
         $staff = User::factory()->create();
         $staff->givePermissionTo(['access_dashboard', 'browse_orders']);
 
-        $order = Order::factory()->create();
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         $this->assertTrue(Gate::forUser($staff)->denies('override-allocation', $order));
 

@@ -13,6 +13,7 @@ use App\Actions\Checkout\PersistUserShippingAddress;
 use App\Actions\Checkout\SelectedShipmentRates;
 use App\Actions\CreateOrder;
 use App\Actions\Notify\NotifyOrderCustomer;
+use App\Actions\Shipping\DispatchShipmentFulfillment;
 use App\Actions\Warehouse\SuggestAllocation;
 use App\Actions\ZoneSessionManager;
 use App\CheckoutSession;
@@ -28,6 +29,7 @@ use App\Shipping\AddressDestination;
 use App\Shipping\SelectedRate;
 use App\Shipping\ShippingCapabilities;
 use App\Shipping\ShippingQuoteContext;
+use App\Support\OrderPaymentType;
 use App\Support\ShipmentItemValue;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\RedirectResponse;
@@ -129,6 +131,8 @@ final class CheckoutController extends Controller
         $deliveryOptionsByShipment = [];
 
         if ($shippingAddress) {
+            resolve(ShippingQuoteContext::class)->restoreFailure(null);
+
             $packages = resolve(BuildShippingPackages::class)->handle();
 
             [$allocation, $deliveryOptionsByShipment] = $this->resolveAllocationAndRates(
@@ -193,6 +197,10 @@ final class CheckoutController extends Controller
         $selectedByShipment = data_get($checkout, 'shipping_options_by_shipment', []);
 
         $user = Auth::user();
+        $capabilities = resolve(ShippingCapabilities::class);
+        $destinationDrivers = $capabilities->destinationDriverCode() !== null
+            ? $capabilities->destinationDriverFamilyCodes()
+            : null;
 
         return Inertia::render('shop/checkout', [
             'cart' => $cart,
@@ -203,7 +211,7 @@ final class CheckoutController extends Controller
             // Neutral keys for the form (sessions saved before the neutral keys
             // still carry rajaongkir_*), destination only in today's vocabulary.
             'shippingAddress' => is_array($shippingAddress)
-                ? AddressDestination::forDriver($shippingAddress, resolve(ShippingCapabilities::class)->destinationDriverCode())
+                ? AddressDestination::forDriver($shippingAddress, $destinationDrivers)
                 : $shippingAddress,
             'deliveryOptions' => $deliveryOptions,
             'selectedDeliveryOption' => is_array($shippingOption)
@@ -250,17 +258,23 @@ final class CheckoutController extends Controller
             return null;
         }
 
-        $hasAnyRate = $deliveryOptions !== []
-            || collect($deliveryOptionsByShipment)->contains(fn (mixed $opts): bool => is_array($opts) && $opts !== []);
+        $allPackagesHaveRates = $deliveryOptionsByShipment !== []
+            ? ! collect($deliveryOptionsByShipment)->contains(
+                static fn (mixed $opts): bool => ! is_array($opts) || $opts === []
+            )
+            : $deliveryOptions !== [];
 
-        if ($hasAnyRate) {
+        if ($allPackagesHaveRates) {
             return null;
         }
 
         $capabilities = resolve(ShippingCapabilities::class);
+        $destinationDrivers = $capabilities->destinationDriverCode() !== null
+            ? $capabilities->destinationDriverFamilyCodes()
+            : null;
 
         if ($capabilities->requiresDestination()
-            && AddressDestination::id($shippingAddress, $capabilities->destinationDriverCode()) === null) {
+            && AddressDestination::id($shippingAddress, $destinationDrivers) === null) {
             return __('Kecamatan tujuan pengiriman belum dipilih. Silakan kembali ke langkah Alamat dan pilih kecamatan dari hasil pencarian otomatis.');
         }
 
@@ -637,7 +651,7 @@ final class CheckoutController extends Controller
             $isCodMethod = strtolower(trim((string) ($selectedMethod['slug'] ?? ''))) === 'cod'
                 || strtolower(trim((string) ($selectedMethod['payment_type'] ?? ''))) === 'cod';
 
-            if ($isCodMethod && ! \App\Support\OrderPaymentType::shippingRatesSupportCod($checkoutState)) {
+            if ($isCodMethod && ! OrderPaymentType::shippingRatesSupportCod($checkoutState)) {
                 return back()->withErrors(['payment' => __('Kurir yang dipilih tidak mendukung Cash on Delivery (COD). Pilih kurir atau metode pembayaran lain.')]);
             }
 
@@ -677,8 +691,8 @@ final class CheckoutController extends Controller
 
             ['result' => $result, 'action' => $action] = resolve(InitiateOrderPayment::class)->handle($order, $selectedMethod);
 
-            if (\App\Support\OrderPaymentType::isCod($order)) {
-                resolve(\App\Actions\Shipping\DispatchShipmentFulfillment::class)->handle($order);
+            if (OrderPaymentType::isCod($order)) {
+                resolve(DispatchShipmentFulfillment::class)->handle($order);
             }
         } catch (HttpExceptionInterface $e) {
             // CreateOrder refuses with a customer-facing 422 (last unit sold

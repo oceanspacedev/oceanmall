@@ -9,6 +9,7 @@ use App\Models\OrderShipment;
 use App\Shipping\ShippingCapabilities;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderShipmentCreated;
@@ -32,7 +33,12 @@ final class FulfillmentRoutingTest extends TestCase
         $this->requireModules('Komerce');
 
         $capabilities = resolve(ShippingCapabilities::class);
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         // Keyless: no shipment has a provider.
         foreach (['komerce', 'rajaongkir', 'manual', null] as $driver) {
@@ -58,11 +64,21 @@ final class FulfillmentRoutingTest extends TestCase
         config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
         $capabilities = resolve(ShippingCapabilities::class);
 
-        $manualOrder = Order::factory()->create(['currency_code' => 'IDR']);
+        $manualOrder = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $this->shipment($manualOrder, 'manual');
         $this->assertNull($capabilities->fulfillerForOrder($manualOrder));
 
-        $providerOrder = Order::factory()->create(['currency_code' => 'IDR']);
+        $providerOrder = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $this->shipment($providerOrder, 'komerce');
         $this->assertSame('komerce', $capabilities->fulfillerForOrder($providerOrder)?->code());
     }
@@ -73,6 +89,7 @@ final class FulfillmentRoutingTest extends TestCase
         Carrier::query()->create(['name' => 'JNE', 'slug' => 'jne', 'is_enabled' => true]);
         $order = Order::factory()->create([
             'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
             'payment_status' => PaymentStatus::Paid,
             // The factory picks a random shipping status; a freshly paid order is unfulfilled.
             'shipping_status' => ShippingStatus::Unfulfilled,
@@ -106,7 +123,9 @@ final class FulfillmentRoutingTest extends TestCase
     {
         return OrderShipment::query()->create([
             'order_id' => $order->id,
-            'inventory_id' => Inventory::factory()->create()->id,
+            'inventory_id' => Inventory::factory()->create([
+                'shipping_origins' => ['komerce' => '17248'],
+            ])->id,
             'driver' => $driver,
             'carrier_code' => 'jne',
             'service_code' => 'REG',

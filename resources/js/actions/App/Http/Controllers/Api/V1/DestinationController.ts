@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\V1\DestinationController::__invoke
- * @see app/Http/Controllers/Api/V1/DestinationController.php:17
+ * @see app/Http/Controllers/Api/V1/DestinationController.php:20
  * @route '/api/v1/checkout/destinations'
  */
 const DestinationController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ DestinationController.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\DestinationController::__invoke
- * @see app/Http/Controllers/Api/V1/DestinationController.php:17
+ * @see app/Http/Controllers/Api/V1/DestinationController.php:20
  * @route '/api/v1/checkout/destinations'
  */
 DestinationController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ DestinationController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\DestinationController::__invoke
- * @see app/Http/Controllers/Api/V1/DestinationController.php:17
+ * @see app/Http/Controllers/Api/V1/DestinationController.php:20
  * @route '/api/v1/checkout/destinations'
  */
 DestinationController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ DestinationController.get = (options?: RouteQueryOptions): RouteDefinition<'get'
 })
 /**
 * @see \App\Http\Controllers\Api\V1\DestinationController::__invoke
- * @see app/Http/Controllers/Api/V1/DestinationController.php:17
+ * @see app/Http/Controllers/Api/V1/DestinationController.php:20
  * @route '/api/v1/checkout/destinations'
  */
 DestinationController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ DestinationController.head = (options?: RouteQueryOptions): RouteDefinition<'hea
 
     /**
 * @see \App\Http\Controllers\Api\V1\DestinationController::__invoke
- * @see app/Http/Controllers/Api/V1/DestinationController.php:17
+ * @see app/Http/Controllers/Api/V1/DestinationController.php:20
  * @route '/api/v1/checkout/destinations'
  */
     const DestinationControllerForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ DestinationController.head = (options?: RouteQueryOptions): RouteDefinition<'hea
 
             /**
 * @see \App\Http\Controllers\Api\V1\DestinationController::__invoke
- * @see app/Http/Controllers/Api/V1/DestinationController.php:17
+ * @see app/Http/Controllers/Api/V1/DestinationController.php:20
  * @route '/api/v1/checkout/destinations'
  */
         DestinationControllerForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ DestinationController.head = (options?: RouteQueryOptions): RouteDefinition<'hea
         })
             /**
 * @see \App\Http\Controllers\Api\V1\DestinationController::__invoke
- * @see app/Http/Controllers/Api/V1/DestinationController.php:17
+ * @see app/Http/Controllers/Api/V1/DestinationController.php:20
  * @route '/api/v1/checkout/destinations'
  */
         DestinationControllerForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

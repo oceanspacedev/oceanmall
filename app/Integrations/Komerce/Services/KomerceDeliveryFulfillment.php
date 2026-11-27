@@ -7,6 +7,8 @@ namespace App\Integrations\Komerce\Services;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\SyncOrderShippingFromShipments;
 use App\Integrations\Komerce\Actions\Shipping\ReconcileKomerceShipment;
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Shipping\KomerceShippingDriver;
 use App\Integrations\Komerce\Shipping\RajaOngkirCourier;
 use App\Integrations\Komerce\Shipping\RajaOngkirDriver;
 use App\Integrations\Komerce\Support\KomerceLabelResponse;
@@ -20,6 +22,8 @@ use App\Shipping\ProviderRequestFailure;
 use App\Shipping\ShipmentFulfillment;
 use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShipmentNotFulfillable;
+use App\Support\OrderShipmentOpsPresenter;
+use App\Support\ShipmentItemValue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -79,6 +83,8 @@ final class KomerceDeliveryFulfillment
         $shipment = OrderShipment::query()->with(self::RELATIONS)->findOrFail($shipment->id);
 
         if (trim((string) ($shipment->awb ?: $shipment->tracking_number)) !== '') {
+            $this->clearFulfillmentError($shipment);
+
             return;
         }
 
@@ -310,7 +316,7 @@ final class KomerceDeliveryFulfillment
 
         $shippingAddress = $this->shippingAddress($order);
         $destinationId = $this->requiredPositiveInteger(
-            AddressDestination::id($shippingAddress, RajaOngkirDriver::CODE),
+            $this->destinationId($shippingAddress),
             'Order RajaOngkir destination id',
         );
 
@@ -348,7 +354,9 @@ final class KomerceDeliveryFulfillment
             (int) round($shippingCost * ((float) config('komerce.shipping_cost_tolerance_percent', 0) / 100)),
         );
 
-        if (abs((int) $shipment->cost - $shippingCost) > $toleranceAmount) {
+        $expectedCost = $this->expectedCostForRateValidation($shipment, $order);
+
+        if ($expectedCost !== null && abs($expectedCost - $shippingCost) > $toleranceAmount) {
             throw new RuntimeException('Shipment cost does not match the persisted Shipping Delivery rate.');
         }
 
@@ -397,7 +405,7 @@ final class KomerceDeliveryFulfillment
                 $deliveryRate['additional_cost'] ?? 0,
                 'Delivery rate additional_cost',
             ),
-            'grand_total' => $grandTotal = $this->requiredNonNegativeInteger(
+            'grand_total' => $this->requiredNonNegativeInteger(
                 $deliveryRate['grandtotal']
                     ?? $deliveryRate['grand_total']
                     ?? (array_sum(array_map(
@@ -408,11 +416,7 @@ final class KomerceDeliveryFulfillment
             ),
             'cod_value' => $this->requiredNonNegativeInteger(
                 $paymentMethod === 'COD'
-                    ? (($deliveryRate['cod_value'] ?? 0) > 0
-                        ? $deliveryRate['cod_value']
-                        : (OrderShipment::query()->where('order_id', $order->id)->count() === 1
-                            ? (int) $order->price_amount
-                            : $grandTotal))
+                    ? $this->codValueForShipment($order, $shipment, $deliveryRate)
                     : ($deliveryRate['cod_value'] ?? 0),
                 'Delivery rate cod_value',
             ),
@@ -422,6 +426,76 @@ final class KomerceDeliveryFulfillment
             ),
             'order_details' => $orderDetails,
         ];
+    }
+
+    /**
+     * Reshipped parcels carry cost = 0 so customer totals are never double-charged,
+     * while Store Order still sends the real courier shipping_cost. Validate
+     * against the original shipment's cost on the same order when available.
+     */
+    private function expectedCostForRateValidation(OrderShipment $shipment, Order $order): ?int
+    {
+        $recordedCost = (int) $shipment->cost;
+        $rawSourceId = data_get($shipment->metadata, ShipmentMetadata::RESHIP_OF_SHIPMENT_ID);
+
+        if ($recordedCost !== 0 || ! filled($rawSourceId)) {
+            return $recordedCost;
+        }
+
+        if (! is_numeric($rawSourceId)) {
+            return $recordedCost;
+        }
+
+        $sourceId = (int) $rawSourceId;
+        $visited = [(int) $shipment->id];
+        $foundValidSource = false;
+
+        for ($depth = 0; $depth < 10; $depth++) {
+            if (in_array($sourceId, $visited, true)) {
+                break;
+            }
+
+            $visited[] = $sourceId;
+            $source = OrderShipment::query()
+                ->where('order_id', $order->id)
+                ->find($sourceId);
+
+            if (! $source instanceof OrderShipment) {
+                return $foundValidSource ? null : $recordedCost;
+            }
+
+            $foundValidSource = true;
+
+            if ((int) $source->cost > 0) {
+                return (int) $source->cost;
+            }
+
+            $nextSourceId = data_get($source->metadata, ShipmentMetadata::RESHIP_OF_SHIPMENT_ID);
+
+            if (! is_numeric($nextSourceId)) {
+                return null;
+            }
+
+            $sourceId = (int) $nextSourceId;
+        }
+
+        return $foundValidSource ? null : $recordedCost;
+    }
+
+    /**
+     * @param  array<string, mixed>  $deliveryRate
+     */
+    private function codValueForShipment(Order $order, OrderShipment $shipment, array $deliveryRate): int
+    {
+        $allocated = resolve(OrderShipmentOpsPresenter::class)->allocateCodAmounts($order);
+        $prorated = $allocated[(int) $shipment->id] ?? max(0, (int) $order->price_amount);
+        $rateCodValue = $deliveryRate['cod_value'] ?? 0;
+
+        if (is_numeric($rateCodValue) && (int) $rateCodValue > 0) {
+            return min((int) $rateCodValue, $prorated);
+        }
+
+        return $prorated;
     }
 
     /**
@@ -705,9 +779,15 @@ final class KomerceDeliveryFulfillment
     private function assertSuccessfulEnvelope(array $response, string $operation): void
     {
         $status = data_get($response, 'meta.status');
+        $metaCode = data_get($response, 'meta.code');
 
-        if (! is_scalar($status) || strtolower(trim((string) $status)) !== 'success') {
-            $message = $this->firstScalar($response, ['meta.message']) ?? 'unknown provider error';
+        if (
+            ($response['success'] ?? null) === false
+            || ! is_scalar($status)
+            || ! in_array(strtolower(trim((string) $status)), ['success', 'succeeded', 'ok'], true)
+            || (is_numeric($metaCode) && ((int) $metaCode < 200 || (int) $metaCode >= 300))
+        ) {
+            $message = $this->firstScalar($response, ['meta.message', 'message']) ?? 'unknown provider error';
 
             throw new RuntimeException(sprintf('Komerce %s failed: %s.', $operation, $message));
         }
@@ -959,7 +1039,7 @@ final class KomerceDeliveryFulfillment
             'Shipment inventory RajaOngkir origin id',
         );
         $destinationId = $this->requiredPositiveInteger(
-            AddressDestination::id($this->shippingAddress($shipment->order), RajaOngkirDriver::CODE),
+            $this->destinationId($this->shippingAddress($shipment->order)),
             'Order RajaOngkir destination id',
         );
 
@@ -1062,13 +1142,31 @@ final class KomerceDeliveryFulfillment
     }
 
     /**
-     * Komerce Delivery uses the RajaOngkir destination vocabulary for origins.
+     * Komerce Delivery uses the shared RajaOngkir/Komerce destination vocabulary.
      */
     private function originId(?Model $inventory): ?string
     {
-        return $inventory instanceof Inventory
-            ? resolve(InventoryOrigins::class)->get($inventory, RajaOngkirDriver::CODE)
-            : null;
+        if (! $inventory instanceof Inventory) {
+            return null;
+        }
+
+        $origins = resolve(InventoryOrigins::class);
+        $primary = Komerce::shippingCostEnabled() ? RajaOngkirDriver::CODE : KomerceShippingDriver::CODE;
+        $fallback = Komerce::shippingCostEnabled() ? KomerceShippingDriver::CODE : RajaOngkirDriver::CODE;
+
+        return $origins->get($inventory, $primary) ?? $origins->get($inventory, $fallback);
+    }
+
+    /**
+     * @param  array<string, mixed>  $shippingAddress
+     */
+    private function destinationId(array $shippingAddress): ?string
+    {
+        $primary = Komerce::shippingCostEnabled() ? RajaOngkirDriver::CODE : KomerceShippingDriver::CODE;
+        $fallback = Komerce::shippingCostEnabled() ? KomerceShippingDriver::CODE : RajaOngkirDriver::CODE;
+
+        return AddressDestination::id($shippingAddress, $primary)
+            ?? AddressDestination::id($shippingAddress, $fallback);
     }
 
     private function shipmentWeightKilograms(OrderShipment $shipment): float
@@ -1111,7 +1209,7 @@ final class KomerceDeliveryFulfillment
             'qty' => (int) $line->qty,
         ])->values()->all();
 
-        return \App\Support\ShipmentItemValue::forOrder($order, $lines);
+        return ShipmentItemValue::forOrder($order, $lines);
     }
 
     /**

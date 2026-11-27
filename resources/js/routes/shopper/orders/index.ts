@@ -1,8 +1,11 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
+import paymentProofs52c075 from './payment-proofs'
+import returns4b8e07 from './returns'
 import fulfillment from './fulfillment'
+import warehouse from './warehouse'
 /**
-* @see \Shopper\Livewire\Pages\Order\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+* @see \App\Livewire\Shopper\Pages\OrderIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderIndex.php:7
  * @route '/cpanel/orders'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,8 +19,8 @@ index.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Order\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+* @see \App\Livewire\Shopper\Pages\OrderIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderIndex.php:7
  * @route '/cpanel/orders'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,8 +28,8 @@ index.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Order\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+* @see \App\Livewire\Shopper\Pages\OrderIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderIndex.php:7
  * @route '/cpanel/orders'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,8 +37,8 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Shopper\Livewire\Pages\Order\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+* @see \App\Livewire\Shopper\Pages\OrderIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderIndex.php:7
  * @route '/cpanel/orders'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,8 +47,8 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
-* @see \Shopper\Livewire\Pages\Order\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+* @see \App\Livewire\Shopper\Pages\OrderIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderIndex.php:7
  * @route '/cpanel/orders'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,8 +57,8 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
-* @see \Shopper\Livewire\Pages\Order\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+* @see \App\Livewire\Shopper\Pages\OrderIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderIndex.php:7
  * @route '/cpanel/orders'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,8 +66,8 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
-* @see \Shopper\Livewire\Pages\Order\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Order/Index.php:7
+* @see \App\Livewire\Shopper\Pages\OrderIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderIndex.php:7
  * @route '/cpanel/orders'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -331,12 +334,329 @@ detail.head = (args: { order: string | number } | [order: string | number ] | st
         })
     
     detail.form = detailForm
+/**
+* @see \App\Livewire\Shopper\Pages\ManualPaymentProofs::__invoke
+ * @see app/Livewire/Shopper/Pages/ManualPaymentProofs.php:7
+ * @route '/cpanel/orders/payment-proofs'
+ */
+export const paymentProofs = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: paymentProofs.url(options),
+    method: 'get',
+})
+
+paymentProofs.definition = {
+    methods: ["get","head"],
+    url: '/cpanel/orders/payment-proofs',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Livewire\Shopper\Pages\ManualPaymentProofs::__invoke
+ * @see app/Livewire/Shopper/Pages/ManualPaymentProofs.php:7
+ * @route '/cpanel/orders/payment-proofs'
+ */
+paymentProofs.url = (options?: RouteQueryOptions) => {
+    return paymentProofs.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Livewire\Shopper\Pages\ManualPaymentProofs::__invoke
+ * @see app/Livewire/Shopper/Pages/ManualPaymentProofs.php:7
+ * @route '/cpanel/orders/payment-proofs'
+ */
+paymentProofs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: paymentProofs.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Livewire\Shopper\Pages\ManualPaymentProofs::__invoke
+ * @see app/Livewire/Shopper/Pages/ManualPaymentProofs.php:7
+ * @route '/cpanel/orders/payment-proofs'
+ */
+paymentProofs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: paymentProofs.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Livewire\Shopper\Pages\ManualPaymentProofs::__invoke
+ * @see app/Livewire/Shopper/Pages/ManualPaymentProofs.php:7
+ * @route '/cpanel/orders/payment-proofs'
+ */
+    const paymentProofsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: paymentProofs.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Livewire\Shopper\Pages\ManualPaymentProofs::__invoke
+ * @see app/Livewire/Shopper/Pages/ManualPaymentProofs.php:7
+ * @route '/cpanel/orders/payment-proofs'
+ */
+        paymentProofsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: paymentProofs.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Livewire\Shopper\Pages\ManualPaymentProofs::__invoke
+ * @see app/Livewire/Shopper/Pages/ManualPaymentProofs.php:7
+ * @route '/cpanel/orders/payment-proofs'
+ */
+        paymentProofsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: paymentProofs.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    paymentProofs.form = paymentProofsForm
+/**
+* @see \App\Livewire\Shopper\Pages\OrderReturns::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderReturns.php:7
+ * @route '/cpanel/orders/returns'
+ */
+export const returns = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: returns.url(options),
+    method: 'get',
+})
+
+returns.definition = {
+    methods: ["get","head"],
+    url: '/cpanel/orders/returns',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Livewire\Shopper\Pages\OrderReturns::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderReturns.php:7
+ * @route '/cpanel/orders/returns'
+ */
+returns.url = (options?: RouteQueryOptions) => {
+    return returns.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Livewire\Shopper\Pages\OrderReturns::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderReturns.php:7
+ * @route '/cpanel/orders/returns'
+ */
+returns.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: returns.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Livewire\Shopper\Pages\OrderReturns::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderReturns.php:7
+ * @route '/cpanel/orders/returns'
+ */
+returns.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: returns.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Livewire\Shopper\Pages\OrderReturns::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderReturns.php:7
+ * @route '/cpanel/orders/returns'
+ */
+    const returnsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: returns.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Livewire\Shopper\Pages\OrderReturns::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderReturns.php:7
+ * @route '/cpanel/orders/returns'
+ */
+        returnsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: returns.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Livewire\Shopper\Pages\OrderReturns::__invoke
+ * @see app/Livewire/Shopper/Pages/OrderReturns.php:7
+ * @route '/cpanel/orders/returns'
+ */
+        returnsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: returns.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    returns.form = returnsForm
+/**
+* @see \App\Livewire\Shopper\Pages\PaymentDisputes::__invoke
+ * @see app/Livewire/Shopper/Pages/PaymentDisputes.php:7
+ * @route '/cpanel/orders/disputes'
+ */
+export const disputes = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: disputes.url(options),
+    method: 'get',
+})
+
+disputes.definition = {
+    methods: ["get","head"],
+    url: '/cpanel/orders/disputes',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Livewire\Shopper\Pages\PaymentDisputes::__invoke
+ * @see app/Livewire/Shopper/Pages/PaymentDisputes.php:7
+ * @route '/cpanel/orders/disputes'
+ */
+disputes.url = (options?: RouteQueryOptions) => {
+    return disputes.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Livewire\Shopper\Pages\PaymentDisputes::__invoke
+ * @see app/Livewire/Shopper/Pages/PaymentDisputes.php:7
+ * @route '/cpanel/orders/disputes'
+ */
+disputes.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: disputes.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Livewire\Shopper\Pages\PaymentDisputes::__invoke
+ * @see app/Livewire/Shopper/Pages/PaymentDisputes.php:7
+ * @route '/cpanel/orders/disputes'
+ */
+disputes.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: disputes.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Livewire\Shopper\Pages\PaymentDisputes::__invoke
+ * @see app/Livewire/Shopper/Pages/PaymentDisputes.php:7
+ * @route '/cpanel/orders/disputes'
+ */
+    const disputesForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: disputes.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Livewire\Shopper\Pages\PaymentDisputes::__invoke
+ * @see app/Livewire/Shopper/Pages/PaymentDisputes.php:7
+ * @route '/cpanel/orders/disputes'
+ */
+        disputesForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: disputes.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Livewire\Shopper\Pages\PaymentDisputes::__invoke
+ * @see app/Livewire/Shopper/Pages/PaymentDisputes.php:7
+ * @route '/cpanel/orders/disputes'
+ */
+        disputesForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: disputes.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    disputes.form = disputesForm
+/**
+* @see \App\Livewire\Shopper\Pages\AllocationOverrideLogs::__invoke
+ * @see app/Livewire/Shopper/Pages/AllocationOverrideLogs.php:7
+ * @route '/cpanel/orders/allocation-logs'
+ */
+export const allocationLogs = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: allocationLogs.url(options),
+    method: 'get',
+})
+
+allocationLogs.definition = {
+    methods: ["get","head"],
+    url: '/cpanel/orders/allocation-logs',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Livewire\Shopper\Pages\AllocationOverrideLogs::__invoke
+ * @see app/Livewire/Shopper/Pages/AllocationOverrideLogs.php:7
+ * @route '/cpanel/orders/allocation-logs'
+ */
+allocationLogs.url = (options?: RouteQueryOptions) => {
+    return allocationLogs.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Livewire\Shopper\Pages\AllocationOverrideLogs::__invoke
+ * @see app/Livewire/Shopper/Pages/AllocationOverrideLogs.php:7
+ * @route '/cpanel/orders/allocation-logs'
+ */
+allocationLogs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: allocationLogs.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Livewire\Shopper\Pages\AllocationOverrideLogs::__invoke
+ * @see app/Livewire/Shopper/Pages/AllocationOverrideLogs.php:7
+ * @route '/cpanel/orders/allocation-logs'
+ */
+allocationLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: allocationLogs.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Livewire\Shopper\Pages\AllocationOverrideLogs::__invoke
+ * @see app/Livewire/Shopper/Pages/AllocationOverrideLogs.php:7
+ * @route '/cpanel/orders/allocation-logs'
+ */
+    const allocationLogsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: allocationLogs.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Livewire\Shopper\Pages\AllocationOverrideLogs::__invoke
+ * @see app/Livewire/Shopper/Pages/AllocationOverrideLogs.php:7
+ * @route '/cpanel/orders/allocation-logs'
+ */
+        allocationLogsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: allocationLogs.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Livewire\Shopper\Pages\AllocationOverrideLogs::__invoke
+ * @see app/Livewire/Shopper/Pages/AllocationOverrideLogs.php:7
+ * @route '/cpanel/orders/allocation-logs'
+ */
+        allocationLogsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: allocationLogs.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    allocationLogs.form = allocationLogsForm
 const orders = {
     index: Object.assign(index, index),
 shipments: Object.assign(shipments, shipments),
 abandonedCarts: Object.assign(abandonedCarts, abandonedCarts),
 detail: Object.assign(detail, detail),
+paymentProofs: Object.assign(paymentProofs, paymentProofs52c075),
+returns: Object.assign(returns, returns4b8e07),
+disputes: Object.assign(disputes, disputes),
+allocationLogs: Object.assign(allocationLogs, allocationLogs),
 fulfillment: Object.assign(fulfillment, fulfillment),
+warehouse: Object.assign(warehouse, warehouse),
 }
 
 export default orders

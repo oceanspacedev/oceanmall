@@ -22,7 +22,12 @@ type StageInput = Pick<
   'status' | 'payment_status' | 'shipping_status' | 'payment_driver'
 > & {
   /** Present on the detail payload; the list payload has none. */
-  shipments?: { status?: string | null; awb?: string | null; tracking_number?: string | null }[];
+  shipments?: {
+    status?: string | null;
+    is_superseded?: boolean;
+    awb?: string | null;
+    tracking_number?: string | null;
+  }[];
   payment_action?: { kind?: string | null } | null;
 };
 
@@ -91,9 +96,10 @@ export function orderStage(order: StageInput): OrderStage {
       };
     }
 
-    const statuses = (order.shipments ?? []).map((shipment) =>
-      (shipment.status ?? '').toLowerCase()
+    const activeShipments = (order.shipments ?? []).filter(
+      (shipment) => (shipment.status ?? '').toLowerCase() !== 'cancelled' && !shipment.is_superseded
     );
+    const statuses = activeShipments.map((shipment) => (shipment.status ?? '').toLowerCase());
     const waitingForPickup =
       statuses.length > 0 &&
       statuses.some((status) => status === 'labeled') &&
@@ -146,7 +152,9 @@ export function orderSteps(order: StageInput): OrderStep[] {
     return [{ key: 'cancelled', label: 'Dibatalkan', done: true }];
   }
 
-  const shipments = order.shipments ?? [];
+  const shipments = (order.shipments ?? []).filter(
+    (shipment) => (shipment.status ?? '').toLowerCase() !== 'cancelled' && !shipment.is_superseded
+  );
   const completed = order.status === 'completed';
   const shippingStatus = order.shipping_status ?? 'unfulfilled';
   const hasAwb = shipments.some((shipment) => Boolean(shipment.awb || shipment.tracking_number));

@@ -73,7 +73,14 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   needs every non-cancelled parcel shipped. Order mails (`OrderStatusMail`) and the verification mail
   (`QueuedVerifyEmail`) are QUEUED: a worker must run everywhere; `OrderStatusNotification` is the
   in-app (database) notification only.
-- **Test suite is green as of 2026-11-25 (1045 tests; older note: 538 on 2026-11-18).** Tests use kebab-case Inertia page names
+- **Test suite is green as of 2026-11-27 (1364 tests; older notes: 1045 on 2026-11-25, 538 on 2026-11-18).**
+  `tests/Feature/E2E/VendorPackageTier/` runs every vendor module against each Komerce package tier
+  (`applyTier()` presets: keyless, starter, delivery_only, qrisly_only, payment_and_qrisly, komship,
+  quota_exhausted; HTTP faked by `Support/KomerceHttpFakeBuilder`): Tier1/Tier2 = features F1–F7 happy
+  path / boundaries, Tier3 = cross-cutting, Tier4 = end-to-end purchases, Tier5 = adversarial
+  regressions. The presets force `shopper.{payment,shipping}.provider` to null (auto-selection). Mobile
+  pure helpers (`mobile/lib/*-helpers.ts`) have node tests: `cd mobile && npm test` (CI runs it).
+  Tests use kebab-case Inertia page names
   (`settings/security`, `auth/confirm-password`), `first_name`/`last_name` profile fields, and
   `@example.com` addresses. The `email:rfc,dns` rule is skipped under `runningUnitTests()` because
   the DNS validator rejects reserved domains and needs network access.
@@ -105,7 +112,9 @@ and `package.json` (`scripts`) — use those; only the non-obvious notes below a
   `provider=shipping_delivery` so Store Order (`App\Integrations\Komerce\Services\KomerceDeliveryFulfillment`,
   reached via `FulfillsShipments`) reuses it without re-quoting.
 - **One payment provider and one shipping provider sell at a time.** `App\Support\ActiveProvider` picks
-  the provider family per section: store setting `shopper.{payment,shipping}.provider`
+  the provider family per section: the cpanel DB setting `active_{payment,shipping}_provider`
+  (written by the Settings › Payment methods / Carriers switch; once written it wins over env and the
+  switch offers no way back to auto-selection), else config `shopper.{payment,shipping}.provider`
   (`PAYMENT_PROVIDER` / `SHIPPING_PROVIDER`, `none` = no provider), else the first registered driver
   whose switch is on and `isConfigured()`. `rajaongkir` + `komerce` shipping are ONE family
   (`ShippingCapabilities::providerFamily()`). `OperatorSwitch::on()` = switch on AND selected: it gates

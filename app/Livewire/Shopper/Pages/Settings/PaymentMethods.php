@@ -19,15 +19,16 @@ use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Mckenziearts\Icons\Untitledui\Enums\Untitledui;
 use Shopper\Core\Models\PaymentMethod;
 use Shopper\Core\Models\Setting;
-use Mckenziearts\Icons\Untitledui\Enums\Untitledui;
 use Shopper\Payment\Facades\Payment;
 use Shopper\Payment\Services\PaymentProcessingService;
+use Throwable;
 
 class PaymentMethods extends \Shopper\Livewire\Pages\Settings\PaymentMethods
 {
-    public function exception(\Throwable $e, callable $stopPropagation): void
+    public function exception(Throwable $e, callable $stopPropagation): void
     {
         if ($e instanceof \Exception) {
             parent::exception($e, $stopPropagation);
@@ -86,6 +87,23 @@ class PaymentMethods extends \Shopper\Livewire\Pages\Settings\PaymentMethods
     public function table(Table $table): Table
     {
         $selectedFamily = ActiveProvider::family(OperatorSwitch::PAYMENT);
+        $isDriverReady = static function (?string $code): bool {
+            $code = trim((string) $code);
+
+            if ($code === '' || $code === 'manual') {
+                return true;
+            }
+
+            if (! OperatorSwitch::switchedOn(OperatorSwitch::PAYMENT, $code)) {
+                return false;
+            }
+
+            try {
+                return Payment::isConfigured($code);
+            } catch (Throwable) {
+                return false;
+            }
+        };
 
         return $table
             ->query(PaymentMethod::query()->latest())
@@ -105,21 +123,43 @@ class PaymentMethods extends \Shopper\Livewire\Pages\Settings\PaymentMethods
                 TextColumn::make('driver')
                     ->label(__('shopper::forms.label.driver'))
                     ->badge()
-                    ->formatStateUsing(static fn (?string $state): string => $state ? Payment::driver($state)->name() : __('shopper::words.manual'))
+                    ->formatStateUsing(static function (?string $state): string {
+                        if (! $state) {
+                            return __('shopper::words.manual');
+                        }
+
+                        try {
+                            return Payment::driver($state)->name();
+                        } catch (Throwable) {
+                            return $state;
+                        }
+                    })
                     ->color(static fn (?string $state): string => match (true) {
                         $state === null || $state === 'manual' => 'gray',
-                        Payment::isConfigured($state) => 'success',
+                        $isDriverReady($state) => 'success',
                         default => 'warning',
                     }),
                 TextColumn::make('provider_status')
                     ->label('Status Penyedia')
                     ->badge()
-                    ->state(static function (PaymentMethod $record): string {
+                    ->state(static function (PaymentMethod $record) use ($isDriverReady): string {
                         $driver = $record->driver ?: 'manual';
+
+                        if ($driver === 'manual') {
+                            return 'Aktif';
+                        }
+
+                        if (! $isDriverReady($driver)) {
+                            return 'Nonaktif';
+                        }
 
                         return ActiveProvider::allows(OperatorSwitch::PAYMENT, $driver) ? 'Aktif' : 'Standby';
                     })
-                    ->color(static fn (string $state): string => $state === 'Aktif' ? 'success' : 'warning'),
+                    ->color(static fn (string $state): string => match ($state) {
+                        'Aktif' => 'success',
+                        'Standby' => 'warning',
+                        default => 'gray',
+                    }),
                 ToggleColumn::make('is_enabled')
                     ->label(__('shopper::forms.label.status'))
                     ->beforeStateUpdated(fn (): mixed => $this->authorize('access_setting')),

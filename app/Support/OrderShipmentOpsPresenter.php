@@ -6,7 +6,7 @@ namespace App\Support;
 
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderShipment;
-use App\Shipping\Contracts\PrintsLabels;
+use App\Models\OrderShipmentLine;
 use App\Shipping\InventoryOrigins;
 use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
+use Shopper\Shipping\Facades\Shipping;
 
 /**
  * Shared shipment / inventory payloads for the cpanel order panels (allocation
@@ -27,19 +28,28 @@ final class OrderShipmentOpsPresenter
      */
     public function shipments(Order $order): array
     {
-        return OrderShipment::query()
+        $shipmentModels = OrderShipment::query()
             ->with(['lines.purchasable', 'inventory', 'order.shippingAddress', 'order.customer'])
             ->where('order_id', $order->id)
             ->orderBy('id')
-            ->get()
-            ->map(function (OrderShipment $shipment) use ($order): array {
+            ->get();
+
+        $codAmounts = OrderPaymentType::isCod($order)
+            ? $this->allocateCodAmounts($order, $shipmentModels)
+            : [];
+
+        return $shipmentModels
+            ->map(function (OrderShipment $shipment) use ($order, $codAmounts, $shipmentModels): array {
                 $deliveryOrderNo = $this->deliveryOrderNo($shipment);
-                $canPrint = $this->canPrintLabel($shipment);
-                $needsPickup = $this->needsPickup($shipment);
+                $hasAwb = $this->filled($shipment->awb) || $this->filled($shipment->tracking_number);
+                $isCancelled = strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED;
+                $isSuperseded = ShipmentMetadata::isSupersededByReship($shipment, $shipmentModels);
+                $canPrint = $this->canPrintLabel($shipment, $shipmentModels);
+                $needsPickup = ! $isSuperseded && $this->needsPickup($shipment);
                 $canOverride = ! $this->isLockedForOverride($shipment);
                 $hasPickup = ShipmentMetadata::pickupRequested($shipment);
-                $providerFulfilled = $deliveryOrderNo !== null
-                    || resolve(ShippingCapabilities::class)->fulfillerFor($shipment) !== null;
+                $fulfiller = resolve(ShippingCapabilities::class)->fulfillerFor($shipment);
+                $providerFulfilled = $deliveryOrderNo !== null || $fulfiller !== null;
 
                 $inventory = $shipment->inventory;
                 $shipperAddress = implode(', ', array_filter([
@@ -109,12 +119,7 @@ final class OrderShipmentOpsPresenter
                     default => strtoupper($carrier),
                 };
 
-                $isCodOrder = OrderPaymentType::isCod($order);
-                $codAmount = $isCodOrder
-                    ? (OrderShipment::query()->where('order_id', $order->id)->count() === 1
-                        ? (int) $order->price_amount
-                        : (ShipmentItemValue::forOrder($order, $shipment->lines) + (int) $shipment->cost))
-                    : 0;
+                $codAmount = (int) ($codAmounts[(int) $shipment->id] ?? 0);
                 $canReship = in_array(
                     strtolower(trim((string) $shipment->status)),
                     [NormalizeShipmentStatus::RETURNED, NormalizeShipmentStatus::DELIVERY_FAILED],
@@ -127,6 +132,7 @@ final class OrderShipmentOpsPresenter
                     'inventory_name' => $shipment->inventory?->name,
                     'driver' => $shipment->driver,
                     'status' => $shipment->status,
+                    'is_superseded' => $isSuperseded,
                     'status_label' => $this->statusLabel(is_string($shipment->status) ? $shipment->status : null),
                     'awb' => $shipment->awb,
                     'tracking_number' => $shipment->tracking_number,
@@ -139,9 +145,15 @@ final class OrderShipmentOpsPresenter
                     'cost' => (int) $shipment->cost,
                     'currency' => $shipment->currency_code,
                     'delivery_order_no' => $deliveryOrderNo,
-                    'fulfillment_error' => ShipmentMetadata::fulfillmentError($shipment),
-                    'can_track' => resolve(ShippingCapabilities::class)->trackerFor($shipment) !== null
-                        && ($this->filled($shipment->awb) || $this->filled($shipment->tracking_number) || $deliveryOrderNo !== null),
+                    'fulfillment_error' => (! $isCancelled
+                        && ! $isSuperseded
+                        && ! $hasAwb
+                        && $fulfiller !== null)
+                        ? ShipmentMetadata::fulfillmentError($shipment)
+                        : null,
+                    'can_track' => ! $isCancelled
+                        && $hasAwb
+                        && resolve(ShippingCapabilities::class)->trackerFor($shipment) !== null,
                     'can_reship' => $canReship,
                     'can_print_label' => $canPrint,
                     'needs_pickup' => $needsPickup,
@@ -190,13 +202,40 @@ final class OrderShipmentOpsPresenter
         // use: the caller's (a provider panel passes its own), otherwise the
         // configured destination driver. Without one, every warehouse is
         // ready: Shopper's manual shipping needs no provider origin.
-        $originDriver ??= resolve(ShippingCapabilities::class)->originDriverCode();
-        $origins = $originDriver !== null
-            ? resolve(InventoryOrigins::class)->forInventories($inventories->modelKeys(), $originDriver)
-            : collect();
+        $capabilities = resolve(ShippingCapabilities::class);
+
+        if ($originDriver === null) {
+            $driverCodes = $capabilities->originDriverFamilyCodes();
+        } else {
+            $family = $capabilities->providerFamily($originDriver);
+            $driverCodes = [$originDriver];
+
+            foreach (Shipping::availableDrivers() as $code) {
+                if (! is_string($code) || $code === 'manual' || in_array($code, $driverCodes, true)) {
+                    continue;
+                }
+
+                if ($capabilities->providerFamily($code) === $family) {
+                    $driverCodes[] = $code;
+                }
+            }
+        }
+
+        $inventoryOrigins = resolve(InventoryOrigins::class);
+        $origins = collect();
+
+        foreach ($driverCodes as $code) {
+            foreach ($inventoryOrigins->forInventories($inventories->modelKeys(), $code) as $inventoryId => $externalId) {
+                if (! $this->filled($origins->get($inventoryId)) && $this->filled($externalId)) {
+                    $origins->put($inventoryId, $externalId);
+                }
+            }
+        }
+
+        $requiresOrigin = $driverCodes !== [];
 
         return $inventories
-            ->map(static function (Inventory $inventory) use ($origins, $originDriver): array {
+            ->map(static function (Inventory $inventory) use ($origins, $requiresOrigin): array {
                 $originId = $origins->get($inventory->id);
 
                 return [
@@ -204,7 +243,7 @@ final class OrderShipmentOpsPresenter
                     'name' => $inventory->name,
                     'is_default' => (bool) $inventory->is_default,
                     'shipping_origin_id' => $originId,
-                    'ready_for_shipping' => $originDriver === null || filled($originId),
+                    'ready_for_shipping' => ! $requiresOrigin || filled($originId),
                 ];
             })
             ->values()
@@ -216,7 +255,10 @@ final class OrderShipmentOpsPresenter
      */
     public function printableCount(array $shipments): int
     {
-        return Collection::make($shipments)->where('can_print_label', true)->count();
+        return Collection::make($shipments)
+            ->reject(static fn (array $shipment): bool => (bool) ($shipment['is_superseded'] ?? false))
+            ->where('can_print_label', true)
+            ->count();
     }
 
     /**
@@ -271,19 +313,33 @@ final class OrderShipmentOpsPresenter
         return $this->deliveryOrderNo($shipment) !== null;
     }
 
-    public function canPrintLabel(OrderShipment $shipment): bool
+    /**
+     * @param  Collection<int, OrderShipment>|null  $orderShipments
+     */
+    public function canPrintLabel(OrderShipment $shipment, ?Collection $orderShipments = null): bool
     {
         if (strtolower((string) $shipment->status) === NormalizeShipmentStatus::CANCELLED) {
             return false;
         }
 
-        if ($this->filled($shipment->awb) || $this->filled($shipment->tracking_number)) {
-            $printer = resolve(ShippingCapabilities::class)->forShipmentSupporting($shipment, PrintsLabels::class);
-
-            return $printer === null || $this->deliveryOrderNo($shipment) !== null;
+        if ($orderShipments === null && is_numeric(data_get($shipment->metadata, ShipmentMetadata::RESHIPPED_TO_SHIPMENT_ID))) {
+            $orderShipments = OrderShipment::query()
+                ->where('order_id', $shipment->order_id)
+                ->get(['id', 'metadata']);
         }
 
-        return false;
+        if ($orderShipments !== null && ShipmentMetadata::isSupersededByReship($shipment, $orderShipments)) {
+            return false;
+        }
+
+        $capabilities = resolve(ShippingCapabilities::class);
+        $driverCode = is_string($shipment->driver) ? trim($shipment->driver) : '';
+
+        if ($driverCode !== '' && $driverCode !== 'manual' && $capabilities->forShipment($shipment) === null) {
+            return false;
+        }
+
+        return $this->filled($shipment->awb) || $this->filled($shipment->tracking_number);
     }
 
     public function statusLabel(?string $status): string
@@ -299,6 +355,138 @@ final class OrderShipmentOpsPresenter
             'cancelled' => 'Dibatalkan',
             default => $status ? str_replace('_', ' ', ucfirst($status)) : 'Tidak diketahui',
         };
+    }
+
+    /**
+     * Deterministically allocate a COD order's total payable amount across its
+     * non-cancelled shipments so multi-warehouse parcels with order-level
+     * discounts/adjustments never over-collect and always sum to order->price_amount.
+     *
+     * @param  Collection<int, OrderShipment>|null  $shipments
+     * @return array<int, int>
+     */
+    public function allocateCodAmounts(Order $order, ?Collection $shipments = null): array
+    {
+        $shipments ??= OrderShipment::query()
+            ->with('lines')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $allocations = [];
+        $active = [];
+
+        foreach ($shipments as $shipment) {
+            $id = (int) $shipment->id;
+            $allocations[$id] = 0;
+
+            if (
+                strtolower(trim((string) $shipment->status)) !== NormalizeShipmentStatus::CANCELLED
+                && ! ShipmentMetadata::isSupersededByReship($shipment, $shipments)
+            ) {
+                $active[] = $shipment;
+            }
+        }
+
+        if ($active === []) {
+            return $allocations;
+        }
+
+        usort($active, static fn (OrderShipment $a, OrderShipment $b): int => (int) $a->id <=> (int) $b->id);
+
+        $targetTotal = max(0, (int) $order->price_amount);
+
+        if (count($active) === 1) {
+            $allocations[(int) $active[0]->id] = $targetTotal;
+
+            return $allocations;
+        }
+
+        if ($targetTotal === 0) {
+            return $allocations;
+        }
+
+        $rawTotals = [];
+        foreach ($active as $shipment) {
+            $rawTotals[(int) $shipment->id] = max(
+                0,
+                ShipmentItemValue::forOrder($order, self::shipmentLines($shipment)) + (int) $shipment->cost,
+            );
+        }
+
+        $rawSum = array_sum($rawTotals);
+
+        if ($rawSum === $targetTotal) {
+            foreach ($rawTotals as $id => $amount) {
+                $allocations[$id] = $amount;
+            }
+
+            return $allocations;
+        }
+
+        $ids = array_keys($rawTotals);
+        $count = count($ids);
+
+        if ($rawSum === 0) {
+            $base = intdiv($targetTotal, $count);
+            $remainder = $targetTotal % $count;
+
+            foreach ($ids as $index => $id) {
+                $allocations[$id] = $base + ($index < $remainder ? 1 : 0);
+            }
+
+            return $allocations;
+        }
+
+        $remainders = [];
+        $allocatedSum = 0;
+
+        foreach ($rawTotals as $id => $raw) {
+            $product = $targetTotal * $raw;
+
+            if (is_int($product)) {
+                $base = intdiv($product, $rawSum);
+                $rem = $product % $rawSum;
+            } else {
+                $exact = ((float) $targetTotal * (float) $raw) / (float) $rawSum;
+                $base = (int) floor($exact);
+                $rem = $exact - $base;
+            }
+
+            $allocations[$id] = $base;
+            $remainders[$id] = $rem;
+            $allocatedSum += $base;
+        }
+
+        $leftover = $targetTotal - $allocatedSum;
+
+        if ($leftover > 0) {
+            usort($ids, static function (int $a, int $b) use ($remainders): int {
+                $cmp = $remainders[$b] <=> $remainders[$a];
+
+                return $cmp !== 0 ? $cmp : ($a <=> $b);
+            });
+
+            for ($i = 0; $i < $leftover; $i++) {
+                $allocations[$ids[$i % $count]]++;
+            }
+        }
+
+        return $allocations;
+    }
+
+    /**
+     * @return list<array{purchasable_type: string, purchasable_id: int, qty: int}>
+     */
+    public static function shipmentLines(OrderShipment $shipment): array
+    {
+        $shipment->loadMissing('lines');
+
+        return $shipment->lines->map(static fn (OrderShipmentLine $line): array => [
+            'purchasable_type' => (string) $line->purchasable_type,
+            'purchasable_id' => (int) $line->purchasable_id,
+            'qty' => (int) $line->qty,
+        ])->values()->all();
     }
 
     private function printHint(bool $canPrint, bool $hasPickup, bool $needsPickup, bool $providerFulfilled): ?string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\QaRegression;
 
 use App\Actions\Account\ConfirmOrderReceived;
+use App\Http\Responses\CpanelStaffLoginResponse;
 use App\Livewire\Shopper\Dashboard\StatCards;
 use App\Livewire\Shopper\Pages\FinanceReports;
 use App\Livewire\Shopper\Pages\ManualPaymentProofs;
@@ -246,7 +247,12 @@ final class StandaloneAuditFixesTest extends TestCase
         $admin->assignRole($adminRole);
 
         $inventory = Inventory::factory()->create();
-        $manualOrder = Order::factory()->create(['currency_code' => 'IDR']);
+        $manualOrder = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         OrderShipment::query()->create([
             'order_id' => $manualOrder->id,
             'inventory_id' => $inventory->id,
@@ -263,7 +269,12 @@ final class StandaloneAuditFixesTest extends TestCase
             ->assertSee('MANUAL-001');
 
         // Provider-owned shipment with disabled provider still returns validation error flash.
-        $providerOrder = Order::factory()->create(['currency_code' => 'IDR']);
+        $providerOrder = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         OrderShipment::query()->create([
             'order_id' => $providerOrder->id,
             'inventory_id' => $inventory->id,
@@ -285,11 +296,11 @@ final class StandaloneAuditFixesTest extends TestCase
         auth()->login($admin);
 
         session()->put('url.intended', url('/dashboard'));
-        $redirect1 = resolve(\App\Http\Responses\CpanelStaffLoginResponse::class)->toResponse($request);
+        $redirect1 = resolve(CpanelStaffLoginResponse::class)->toResponse($request);
         $this->assertSame(route('shopper.dashboard'), $redirect1->getTargetUrl());
 
         session()->put('url.intended', url('/cpanel/orders'));
-        $redirect2 = resolve(\App\Http\Responses\CpanelStaffLoginResponse::class)->toResponse($request);
+        $redirect2 = resolve(CpanelStaffLoginResponse::class)->toResponse($request);
         $this->assertSame(url('/cpanel/orders'), $redirect2->getTargetUrl());
     }
 
@@ -312,6 +323,7 @@ final class StandaloneAuditFixesTest extends TestCase
             'price_amount' => 150000,
             'status' => OrderStatus::New,
             'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
 
         $proof = OrderPaymentProof::query()->create([

@@ -19,13 +19,18 @@ use App\Integrations\Komerce\Support\KomerceCapabilities;
  */
 final class Komerce
 {
-    public static function serviceEnabled(string $apiKeyConfig): bool
+    public static function keyConfigured(string $apiKeyConfig): bool
     {
         if (config('komerce.enabled') === false) {
             return false;
         }
 
-        if (trim((string) config($apiKeyConfig, '')) === '') {
+        return trim((string) config($apiKeyConfig, '')) !== '';
+    }
+
+    public static function serviceEnabled(string $apiKeyConfig): bool
+    {
+        if (! self::keyConfigured($apiKeyConfig)) {
             return false;
         }
 
@@ -34,6 +39,11 @@ final class Komerce
         $product = KomerceCapabilities::productForConfig($apiKeyConfig);
 
         return $product === null || resolve(KomerceCapabilities::class)->entitled($product);
+    }
+
+    public static function paymentConfigured(): bool
+    {
+        return self::keyConfigured('komerce.payment_api_key');
     }
 
     public static function paymentEnabled(): bool
@@ -46,9 +56,20 @@ final class Komerce
         return self::serviceEnabled('komerce.shipping_cost_api_key');
     }
 
+    public static function shippingDeliveryConfigured(): bool
+    {
+        return self::keyConfigured('komerce.shipping_delivery_api_key');
+    }
+
     public static function shippingDeliveryEnabled(): bool
     {
         return self::serviceEnabled('komerce.shipping_delivery_api_key');
+    }
+
+    public static function qrislyConfigured(): bool
+    {
+        return self::keyConfigured('komerce.qrisly_api_key')
+            && trim((string) config('komerce.qrisly_qris_id', '')) !== '';
     }
 
     /**

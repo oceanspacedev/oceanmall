@@ -80,8 +80,8 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     index.form = indexForm
 /**
-* @see \Shopper\Livewire\Pages\Settings\General::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/General.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\General::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/General.php:7
  * @route '/cpanel/setting/general'
  */
 export const shop = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -95,8 +95,8 @@ shop.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\General::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/General.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\General::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/General.php:7
  * @route '/cpanel/setting/general'
  */
 shop.url = (options?: RouteQueryOptions) => {
@@ -104,8 +104,8 @@ shop.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\General::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/General.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\General::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/General.php:7
  * @route '/cpanel/setting/general'
  */
 shop.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -113,8 +113,8 @@ shop.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Shopper\Livewire\Pages\Settings\General::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/General.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\General::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/General.php:7
  * @route '/cpanel/setting/general'
  */
 shop.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -123,8 +123,8 @@ shop.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
-* @see \Shopper\Livewire\Pages\Settings\General::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/General.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\General::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/General.php:7
  * @route '/cpanel/setting/general'
  */
     const shopForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -133,8 +133,8 @@ shop.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
-* @see \Shopper\Livewire\Pages\Settings\General::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/General.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\General::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/General.php:7
  * @route '/cpanel/setting/general'
  */
         shopForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -142,8 +142,8 @@ shop.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
-* @see \Shopper\Livewire\Pages\Settings\General::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/General.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\General::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/General.php:7
  * @route '/cpanel/setting/general'
  */
         shopForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -385,8 +385,8 @@ analytics.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     analytics.form = analyticsForm
 /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
 export const paymentMethods = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -400,8 +400,8 @@ paymentMethods.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
 paymentMethods.url = (options?: RouteQueryOptions) => {
@@ -409,8 +409,8 @@ paymentMethods.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
 paymentMethods.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -418,8 +418,8 @@ paymentMethods.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
 paymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -428,8 +428,8 @@ paymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
 })
 
     /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
     const paymentMethodsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -438,8 +438,8 @@ paymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
     })
 
             /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
         paymentMethodsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -447,8 +447,8 @@ paymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
             method: 'get',
         })
             /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
         paymentMethodsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -463,8 +463,8 @@ paymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
     
     paymentMethods.form = paymentMethodsForm
 /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
 export const carriers = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -478,8 +478,8 @@ carriers.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
 carriers.url = (options?: RouteQueryOptions) => {
@@ -487,8 +487,8 @@ carriers.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
 carriers.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -496,8 +496,8 @@ carriers.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
 carriers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -506,8 +506,8 @@ carriers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
     const carriersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -516,8 +516,8 @@ carriers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
         carriersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -525,8 +525,8 @@ carriers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
         carriersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -775,8 +775,8 @@ currencies.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     currencies.form = currenciesForm
 /**
-* @see \Shopper\Livewire\Pages\Settings\Team\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Team/Index.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\TeamIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/TeamIndex.php:7
  * @route '/cpanel/setting/team'
  */
 export const users = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -790,8 +790,8 @@ users.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\Team\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Team/Index.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\TeamIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/TeamIndex.php:7
  * @route '/cpanel/setting/team'
  */
 users.url = (options?: RouteQueryOptions) => {
@@ -799,8 +799,8 @@ users.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\Team\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Team/Index.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\TeamIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/TeamIndex.php:7
  * @route '/cpanel/setting/team'
  */
 users.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -808,8 +808,8 @@ users.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Shopper\Livewire\Pages\Settings\Team\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Team/Index.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\TeamIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/TeamIndex.php:7
  * @route '/cpanel/setting/team'
  */
 users.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -818,8 +818,8 @@ users.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
-* @see \Shopper\Livewire\Pages\Settings\Team\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Team/Index.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\TeamIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/TeamIndex.php:7
  * @route '/cpanel/setting/team'
  */
     const usersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -828,8 +828,8 @@ users.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
-* @see \Shopper\Livewire\Pages\Settings\Team\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Team/Index.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\TeamIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/TeamIndex.php:7
  * @route '/cpanel/setting/team'
  */
         usersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -837,8 +837,8 @@ users.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
-* @see \Shopper\Livewire\Pages\Settings\Team\Index::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Team/Index.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\TeamIndex::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/TeamIndex.php:7
  * @route '/cpanel/setting/team'
  */
         usersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

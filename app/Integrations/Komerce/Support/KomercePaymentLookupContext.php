@@ -13,10 +13,17 @@ final class KomercePaymentLookupContext
 {
     private ?string $provider = null;
 
+    private bool $allowUnentitled = false;
+
     public function setProvider(string $provider): void
     {
         $provider = strtolower(trim($provider));
         $this->provider = in_array($provider, ['payment_api', 'qrisly'], true) ? $provider : null;
+    }
+
+    public function explicitProvider(): ?string
+    {
+        return $this->provider;
     }
 
     public function provider(): string
@@ -24,8 +31,19 @@ final class KomercePaymentLookupContext
         return $this->provider ?? 'payment_api';
     }
 
+    public function setAllowUnentitled(bool $allow): void
+    {
+        $this->allowUnentitled = $allow;
+    }
+
+    public function allowUnentitled(): bool
+    {
+        return $this->allowUnentitled;
+    }
+
     public function clear(): void
     {
         $this->provider = null;
+        $this->allowUnentitled = false;
     }
 }

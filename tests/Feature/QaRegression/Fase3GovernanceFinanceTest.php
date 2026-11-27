@@ -6,7 +6,6 @@ namespace Tests\Feature\QaRegression;
 
 use App\Actions\CreateOrder;
 use App\Actions\Warehouse\OverrideAllocation;
-use App\CheckoutSession;
 use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
 use App\Livewire\Shopper\OrderFinanceOpsPanel;
@@ -24,13 +23,12 @@ use Database\Seeders\GranularPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Fortify;
 use Livewire\Livewire;
-use Shopper\Cart\CartSessionManager;
 use Shopper\Cart\Models\Cart;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderPaid;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
@@ -39,6 +37,7 @@ use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\InventoryHistory;
 use Shopper\Core\Models\Order;
+use Shopper\Core\Models\OrderAddress;
 use Shopper\Core\Models\OrderItem;
 use Shopper\Core\Models\PaymentMethod;
 use Shopper\Core\Models\Setting;
@@ -68,7 +67,12 @@ final class Fase3GovernanceFinanceTest extends TestCase
         $this->assertTrue(Gate::forUser($warehouseStaff)->denies('finance-dashboard'));
         $this->assertTrue(Gate::forUser($warehouseStaff)->denies('override-allocation'));
 
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         Livewire::actingAs($warehouseStaff)
             ->test(OrderFinanceOpsPanel::class, ['order' => $order])
@@ -163,11 +167,13 @@ final class Fase3GovernanceFinanceTest extends TestCase
         $order = Order::factory()->create([
             'currency_code' => shopper_currency(),
             'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
             'shipping_option_id' => $option->id,
             'zone_id' => $zone->id,
             'metadata' => json_encode(['shipping_address' => ['country_id' => $country->id]], JSON_THROW_ON_ERROR),
         ]);
-        $addr = \Shopper\Core\Models\OrderAddress::query()->create([
+        $addr = OrderAddress::query()->create([
             'first_name' => 'Andi',
             'last_name' => 'Wijaya',
             'street_address' => 'Jl. Asia Afrika',

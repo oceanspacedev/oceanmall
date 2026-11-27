@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Komerce\Checkout;
 
 use App\Actions\Checkout\FetchDeliveryRates;
+use App\Shipping\InventoryOrigins;
 use App\Shipping\ShippingQuoteContext;
 use App\Shipping\ShippingQuoteFailure;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -149,5 +150,145 @@ final class KomerceDeliveryRatesTest extends TestCase
         $failure = resolve(ShippingQuoteContext::class)->lastFailure();
         $this->assertNotNull($failure);
         $this->assertSame(ShippingQuoteFailure::UNAVAILABLE, $failure->reason);
+    }
+
+    public function test_delivery_only_tier_quotes_using_komerce_origin_and_destination(): void
+    {
+        config()->set('komerce.shipping_cost_api_key', '');
+        $inventory = Inventory::query()->where('is_default', true)->firstOrFail();
+        resolve(InventoryOrigins::class)->forget($inventory, 'rajaongkir');
+        resolve(InventoryOrigins::class)->put($inventory, 'komerce', '17248');
+
+        Http::fake([
+            'https://delivery.example.test/tariff/api/v1/calculate*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [
+                    'calculate_reguler' => [
+                        ['shipping_name' => 'JNE', 'service_name' => 'JNEFlat', 'shipping_cost' => 11500, 'shipping_cashback' => 0],
+                    ],
+                    'calculate_cargo' => [],
+                    'calculate_instant' => [],
+                ],
+            ]),
+        ]);
+
+        $address = [
+            'country_id' => 1,
+            'first_name' => 'Budi',
+            'last_name' => 'Santoso',
+            'street_address' => 'Jl. Merdeka 1',
+            'city' => 'JAKARTA PUSAT',
+            'state' => 'DKI JAKARTA',
+            'postal_code' => '10110',
+            'destination_id' => '17601',
+            'destination_driver' => 'komerce',
+            'pin_point' => '-6.1754,106.8272',
+        ];
+
+        $options = resolve(FetchDeliveryRates::class)->handle($address, [new Package(10, 10, 10, 1.0)]);
+
+        $this->assertCount(1, $options);
+        $this->assertSame('jne:JNEFlat', $options[0]['service_code']);
+        $this->assertSame('komerce', $options[0]['driver']);
+        Http::assertSentCount(1);
+    }
+
+    public function test_delivery_first_429_immediately_records_quota_failure(): void
+    {
+        config()->set('komerce.shipping_cost_api_key', '');
+        Http::fake([
+            'https://delivery.example.test/tariff/api/v1/calculate*' => Http::response(
+                ['meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily limit exceeded']],
+                429,
+            ),
+        ]);
+
+        $options = resolve(FetchDeliveryRates::class)->handle($this->address, [new Package(10, 10, 10, 1.0)]);
+
+        $this->assertSame([], $options);
+        $failure = resolve(ShippingQuoteContext::class)->lastFailure();
+        $this->assertNotNull($failure);
+        $this->assertTrue($failure->isQuota());
+        $this->assertSame('komerce', $failure->driver);
+    }
+
+    public function test_multi_driver_chain_preserves_quota_when_delivery_fails_and_cost_hits_first_429(): void
+    {
+        Carrier::query()->create(['slug' => 'jne', 'name' => 'JNE Express', 'driver' => 'rajaongkir', 'is_enabled' => true]);
+
+        Http::fake([
+            'https://delivery.example.test/tariff/api/v1/calculate*' => Http::response(
+                ['meta' => ['code' => 401, 'status' => 'failed', 'message' => 'Invalid API Key']],
+                401,
+            ),
+            'https://cost.example.test/api/v1/calculate/domestic-cost' => Http::response(
+                ['meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily request limit exceeded']],
+                429,
+            ),
+        ]);
+
+        $options = resolve(FetchDeliveryRates::class)->handle($this->address, [new Package(10, 10, 10, 1.0)]);
+
+        $this->assertSame([], $options);
+        $failure = resolve(ShippingQuoteContext::class)->lastFailure();
+        $this->assertNotNull($failure);
+        $this->assertTrue($failure->isQuota());
+        $this->assertSame('rajaongkir', $failure->driver);
+        $this->assertNotNull($failure->retryAfter);
+    }
+
+    public function test_komship_quote_without_destination_id_does_not_trigger_secondary_destination_search(): void
+    {
+        Http::fake();
+
+        $addressWithoutDestinationId = [
+            'country_id' => 1,
+            'first_name' => 'Budi',
+            'last_name' => 'Santoso',
+            'street_address' => 'Jl. Merdeka 1',
+            'city' => 'JAKARTA PUSAT',
+            'state' => 'DKI JAKARTA',
+            'postal_code' => '10110',
+            'pin_point' => '-6.1754,106.8272',
+        ];
+
+        $options = resolve(FetchDeliveryRates::class)->handle($addressWithoutDestinationId, [new Package(10, 10, 10, 1.0)]);
+
+        $this->assertSame([], $options);
+        Http::assertNothingSent();
+    }
+
+    public function test_komship_chain_fallback_clears_transient_komerce_quota_failure_while_preserving_prior_failure(): void
+    {
+        Carrier::query()->create(['slug' => 'jne', 'name' => 'JNE Express', 'driver' => 'rajaongkir', 'is_enabled' => true]);
+
+        Http::fake([
+            'https://delivery.example.test/tariff/api/v1/calculate*' => Http::response(
+                ['meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily limit exceeded']],
+                429,
+            ),
+            'https://cost.example.test/api/v1/calculate/domestic-cost' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [['code' => 'jne', 'name' => 'JNE', 'service' => 'REG', 'cost' => 12000, 'etd' => '2']],
+            ]),
+        ]);
+
+        $options = resolve(FetchDeliveryRates::class)->handle($this->address, [new Package(10, 10, 10, 1.0)]);
+
+        $this->assertCount(1, $options);
+        $this->assertSame('rajaongkir', $options[0]['driver']);
+        $this->assertSame('jne:REG', $options[0]['service_code']);
+        $this->assertNull(resolve(ShippingQuoteContext::class)->lastFailure());
+
+        // When an earlier warehouse package failed in the same request, a subsequent
+        // package that recovers via fallback must preserve the earlier failure.
+        $context = resolve(ShippingQuoteContext::class);
+        $context->markFailure('rajaongkir', ShippingQuoteFailure::UNAVAILABLE, 'Prior package failed');
+
+        $secondOptions = resolve(FetchDeliveryRates::class)->handle($this->address, [new Package(10, 10, 10, 2.0)]);
+
+        $this->assertCount(1, $secondOptions);
+        $this->assertSame('rajaongkir', $context->lastFailure()?->driver);
+        $this->assertSame(ShippingQuoteFailure::UNAVAILABLE, $context->lastFailure()?->reason);
     }
 }

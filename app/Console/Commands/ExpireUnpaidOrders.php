@@ -81,7 +81,10 @@ final class ExpireUnpaidOrders extends Command
                             continue;
                         }
 
-                        $driver->expireUnpaidOrder($order, 'Payment expired');
+                        $result = $driver->expireUnpaidOrder($order, 'Payment expired');
+                        if ($result->status === OrderStatus::Cancelled) {
+                            $cancel->closeUnshippedLocalShipments($result);
+                        }
                         $expired++;
 
                         continue;

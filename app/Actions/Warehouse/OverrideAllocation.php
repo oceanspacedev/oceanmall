@@ -6,6 +6,7 @@ namespace App\Actions\Warehouse;
 
 use App\Actions\Checkout\BuildShippingPackages;
 use App\Actions\Checkout\FetchDeliveryRates;
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\DTO\AllocationPlan;
 use App\DTO\ShipmentDraft;
 use App\Models\OrderShipment;
@@ -143,7 +144,11 @@ final class OverrideAllocation
         $query = OrderShipmentLine::query()
             ->whereHas('shipment', function ($query) use ($order, $fromInventoryId): void {
                 $query->where('order_id', $order->id)
-                    ->where('inventory_id', $fromInventoryId);
+                    ->where('inventory_id', $fromInventoryId)
+                    ->where(static function ($q): void {
+                        $q->whereNull('status')
+                            ->orWhereRaw('lower(status) != ?', [NormalizeShipmentStatus::CANCELLED]);
+                    });
             });
 
         $lineId = data_get($move, 'shipment_line_id');
@@ -176,6 +181,10 @@ final class OverrideAllocation
             $targetShipmentId = OrderShipment::query()
                 ->where('order_id', $order->id)
                 ->where('inventory_id', $move['to_inventory_id'])
+                ->where(static function ($query): void {
+                    $query->whereNull('status')
+                        ->orWhereRaw('lower(status) != ?', [NormalizeShipmentStatus::CANCELLED]);
+                })
                 ->value('id');
 
             if ($targetShipmentId !== null) {
@@ -290,6 +299,10 @@ final class OverrideAllocation
         $shipments = OrderShipment::query()
             ->with('lines')
             ->where('order_id', $order->id)
+            ->where(static function ($query): void {
+                $query->whereNull('status')
+                    ->orWhereRaw('lower(status) != ?', [NormalizeShipmentStatus::CANCELLED]);
+            })
             ->get();
 
         foreach ($shipments as $shipment) {
@@ -376,16 +389,23 @@ final class OverrideAllocation
             $sourceLine->update(['qty' => $sourceLine->qty - $move['qty']]);
         }
 
-        $targetShipment = OrderShipment::query()->firstOrCreate(
-            [
+        $targetShipment = OrderShipment::query()
+            ->where('order_id', $order->id)
+            ->where('inventory_id', $move['to_inventory_id'])
+            ->where(static function ($query): void {
+                $query->whereNull('status')
+                    ->orWhereRaw('lower(status) != ?', [NormalizeShipmentStatus::CANCELLED]);
+            })
+            ->first();
+
+        if (! $targetShipment instanceof OrderShipment) {
+            $targetShipment = OrderShipment::query()->create([
                 'order_id' => $order->id,
                 'inventory_id' => $move['to_inventory_id'],
-            ],
-            [
                 'currency_code' => $order->currency_code,
-                'status' => 'pending',
-            ],
-        );
+                'status' => NormalizeShipmentStatus::PENDING,
+            ]);
+        }
 
         $targetLine = $targetShipment->lines()
             ->where('purchasable_type', $move['purchasable_type'])
@@ -409,6 +429,10 @@ final class OverrideAllocation
     {
         OrderShipment::query()
             ->where('order_id', $order->id)
+            ->where(static function ($query): void {
+                $query->whereNull('status')
+                    ->orWhereRaw('lower(status) != ?', [NormalizeShipmentStatus::CANCELLED]);
+            })
             ->whereDoesntHave('lines')
             ->delete();
     }
@@ -629,6 +653,10 @@ final class OverrideAllocation
     {
         return (int) OrderShipment::query()
             ->where('order_id', $order->id)
+            ->where(static function ($query): void {
+                $query->whereNull('status')
+                    ->orWhereRaw('lower(status) != ?', [NormalizeShipmentStatus::CANCELLED]);
+            })
             ->sum('cost');
     }
 
@@ -703,6 +731,10 @@ final class OverrideAllocation
         $shipments = OrderShipment::query()
             ->with('lines')
             ->where('order_id', $order->id)
+            ->where(static function ($query): void {
+                $query->whereNull('status')
+                    ->orWhereRaw('lower(status) != ?', [NormalizeShipmentStatus::CANCELLED]);
+            })
             ->orderBy('id')
             ->get()
             ->map(fn (OrderShipment $shipment): ShipmentDraft => new ShipmentDraft(

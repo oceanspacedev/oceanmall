@@ -132,4 +132,24 @@ final class QrislyClientTest extends TestCase
                 && str_contains($request->body(), 'OceanMall Store');
         });
     }
+
+    public function test_get_payment_status_throws_on_http_200_error_envelope(): void
+    {
+        config()->set('komerce.qrisly_api_key', 'qrisly-key');
+        config()->set('komerce.qrisly_qris_id', '18');
+        config()->set('komerce.qrisly_base_url', 'https://qrisly.example.test/user');
+
+        Http::fake([
+            'https://qrisly.example.test/user/api/v1/qrisly/payment-status/1778' => Http::response([
+                'success' => false,
+                'meta' => ['code' => 500, 'status' => 'error', 'message' => 'QRISLY upstream failure'],
+                'data' => [],
+            ], 200),
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('QRISLY upstream failure');
+
+        (new QrislyClient)->getPaymentStatus(1778);
+    }
 }

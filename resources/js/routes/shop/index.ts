@@ -1,11 +1,12 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 import productD87513 from './product'
+import reviews from './reviews'
 import cartB8cf73 from './cart'
 import zone from './zone'
 import checkout from './checkout'
 /**
 * @see \App\Http\Controllers\Shop\ProductController::index
- * @see app/Http/Controllers/Shop/ProductController.php:22
+ * @see app/Http/Controllers/Shop/ProductController.php:20
  * @route '/shop'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -20,7 +21,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\ProductController::index
- * @see app/Http/Controllers/Shop/ProductController.php:22
+ * @see app/Http/Controllers/Shop/ProductController.php:20
  * @route '/shop'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -29,7 +30,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Shop\ProductController::index
- * @see app/Http/Controllers/Shop/ProductController.php:22
+ * @see app/Http/Controllers/Shop/ProductController.php:20
  * @route '/shop'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -38,7 +39,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Shop\ProductController::index
- * @see app/Http/Controllers/Shop/ProductController.php:22
+ * @see app/Http/Controllers/Shop/ProductController.php:20
  * @route '/shop'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -48,7 +49,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Shop\ProductController::index
- * @see app/Http/Controllers/Shop/ProductController.php:22
+ * @see app/Http/Controllers/Shop/ProductController.php:20
  * @route '/shop'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -58,7 +59,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Shop\ProductController::index
- * @see app/Http/Controllers/Shop/ProductController.php:22
+ * @see app/Http/Controllers/Shop/ProductController.php:20
  * @route '/shop'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -67,7 +68,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Shop\ProductController::index
- * @see app/Http/Controllers/Shop/ProductController.php:22
+ * @see app/Http/Controllers/Shop/ProductController.php:20
  * @route '/shop'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -83,7 +84,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\Shop\ProductController::product
- * @see app/Http/Controllers/Shop/ProductController.php:112
+ * @see app/Http/Controllers/Shop/ProductController.php:93
  * @route '/shop/{product}'
  */
 export const product = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -98,7 +99,7 @@ product.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\ProductController::product
- * @see app/Http/Controllers/Shop/ProductController.php:112
+ * @see app/Http/Controllers/Shop/ProductController.php:93
  * @route '/shop/{product}'
  */
 product.url = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
@@ -131,7 +132,7 @@ product.url = (args: { product: string | { slug: string } } | [product: string |
 
 /**
 * @see \App\Http\Controllers\Shop\ProductController::product
- * @see app/Http/Controllers/Shop/ProductController.php:112
+ * @see app/Http/Controllers/Shop/ProductController.php:93
  * @route '/shop/{product}'
  */
 product.get = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -140,7 +141,7 @@ product.get = (args: { product: string | { slug: string } } | [product: string |
 })
 /**
 * @see \App\Http\Controllers\Shop\ProductController::product
- * @see app/Http/Controllers/Shop/ProductController.php:112
+ * @see app/Http/Controllers/Shop/ProductController.php:93
  * @route '/shop/{product}'
  */
 product.head = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -150,7 +151,7 @@ product.head = (args: { product: string | { slug: string } } | [product: string 
 
     /**
 * @see \App\Http\Controllers\Shop\ProductController::product
- * @see app/Http/Controllers/Shop/ProductController.php:112
+ * @see app/Http/Controllers/Shop/ProductController.php:93
  * @route '/shop/{product}'
  */
     const productForm = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -160,7 +161,7 @@ product.head = (args: { product: string | { slug: string } } | [product: string 
 
             /**
 * @see \App\Http\Controllers\Shop\ProductController::product
- * @see app/Http/Controllers/Shop/ProductController.php:112
+ * @see app/Http/Controllers/Shop/ProductController.php:93
  * @route '/shop/{product}'
  */
         productForm.get = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -169,7 +170,7 @@ product.head = (args: { product: string | { slug: string } } | [product: string 
         })
             /**
 * @see \App\Http\Controllers\Shop\ProductController::product
- * @see app/Http/Controllers/Shop/ProductController.php:112
+ * @see app/Http/Controllers/Shop/ProductController.php:93
  * @route '/shop/{product}'
  */
         productForm.head = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -365,7 +366,7 @@ category.head = (args: { category: string | { slug: string } } | [category: stri
     category.form = categoryForm
 /**
 * @see \App\Http\Controllers\Shop\CollectionController::collection
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
 export const collection = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -380,7 +381,7 @@ collection.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\CollectionController::collection
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
 collection.url = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
@@ -413,7 +414,7 @@ collection.url = (args: { collection: string | { slug: string } } | [collection:
 
 /**
 * @see \App\Http\Controllers\Shop\CollectionController::collection
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
 collection.get = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -422,7 +423,7 @@ collection.get = (args: { collection: string | { slug: string } } | [collection:
 })
 /**
 * @see \App\Http\Controllers\Shop\CollectionController::collection
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
 collection.head = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -432,7 +433,7 @@ collection.head = (args: { collection: string | { slug: string } } | [collection
 
     /**
 * @see \App\Http\Controllers\Shop\CollectionController::collection
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
     const collectionForm = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -442,7 +443,7 @@ collection.head = (args: { collection: string | { slug: string } } | [collection
 
             /**
 * @see \App\Http\Controllers\Shop\CollectionController::collection
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
         collectionForm.get = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -451,7 +452,7 @@ collection.head = (args: { collection: string | { slug: string } } | [collection
         })
             /**
 * @see \App\Http\Controllers\Shop\CollectionController::collection
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
         collectionForm.head = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -624,6 +625,7 @@ cart.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 const shop = {
     index: Object.assign(index, index),
 product: Object.assign(product, productD87513),
+reviews: Object.assign(reviews, reviews),
 categories: Object.assign(categories, categories),
 category: Object.assign(category, category),
 collection: Object.assign(collection, collection),

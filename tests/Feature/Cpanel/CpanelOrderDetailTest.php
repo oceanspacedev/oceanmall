@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Cpanel;
 
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Addons\Store\OceanMallStoreAddon;
 use App\Integrations\Komerce\KomerceAddon;
 use App\Integrations\Komerce\Livewire\KomerceOrderShipping;
 use App\Livewire\Shopper\OrderCustomer;
 use App\Livewire\Shopper\OrderFulfillment;
 use App\Livewire\Shopper\OrderSummary;
+use App\Livewire\Shopper\Pages\OrderDetail;
 use App\Models\OrderShipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
+use RuntimeException;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
+use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\OrderAddress;
@@ -56,7 +64,12 @@ final class CpanelOrderDetailTest extends TestCase
     public function test_admin_path_is_not_a_backoffice_route(): void
     {
         $admin = $this->admin();
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         $this->actingAs($admin)
             ->get('/admin/orders/'.$order->id)
@@ -144,6 +157,12 @@ final class CpanelOrderDetailTest extends TestCase
             ->get(route('shopper.orders.detail', $order))
             ->assertOk()
             ->assertSee('Pengiriman RajaOngkir / Komerce', false)
+            ->assertSee('Resi Manual Terbit', false)
+            ->assertSee('Cetak Semua Stiker Resi', false)
+            ->assertSee('Cetak Stiker Resi', false)
+            ->assertDontSee('Sebagian Terdaftar', false)
+            ->assertDontSee('Belum Terdaftar', false)
+            ->assertDontSee('ID Order Komerce', false)
             // Delivery-only actions stay hidden without the Delivery API.
             ->assertDontSee('wire:click="processAllDeliveryOrders"', false);
     }
@@ -154,6 +173,9 @@ final class CpanelOrderDetailTest extends TestCase
         $address = $this->orderAddress('Jl. Merdeka 1');
         $order = Order::factory()->create([
             'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
             'shipping_address_id' => $address->id,
             'billing_address_id' => $address->id,
         ]);
@@ -221,10 +243,16 @@ final class CpanelOrderDetailTest extends TestCase
         ]);
         $model = Order::factory()->create([
             'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
             'payment_method_id' => $paymentMethod->id,
             ...$order,
         ]);
-        $inventory = Inventory::factory()->create(['name' => 'Gudang Jakarta']);
+        $inventory = Inventory::factory()->create([
+            'name' => 'Gudang Jakarta',
+            'shipping_origins' => ['komerce' => '17248'],
+        ]);
         OrderShipment::query()->create([
             'order_id' => $model->id,
             'inventory_id' => $inventory->id,
@@ -243,10 +271,99 @@ final class CpanelOrderDetailTest extends TestCase
     {
         $this->configureShopperCpanel();
         $user = User::factory()->create();
-        $order = Order::factory()->create();
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
 
         $this->actingAs($user)
             ->getJson(route('shopper.orders.fulfillment.print-label', $order))
             ->assertForbidden();
+    }
+
+    public function test_archive_action_catches_cancel_failure_and_keeps_order_unarchived(): void
+    {
+        $admin = $this->admin();
+        $method = PaymentMethod::factory()->create([
+            'title' => 'Transfer Manual',
+            'slug' => 'manual-transfer-archive',
+            'driver' => 'manual',
+            'is_enabled' => true,
+        ]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+            'payment_method_id' => $method->id,
+        ]);
+
+        Event::listen(OrderCancelled::class, static function (): void {
+            throw new RuntimeException('Simulated archive cancel failure');
+        });
+
+        Livewire::actingAs($admin)
+            ->test(OrderDetail::class, ['order' => $order])
+            ->callAction('archive')
+            ->assertNotified('Gagal membatalkan pesanan.');
+
+        $this->assertNotSame(OrderStatus::Archived, $order->refresh()->status);
+    }
+
+    public function test_mark_complete_visibility_excludes_cancelled_shipments_and_blocks_all_cancelled(): void
+    {
+        $this->requireModules('Komerce');
+
+        config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
+        config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
+        $this->registerKomerceAddon();
+        $admin = $this->admin();
+
+        $order = $this->orderWithShipment([
+            'driver' => 'komerce',
+            'status' => NormalizeShipmentStatus::DELIVERED,
+            'awb' => 'JNE-DELIVERED-1',
+            'tracking_number' => 'JNE-DELIVERED-1',
+        ], [
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+        ]);
+
+        $inv2 = Inventory::factory()->create([
+            'name' => 'Gudang Batal',
+            'shipping_origins' => ['komerce' => '17249'],
+        ]);
+        OrderShipment::query()->create([
+            'order_id' => $order->id,
+            'inventory_id' => $inv2->id,
+            'driver' => 'komerce',
+            'carrier_code' => 'jne',
+            'service_code' => 'REG',
+            'cost' => 12000,
+            'currency_code' => 'IDR',
+            'status' => NormalizeShipmentStatus::CANCELLED,
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(OrderDetail::class, ['order' => $order])
+            ->assertActionVisible('markComplete')
+            ->callAction('markComplete')
+            ->assertNotified('Pesanan diselesaikan setelah kurir menandai terkirim.');
+
+        $this->assertSame(OrderStatus::Completed, $order->refresh()->status);
+
+        $orderAllCancelled = $this->orderWithShipment([
+            'driver' => 'komerce',
+            'status' => NormalizeShipmentStatus::CANCELLED,
+        ], [
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(OrderDetail::class, ['order' => $orderAllCancelled])
+            ->assertActionHidden('markComplete');
     }
 }

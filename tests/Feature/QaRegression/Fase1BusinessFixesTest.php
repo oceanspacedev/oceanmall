@@ -21,7 +21,6 @@ use App\Payment\Drivers\ConfirmFirstStripeDriver;
 use App\Payment\Exceptions\PaymentRetryRefused;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -37,6 +36,7 @@ use Shopper\Core\Enum\DiscountRequirement;
 use Shopper\Core\Enum\DiscountType;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Events\Orders\OrderPaid;
 use Shopper\Core\Models\Carrier;
@@ -46,7 +46,6 @@ use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Discount;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
-use Shopper\Core\Models\OrderAddress;
 use Shopper\Core\Models\PaymentMethod;
 use Shopper\Core\Models\Price;
 use Shopper\Core\Models\Zone;
@@ -681,6 +680,10 @@ final class Fase1BusinessFixesTest extends TestCase
 
         $order = Order::factory()->create([
             'customer_id' => $user->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
             'notes' => 'Internal staff note',
             'metadata' => json_encode(['komerce' => ['secret' => '123']], JSON_THROW_ON_ERROR),
         ]);

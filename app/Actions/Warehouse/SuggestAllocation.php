@@ -123,10 +123,17 @@ final readonly class SuggestAllocation
     private function eligibleInventories(): Collection
     {
         $query = Inventory::query();
-        $originDriver = resolve(ShippingCapabilities::class)->originDriverCode();
+        $originDrivers = resolve(ShippingCapabilities::class)->originDriverFamilyCodes();
 
-        if ($originDriver !== null) {
-            $query->whereIn('id', resolve(InventoryOrigins::class)->inventoryIdsFor($originDriver));
+        if ($originDrivers !== []) {
+            $origins = resolve(InventoryOrigins::class);
+            $ids = [];
+
+            foreach ($originDrivers as $driver) {
+                array_push($ids, ...$origins->inventoryIdsFor($driver));
+            }
+
+            $query->whereIn('id', array_values(array_unique($ids)));
         }
 
         return $query->get();

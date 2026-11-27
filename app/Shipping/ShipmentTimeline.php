@@ -129,6 +129,14 @@ final class ShipmentTimeline
      * Provider history as the provider orders it; with Shopper events too,
      * everything newest first (undated entries last, in their own order).
      *
+     * Retaining the early return when `$shopper === []` preserves the
+     * provider's native ordering (required by ShipmentTrackingRefreshTest).
+     * When merging provider and Shopper events, timestamps are normalized to
+     * minute precision so Shopper events created within the same minute do not
+     * sort ahead of minute-granular carrier manifest scans; ties inside the
+     * same minute put provider scans before Shopper events, then newest exact
+     * timestamp first, then original index.
+     *
      * @param  list<array{description: string, datetime: string|null, location: string|null}>  $provider
      * @param  list<array{description: string, datetime: string|null, location: string|null, sort: int|null}>  $shopper
      * @return list<array{description: string, datetime: string|null, location: string|null}>
@@ -142,22 +150,40 @@ final class ShipmentTimeline
         $all = [];
 
         foreach ($provider as $index => $event) {
-            $timestamp = $event['datetime'] !== null ? strtotime($event['datetime']) : false;
-            $all[] = [$event, $timestamp === false ? null : $timestamp, $index];
+            $parsed = $event['datetime'] !== null ? strtotime($event['datetime']) : false;
+            $exact = $parsed === false ? null : $parsed;
+            $minute = $exact !== null ? (int) (floor($exact / 60) * 60) : null;
+            $all[] = [$event, $minute, 0, $exact, $index];
         }
 
         foreach ($shopper as $index => $event) {
-            $sort = $event['sort'];
+            $exact = $event['sort'];
+            $minute = $exact !== null ? (int) (floor($exact / 60) * 60) : null;
             unset($event['sort']);
-            $all[] = [$event, $sort, count($provider) + $index];
+            $all[] = [$event, $minute, 1, $exact, count($provider) + $index];
         }
 
         usort($all, static function (array $a, array $b): int {
             if ($a[1] === null || $b[1] === null) {
-                return [$a[1] === null, $a[2]] <=> [$b[1] === null, $b[2]];
+                return [$a[1] === null, $a[4]] <=> [$b[1] === null, $b[4]];
             }
 
-            return [$b[1], $a[2]] <=> [$a[1], $b[2]];
+            $minuteCmp = $b[1] <=> $a[1];
+            if ($minuteCmp !== 0) {
+                return $minuteCmp;
+            }
+
+            $sourceCmp = $a[2] <=> $b[2];
+            if ($sourceCmp !== 0) {
+                return $sourceCmp;
+            }
+
+            $exactCmp = ($b[3] ?? 0) <=> ($a[3] ?? 0);
+            if ($exactCmp !== 0) {
+                return $exactCmp;
+            }
+
+            return $a[4] <=> $b[4];
         });
 
         return array_map(static fn (array $entry): array => $entry[0], $all);

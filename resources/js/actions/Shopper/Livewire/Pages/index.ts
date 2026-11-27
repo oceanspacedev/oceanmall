@@ -1,7 +1,6 @@
 import Auth from './Auth'
 import Initialization from './Initialization'
 import Forbidden from './Forbidden'
-import Dashboard from './Dashboard'
 import Account from './Account'
 import Settings from './Settings'
 import Customers from './Customers'
@@ -18,7 +17,6 @@ const Pages = {
     Auth: Object.assign(Auth, Auth),
 Initialization: Object.assign(Initialization, Initialization),
 Forbidden: Object.assign(Forbidden, Forbidden),
-Dashboard: Object.assign(Dashboard, Dashboard),
 Account: Object.assign(Account, Account),
 Settings: Object.assign(Settings, Settings),
 Customers: Object.assign(Customers, Customers),

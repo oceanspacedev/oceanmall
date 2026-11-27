@@ -19,7 +19,8 @@ import {
 } from '@/lib/api';
 import { useCountdown, usePolling } from '@/lib/countdown';
 import { formatDateTime, formatMoney } from '@/lib/format';
-import { orderStage } from '@/lib/order-status';
+import { expiredPaymentMessage } from '@/lib/order-helpers';
+import { isCancelled, orderStage } from '@/lib/order-status';
 import { ripple } from '@/lib/ripple';
 import { COLORS } from '@/lib/theme';
 import { toast } from '@/lib/toast';
@@ -162,21 +163,27 @@ export default function OrderPlacedScreen() {
   }, [number, load]);
 
   const showPayment = Boolean(order) && unpaid && hasPaymentDetails && !expired;
+  const cancelled = order ? isCancelled(order) : false;
   // Manual / COD: nothing to pay in the app, so no instructions is expected, not a failure.
   const offline = order !== null && unpaid && isOfflinePayment(order);
-  const missingPayment = Boolean(order) && !paid && !showPayment && (!offline || Boolean(notice));
+  const missingPayment =
+    Boolean(order) && !paid && !cancelled && !showPayment && (!offline || Boolean(notice));
   const title = paid
     ? 'Pembayaran diterima!'
-    : missingPayment
-      ? 'Pesanan dibuat'
-      : 'Pesanan berhasil dibuat!';
+    : cancelled
+      ? 'Pesanan dibatalkan'
+      : missingPayment
+        ? 'Pesanan dibuat'
+        : 'Pesanan berhasil dibuat!';
   const subtitle = paid
     ? 'Pesananmu sedang disiapkan.'
-    : missingPayment
-      ? null
-      : offline
-        ? 'Selesaikan pembayaran sesuai instruksi di bawah.'
-        : 'Selesaikan pembayaran agar pesananmu segera diproses.';
+    : cancelled
+      ? 'Batas pembayaran sudah lewat dan pesanan dibatalkan.'
+      : missingPayment
+        ? null
+        : offline
+          ? 'Selesaikan pembayaran sesuai instruksi di bawah.'
+          : 'Selesaikan pembayaran agar pesananmu segera diproses.';
 
   return (
     <SafeAreaView className="flex-1 bg-om-navy" edges={['top']}>
@@ -290,6 +297,7 @@ export default function OrderPlacedScreen() {
                 <Section title="Instruksi pembayaran" icon={CreditCard}>
                   <PaymentPanel
                     compact
+                    canRetry={order?.can_retry_payment ?? false}
                     payment={payment}
                     currency={order?.currency}
                     onClosed={() => void checkAfterSheet()}
@@ -313,7 +321,7 @@ export default function OrderPlacedScreen() {
                   <Icon as={CircleAlert} size={15} className="mt-0.5 text-om-sale" />
                   <Text className="flex-1 text-[13px] leading-5 text-om-sale-text">
                     {expired
-                      ? 'Batas pembayaran sudah lewat. Buka pesananmu untuk membuat pembayaran baru.'
+                      ? expiredPaymentMessage(Boolean(order?.can_retry_payment), 'placed')
                       : (notice ?? MISSING_PAYMENT_NOTICE)}
                   </Text>
                 </View>

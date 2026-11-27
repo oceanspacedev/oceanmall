@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Integrations\Komerce\Actions\Payment;
 
+use App\Integrations\Komerce\Support\KomercePaymentProvider;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
 use Shopper\Payment\Models\PaymentTransaction;
@@ -49,7 +50,7 @@ final class SyncKomercePaymentStatus
             return 'no_payment';
         }
 
-        return $this->markOrderPaid->handle($paymentId, $this->resolveProvider($order));
+        return $this->markOrderPaid->handle($paymentId, $this->resolveProvider($order), $order);
     }
 
     private function resolvePaymentId(Order $order): ?string
@@ -57,8 +58,8 @@ final class SyncKomercePaymentStatus
         $instructions = $this->resolveInstructions->handle($order);
         $fromInstructions = data_get($instructions, 'payment_id');
 
-        if (is_string($fromInstructions) && $fromInstructions !== '') {
-            return $fromInstructions;
+        if ((is_string($fromInstructions) || is_int($fromInstructions)) && trim((string) $fromInstructions) !== '') {
+            return trim((string) $fromInstructions);
         }
 
         $transaction = PaymentTransaction::query()
@@ -67,8 +68,8 @@ final class SyncKomercePaymentStatus
             ->latest('id')
             ->first();
 
-        if (is_string($transaction?->reference) && $transaction->reference !== '') {
-            return $transaction->reference;
+        if (is_string($transaction?->reference) && trim($transaction->reference) !== '') {
+            return trim($transaction->reference);
         }
 
         $metadata = $order->getAttribute('metadata');
@@ -88,8 +89,8 @@ final class SyncKomercePaymentStatus
             'komerce_payment_ref',
         ] as $path) {
             $value = data_get($metadata, $path);
-            if (is_string($value) && $value !== '') {
-                return $value;
+            if ((is_string($value) || is_int($value)) && trim((string) $value) !== '') {
+                return trim((string) $value);
             }
         }
 
@@ -98,21 +99,6 @@ final class SyncKomercePaymentStatus
 
     private function resolveProvider(Order $order): string
     {
-        $instructions = $this->resolveInstructions->handle($order);
-        $fromInstructions = data_get($instructions, 'provider');
-
-        if (is_string($fromInstructions) && $fromInstructions !== '') {
-            return $fromInstructions;
-        }
-
-        $metadata = $order->getAttribute('metadata');
-        if (is_string($metadata) && $metadata !== '') {
-            $decoded = json_decode($metadata, true);
-            $metadata = is_array($decoded) ? $decoded : [];
-        }
-
-        $fromOrder = is_array($metadata) ? data_get($metadata, 'komerce.provider') : null;
-
-        return is_string($fromOrder) && $fromOrder !== '' ? $fromOrder : 'payment_api';
+        return KomercePaymentProvider::resolve($order, $this->resolveInstructions->handle($order));
     }
 }

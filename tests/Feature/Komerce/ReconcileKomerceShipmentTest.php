@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace Tests\Feature\Komerce;
 
 use App\Actions\Shipping\NormalizeShipmentStatus;
+use App\Integrations\Komerce\Actions\Shipping\ApplyDeliveryWebhookStatus;
 use App\Integrations\Komerce\Actions\Shipping\CancelKomerceDelivery;
 use App\Integrations\Komerce\Actions\Shipping\ReconcileKomerceShipment;
 use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
 use App\Listeners\CancelShipmentsOnOrderCancelled;
 use App\Models\OrderShipment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Events\Orders\OrderCancelled;
@@ -218,5 +222,39 @@ final class ReconcileKomerceShipmentTest extends TestCase
 
         Http::assertNothingSent();
         $this->assertSame(NormalizeShipmentStatus::CANCELLED, $shipment->fresh()->status);
+    }
+
+    public function test_reconcile_stays_noop_for_non_webhook_callers_when_passively_unentitled_but_throws_for_webhook(): void
+    {
+        $this->fakeDelivery();
+        [, $shipment] = $this->registeredShipment();
+
+        // Simulate passive 401 revocation learned on an earlier Delivery API response
+        resolve(KomerceCapabilities::class)->observe('shipping_delivery', 401, 'Invalid API key');
+        $this->assertFalse(Komerce::shippingDeliveryEnabled());
+
+        Http::fake();
+
+        // Non-webhook callers quietly return the shipment without throwing or hitting the API
+        $result = resolve(ReconcileKomerceShipment::class)->handle($shipment);
+        $this->assertSame($shipment->id, $result->id);
+        Http::assertNothingSent();
+
+        // Webhook reconciliation attempts live verification and throws instead of silently returning handled (so controller returns 503)
+        try {
+            resolve(ApplyDeliveryWebhookStatus::class)->handle('RO-SYNC-1', 'JNE-1', 'ON_PROCESS');
+            $this->fail('Expected RuntimeException when verifying webhook against failed provider response.');
+        } catch (RuntimeException) {
+            $this->addToAssertionCount(1);
+        }
+
+        $this->postJson(route('webhooks.komerce.delivery'), [
+            'order_no' => 'RO-SYNC-1',
+            'cnote' => 'JNE-1',
+            'status' => 'ON_PROCESS',
+        ])
+            ->assertStatus(503)
+            ->assertHeader('Retry-After', '30')
+            ->assertJson(['status' => 'lookup_failed']);
     }
 }

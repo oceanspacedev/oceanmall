@@ -9,6 +9,7 @@ use App\Payment\Exceptions\PaymentRetryRefused;
 use App\Payment\PaymentActions;
 use App\Payment\PaymentReturnUrl;
 use RuntimeException;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
 
 /**
@@ -27,6 +28,10 @@ final readonly class RetryOrderPayment
      */
     public function handle(Order $order, array $extraContext = []): ?array
     {
+        if ($order->payment_status === PaymentStatus::Paid) {
+            throw PaymentRetryRefused::alreadyPaid();
+        }
+
         $driver = $this->payments->driver($order);
 
         if (! $driver instanceof RetriesPayments || ! $this->payments->canRetry($order)) {

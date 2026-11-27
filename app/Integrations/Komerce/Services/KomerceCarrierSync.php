@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Services;
 
 use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Shipping\KomerceShippingDriver;
 use App\Integrations\Komerce\Shipping\RajaOngkirDriver;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
 use App\Integrations\Komerce\Support\KomerceCourierAssets;
 use App\Integrations\Komerce\Support\RajaOngkirCouriers;
 use App\Shipping\CarrierSyncResult;
@@ -44,17 +46,19 @@ final readonly class KomerceCarrierSync
 
     public function sync(bool $dryRun = false): CarrierSyncResult
     {
-        if (! Komerce::shippingCostEnabled()) {
-            return CarrierSyncResult::failed('RajaOngkir Shipping Cost API key is required to sync carriers.');
-        }
-
-        // The free Collaborator plan has no Shipping Delivery API: then the
-        // Cost answer alone decides which couriers are offered (manual AWB).
+        $hasCost = Komerce::shippingCostEnabled();
         $hasDelivery = Komerce::shippingDeliveryEnabled();
+
+        if (! $hasCost && ! $hasDelivery) {
+            return CarrierSyncResult::failed('RajaOngkir Shipping Cost or Komerce Delivery API key is required to sync carriers.');
+        }
 
         $inventory = Inventory::query()->where('is_default', true)->first()
             ?? Inventory::query()->first();
-        $originId = (string) resolve(InventoryOrigins::class)->get($inventory, RajaOngkirDriver::CODE);
+        $origins = resolve(InventoryOrigins::class);
+        $originId = (string) ($hasCost
+            ? ($origins->get($inventory, RajaOngkirDriver::CODE) ?? $origins->get($inventory, KomerceShippingDriver::CODE))
+            : ($origins->get($inventory, KomerceShippingDriver::CODE) ?? $origins->get($inventory, RajaOngkirDriver::CODE)));
 
         if ($inventory === null || $originId === '') {
             return CarrierSyncResult::failed('Default inventory has no RajaOngkir origin id. Fill it in Settings → Locations first.');
@@ -62,11 +66,22 @@ final readonly class KomerceCarrierSync
 
         $destinationId = (int) config('komerce.sync.destination_id');
         $weightGrams = (int) config('komerce.sync.weight_grams', 1000);
+        $quotable = [];
 
-        try {
-            $quotable = $this->quotableCouriers($originId, $destinationId, $weightGrams);
-        } catch (Throwable $e) {
-            return CarrierSyncResult::failed('RajaOngkir Shipping Cost probe failed: '.$e->getMessage());
+        if ($hasCost) {
+            try {
+                $quotable = $this->quotableCouriers($originId, $destinationId, $weightGrams);
+            } catch (Throwable $e) {
+                $costUnavailable = ! Komerce::shippingCostEnabled()
+                    || resolve(KomerceCapabilities::class)->quotaExhausted('shipping_cost');
+
+                if ($hasDelivery && $costUnavailable) {
+                    $hasCost = false;
+                    $quotable = [];
+                } else {
+                    return CarrierSyncResult::failed('RajaOngkir Shipping Cost probe failed: '.$e->getMessage());
+                }
+            }
         }
 
         $deliverable = [];
@@ -75,7 +90,11 @@ final readonly class KomerceCarrierSync
             try {
                 $deliverable = $this->deliverableCouriers($inventory, $originId, $destinationId, $weightGrams);
             } catch (Throwable $e) {
-                return CarrierSyncResult::failed('Komerce Delivery probe failed: '.$e->getMessage());
+                if (! Komerce::shippingDeliveryEnabled() && $hasCost) {
+                    $hasDelivery = false;
+                } else {
+                    return CarrierSyncResult::failed('Komerce Delivery probe failed: '.$e->getMessage());
+                }
             }
         }
 
@@ -98,7 +117,7 @@ final readonly class KomerceCarrierSync
             $rows[] = [
                 $code,
                 $officialName ?? $deliverable[$code]['name'] ?? strtoupper($code),
-                $canQuote ? implode(', ', $quotable[$code]) : '-',
+                $hasCost ? ($canQuote ? implode(', ', $quotable[$code]) : '-') : 'n/a (no Cost API)',
                 isset($deliverable[$code]) ? implode(', ', $deliverable[$code]['services']) : ($hasDelivery ? '-' : 'n/a (no Delivery API)'),
                 $enabled ? 'ENABLED' : 'disabled',
             ];
@@ -207,15 +226,16 @@ final readonly class KomerceCarrierSync
     private function assertSuccessEnvelope(array $response, string $provider): void
     {
         $status = strtolower(trim((string) data_get($response, 'meta.status', 'success')));
-        $code = (int) data_get($response, 'meta.code', 200);
+        $codeRaw = data_get($response, 'meta.code');
+        $code = is_numeric($codeRaw) ? (int) $codeRaw : 200;
 
-        if ($status !== 'success' || $code >= 400) {
+        if (($response['success'] ?? null) === false || $status !== 'success' || $code >= 400) {
             throw new RuntimeException(sprintf(
                 '%s responded with %s (%d): %s',
                 $provider,
                 $status,
                 $code,
-                (string) data_get($response, 'meta.message', 'no message'),
+                (string) data_get($response, 'meta.message', data_get($response, 'message', 'no message')),
             ));
         }
     }
@@ -225,6 +245,10 @@ final readonly class KomerceCarrierSync
      */
     private function quotableCouriers(string $originId, int $destinationId, int $weightGrams): array
     {
+        if (resolve(KomerceCapabilities::class)->quotaExhausted('shipping_cost')) {
+            throw new RuntimeException('Shipping Cost daily quota exhausted.');
+        }
+
         $response = $this->cost->calculate(
             ['id' => $originId],
             ['id' => $destinationId],
@@ -258,6 +282,10 @@ final readonly class KomerceCarrierSync
      */
     private function deliverableCouriers(Inventory $inventory, string $originId, int $destinationId, int $weightGrams): array
     {
+        if (resolve(KomerceCapabilities::class)->quotaExhausted('shipping_delivery')) {
+            throw new RuntimeException('Komerce Delivery daily quota exhausted.');
+        }
+
         $originPin = trim((string) $inventory->latitude).','.trim((string) $inventory->longitude);
 
         $response = $this->delivery->calculate(

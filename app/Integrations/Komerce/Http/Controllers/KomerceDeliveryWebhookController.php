@@ -6,8 +6,11 @@ namespace App\Integrations\Komerce\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Integrations\Komerce\Actions\Shipping\ApplyDeliveryWebhookStatus;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 /**
  * Receiver for Komerce Shipping Delivery webhooks registered at
@@ -35,7 +38,14 @@ final class KomerceDeliveryWebhookController extends Controller
         $cnote = isset($payload['cnote']) ? trim((string) $payload['cnote']) : null;
         $status = isset($payload['status']) ? trim((string) $payload['status']) : null;
 
-        $apply->handle($orderNo, $cnote, $status);
+        try {
+            $apply->handle($orderNo, $cnote, $status);
+        } catch (RequestException|ConnectionException|RuntimeException $e) {
+            report($e);
+
+            return response()->json(['status' => 'lookup_failed'], 503)
+                ->header('Retry-After', '30');
+        }
 
         return response()->json(['status' => 'handled']);
     }

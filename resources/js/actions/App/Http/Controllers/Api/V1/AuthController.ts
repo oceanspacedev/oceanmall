@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::register
- * @see app/Http/Controllers/Api/V1/AuthController.php:25
+ * @see app/Http/Controllers/Api/V1/AuthController.php:28
  * @route '/api/v1/auth/register'
  */
 export const register = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ register.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::register
- * @see app/Http/Controllers/Api/V1/AuthController.php:25
+ * @see app/Http/Controllers/Api/V1/AuthController.php:28
  * @route '/api/v1/auth/register'
  */
 register.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ register.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::register
- * @see app/Http/Controllers/Api/V1/AuthController.php:25
+ * @see app/Http/Controllers/Api/V1/AuthController.php:28
  * @route '/api/v1/auth/register'
  */
 register.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ register.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\AuthController::register
- * @see app/Http/Controllers/Api/V1/AuthController.php:25
+ * @see app/Http/Controllers/Api/V1/AuthController.php:28
  * @route '/api/v1/auth/register'
  */
     const registerForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ register.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\AuthController::register
- * @see app/Http/Controllers/Api/V1/AuthController.php:25
+ * @see app/Http/Controllers/Api/V1/AuthController.php:28
  * @route '/api/v1/auth/register'
  */
         registerForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ register.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     register.form = registerForm
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::login
- * @see app/Http/Controllers/Api/V1/AuthController.php:62
+ * @see app/Http/Controllers/Api/V1/AuthController.php:77
  * @route '/api/v1/auth/login'
  */
 export const login = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -71,7 +71,7 @@ login.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::login
- * @see app/Http/Controllers/Api/V1/AuthController.php:62
+ * @see app/Http/Controllers/Api/V1/AuthController.php:77
  * @route '/api/v1/auth/login'
  */
 login.url = (options?: RouteQueryOptions) => {
@@ -80,7 +80,7 @@ login.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::login
- * @see app/Http/Controllers/Api/V1/AuthController.php:62
+ * @see app/Http/Controllers/Api/V1/AuthController.php:77
  * @route '/api/v1/auth/login'
  */
 login.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -90,7 +90,7 @@ login.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\AuthController::login
- * @see app/Http/Controllers/Api/V1/AuthController.php:62
+ * @see app/Http/Controllers/Api/V1/AuthController.php:77
  * @route '/api/v1/auth/login'
  */
     const loginForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -100,7 +100,7 @@ login.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\AuthController::login
- * @see app/Http/Controllers/Api/V1/AuthController.php:62
+ * @see app/Http/Controllers/Api/V1/AuthController.php:77
  * @route '/api/v1/auth/login'
  */
         loginForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -111,7 +111,7 @@ login.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     login.form = loginForm
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::logout
- * @see app/Http/Controllers/Api/V1/AuthController.php:89
+ * @see app/Http/Controllers/Api/V1/AuthController.php:189
  * @route '/api/v1/auth/logout'
  */
 export const logout = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -126,7 +126,7 @@ logout.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::logout
- * @see app/Http/Controllers/Api/V1/AuthController.php:89
+ * @see app/Http/Controllers/Api/V1/AuthController.php:189
  * @route '/api/v1/auth/logout'
  */
 logout.url = (options?: RouteQueryOptions) => {
@@ -135,7 +135,7 @@ logout.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::logout
- * @see app/Http/Controllers/Api/V1/AuthController.php:89
+ * @see app/Http/Controllers/Api/V1/AuthController.php:189
  * @route '/api/v1/auth/logout'
  */
 logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -145,7 +145,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\AuthController::logout
- * @see app/Http/Controllers/Api/V1/AuthController.php:89
+ * @see app/Http/Controllers/Api/V1/AuthController.php:189
  * @route '/api/v1/auth/logout'
  */
     const logoutForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -155,7 +155,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\AuthController::logout
- * @see app/Http/Controllers/Api/V1/AuthController.php:89
+ * @see app/Http/Controllers/Api/V1/AuthController.php:189
  * @route '/api/v1/auth/logout'
  */
         logoutForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -166,7 +166,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     logout.form = logoutForm
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::me
- * @see app/Http/Controllers/Api/V1/AuthController.php:96
+ * @see app/Http/Controllers/Api/V1/AuthController.php:196
  * @route '/api/v1/auth/me'
  */
 export const me = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -181,7 +181,7 @@ me.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::me
- * @see app/Http/Controllers/Api/V1/AuthController.php:96
+ * @see app/Http/Controllers/Api/V1/AuthController.php:196
  * @route '/api/v1/auth/me'
  */
 me.url = (options?: RouteQueryOptions) => {
@@ -190,7 +190,7 @@ me.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::me
- * @see app/Http/Controllers/Api/V1/AuthController.php:96
+ * @see app/Http/Controllers/Api/V1/AuthController.php:196
  * @route '/api/v1/auth/me'
  */
 me.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -199,7 +199,7 @@ me.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::me
- * @see app/Http/Controllers/Api/V1/AuthController.php:96
+ * @see app/Http/Controllers/Api/V1/AuthController.php:196
  * @route '/api/v1/auth/me'
  */
 me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -209,7 +209,7 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\AuthController::me
- * @see app/Http/Controllers/Api/V1/AuthController.php:96
+ * @see app/Http/Controllers/Api/V1/AuthController.php:196
  * @route '/api/v1/auth/me'
  */
     const meForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -219,7 +219,7 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\AuthController::me
- * @see app/Http/Controllers/Api/V1/AuthController.php:96
+ * @see app/Http/Controllers/Api/V1/AuthController.php:196
  * @route '/api/v1/auth/me'
  */
         meForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -228,7 +228,7 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\AuthController::me
- * @see app/Http/Controllers/Api/V1/AuthController.php:96
+ * @see app/Http/Controllers/Api/V1/AuthController.php:196
  * @route '/api/v1/auth/me'
  */
         meForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -243,8 +243,63 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     me.form = meForm
 /**
+* @see \App\Http\Controllers\Api\V1\AuthController::resendVerificationEmail
+ * @see app/Http/Controllers/Api/V1/AuthController.php:205
+ * @route '/api/v1/auth/email/verification-notification'
+ */
+export const resendVerificationEmail = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: resendVerificationEmail.url(options),
+    method: 'post',
+})
+
+resendVerificationEmail.definition = {
+    methods: ["post"],
+    url: '/api/v1/auth/email/verification-notification',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\V1\AuthController::resendVerificationEmail
+ * @see app/Http/Controllers/Api/V1/AuthController.php:205
+ * @route '/api/v1/auth/email/verification-notification'
+ */
+resendVerificationEmail.url = (options?: RouteQueryOptions) => {
+    return resendVerificationEmail.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\V1\AuthController::resendVerificationEmail
+ * @see app/Http/Controllers/Api/V1/AuthController.php:205
+ * @route '/api/v1/auth/email/verification-notification'
+ */
+resendVerificationEmail.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: resendVerificationEmail.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\V1\AuthController::resendVerificationEmail
+ * @see app/Http/Controllers/Api/V1/AuthController.php:205
+ * @route '/api/v1/auth/email/verification-notification'
+ */
+    const resendVerificationEmailForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: resendVerificationEmail.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\V1\AuthController::resendVerificationEmail
+ * @see app/Http/Controllers/Api/V1/AuthController.php:205
+ * @route '/api/v1/auth/email/verification-notification'
+ */
+        resendVerificationEmailForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: resendVerificationEmail.url(options),
+            method: 'post',
+        })
+    
+    resendVerificationEmail.form = resendVerificationEmailForm
+/**
 * @see \App\Http\Controllers\Api\V1\AuthController::destroy
- * @see app/Http/Controllers/Api/V1/AuthController.php:111
+ * @see app/Http/Controllers/Api/V1/AuthController.php:231
  * @route '/api/v1/auth/me'
  */
 export const destroy = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -259,7 +314,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::destroy
- * @see app/Http/Controllers/Api/V1/AuthController.php:111
+ * @see app/Http/Controllers/Api/V1/AuthController.php:231
  * @route '/api/v1/auth/me'
  */
 destroy.url = (options?: RouteQueryOptions) => {
@@ -268,7 +323,7 @@ destroy.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\AuthController::destroy
- * @see app/Http/Controllers/Api/V1/AuthController.php:111
+ * @see app/Http/Controllers/Api/V1/AuthController.php:231
  * @route '/api/v1/auth/me'
  */
 destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -278,7 +333,7 @@ destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\AuthController::destroy
- * @see app/Http/Controllers/Api/V1/AuthController.php:111
+ * @see app/Http/Controllers/Api/V1/AuthController.php:231
  * @route '/api/v1/auth/me'
  */
     const destroyForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -293,7 +348,7 @@ destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\AuthController::destroy
- * @see app/Http/Controllers/Api/V1/AuthController.php:111
+ * @see app/Http/Controllers/Api/V1/AuthController.php:231
  * @route '/api/v1/auth/me'
  */
         destroyForm.delete = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -307,6 +362,6 @@ destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
         })
     
     destroy.form = destroyForm
-const AuthController = { register, login, logout, me, destroy }
+const AuthController = { register, login, logout, me, resendVerificationEmail, destroy }
 
 export default AuthController

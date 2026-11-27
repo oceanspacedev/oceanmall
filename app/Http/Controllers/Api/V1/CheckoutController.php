@@ -14,6 +14,7 @@ use App\Actions\Checkout\SelectedShipmentRates;
 use App\Actions\CreateOrder;
 use App\Actions\GetCountriesByZone;
 use App\Actions\Notify\NotifyOrderCustomer;
+use App\Actions\Shipping\DispatchShipmentFulfillment;
 use App\Actions\Warehouse\SuggestAllocation;
 use App\DTO\AllocationPlan;
 use App\DTO\CountryByZoneData;
@@ -25,12 +26,17 @@ use App\Payment\PaymentMethodCatalog;
 use App\Shipping\AddressDestination;
 use App\Shipping\SelectedRate;
 use App\Shipping\ShippingCapabilities;
+use App\Shipping\ShippingQuoteContext;
+use App\Shipping\ShippingQuoteFailure;
 use App\Support\CustomerCart;
 use App\Support\CustomerCatalogPresenter;
 use App\Support\CustomerCheckoutState;
+use App\Support\OrderPaymentType;
 use App\Support\ShipmentItemValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\Models\Cart;
@@ -59,19 +65,30 @@ final class CheckoutController extends Controller
         $rates = [];
         $allocationPayload = null;
         $ratesByShipment = [];
+        $quotePlan = null;
         if (is_array($address) && $cart->lines->isNotEmpty()) {
             $quote = $this->quoteCart($cart, $address);
             $rates = $quote['rates'];
             $ratesByShipment = $quote['by_shipment'];
-            if ($quote['plan'] instanceof AllocationPlan) {
-                $inventoryIds = array_map(static fn ($s): int => $s->inventory_id, $quote['plan']->shipments);
+            $quotePlan = $quote['plan'];
+            if ($quotePlan instanceof AllocationPlan) {
+                $inventoryIds = array_map(static fn ($s): int => $s->inventory_id, $quotePlan->shipments);
                 $inventories = Inventory::query()->whereIn('id', $inventoryIds)->get()->keyBy('id');
                 $allocationPayload = array_map(static fn ($s): array => [
                     'inventory_id' => $s->inventory_id,
                     'inventory_name' => $inventories->get($s->inventory_id)?->getAttribute('name') ?? (string) $s->inventory_id,
                     'lines' => $s->lines,
-                ], $quote['plan']->shipments);
+                ], $quotePlan->shipments);
             }
+        }
+
+        $hasSelectedShipping = is_array($state['shipping_option'][0] ?? null)
+            || (is_array($state['shipping_options_by_shipment'] ?? null) && $state['shipping_options_by_shipment'] !== []);
+
+        if ($hasSelectedShipping && $quotePlan instanceof AllocationPlan
+            && ! resolve(SelectedShipmentRates::class)->coverPlan($quotePlan, $state)) {
+            unset($state['shipping_option'], $state['shipping_options_by_shipment'], $state['allocation_plan']);
+            $this->checkoutState->put($user, $state);
         }
 
         $countryId = is_array($address) ? (int) ($address['country_id'] ?? 0) : 0;
@@ -85,6 +102,13 @@ final class CheckoutController extends Controller
         $selectedByShipment = is_array($state['shipping_options_by_shipment'] ?? null)
             ? array_map(static fn ($r): int|string|null => is_array($r) ? SelectedRate::optionKeyOf($r) : null, $state['shipping_options_by_shipment'])
             : [];
+        $ratesFeedback = $this->shippingRatesFeedback(
+            $address,
+            $cart->lines->isEmpty(),
+            $allocationPayload,
+            $rates,
+            $ratesByShipment,
+        );
 
         return response()->json([
             'data' => [
@@ -99,7 +123,7 @@ final class CheckoutController extends Controller
                 // builds reuse it without a new search.
                 'shipping_address' => is_array($address)
                     ? AddressDestination::withLegacyKeys($destinationDriver !== null
-                        ? AddressDestination::forDriver($address, $destinationDriver)
+                        ? AddressDestination::forDriver($address, $capabilities->destinationDriverFamilyCodes())
                         : $address, freeTextFallback: $destinationDriver === null)
                     : null,
                 // Echoed as the key it was picked by (one of shipping_rates).
@@ -111,6 +135,8 @@ final class CheckoutController extends Controller
                 'shipping_rates_by_shipment' => $ratesByShipment === [] ? (object) [] : $ratesByShipment,
                 'shipping_options_by_shipment' => $selectedByShipment === [] ? (object) [] : $selectedByShipment,
                 'shipping_capabilities' => $capabilities->toApi(),
+                'shipping_rates_hint' => $ratesFeedback['hint'],
+                'shipping_rates_failure' => $ratesFeedback['failure'],
                 'payment_methods' => $methods,
                 'payment' => $state['payment'][0] ?? null,
                 'saved_addresses' => resolve(PersistUserShippingAddress::class)->mapSavedAddressesForCheckout($user, withLegacyKeys: true),
@@ -348,8 +374,8 @@ final class CheckoutController extends Controller
             return response()->json(['message' => 'Pilih kurir pengiriman dulu.'], 422);
         }
 
-        if (\App\Support\OrderPaymentType::methodIsCod($method)
-            && ! \App\Support\OrderPaymentType::shippingRatesSupportCod($checkout)) {
+        if (OrderPaymentType::methodIsCod($method)
+            && ! OrderPaymentType::shippingRatesSupportCod($checkout)) {
             return response()->json(['message' => 'Kurir yang dipilih tidak mendukung Cash on Delivery (COD). Pilih kurir atau metode pembayaran lain.'], 422);
         }
 
@@ -401,8 +427,8 @@ final class CheckoutController extends Controller
 
             if (! $result->success) {
                 $paymentError = 'Pesanan dibuat, tetapi pembayaran belum bisa dibuat. Coba bayar ulang dari halaman pesanan.';
-            } elseif (\App\Support\OrderPaymentType::isCod($order)) {
-                resolve(\App\Actions\Shipping\DispatchShipmentFulfillment::class)->handle($order);
+            } elseif (OrderPaymentType::isCod($order)) {
+                resolve(DispatchShipmentFulfillment::class)->handle($order);
             }
         } catch (Throwable $e) {
             report($e);
@@ -465,6 +491,8 @@ final class CheckoutController extends Controller
      */
     private function quoteCart(Cart $cart, array $address): array
     {
+        resolve(ShippingQuoteContext::class)->restoreFailure(null);
+
         try {
             $plan = resolve(SuggestAllocation::class)->handle($cart, $address);
         } catch (Throwable) {
@@ -492,6 +520,7 @@ final class CheckoutController extends Controller
             $rates = array_values(array_filter(array_map(
                 static function (array $rate) use ($byShipment): ?array {
                     $amount = 0;
+                    $supportsCod = true;
 
                     foreach ($byShipment as $packageRates) {
                         $match = SelectedRate::pick($packageRates, $rate['service_code']);
@@ -500,10 +529,22 @@ final class CheckoutController extends Controller
                             return null;
                         }
 
+                        foreach (['is_cod', 'kiriminaja_cod', 'available_for_cash_on_delivery'] as $flag) {
+                            if (array_key_exists($flag, $match) && $match[$flag] === false) {
+                                $supportsCod = false;
+                            }
+                        }
+
                         $amount += (int) ($match['amount'] ?? 0);
                     }
 
-                    return [...$rate, 'amount' => $amount, 'shipping_cost' => $amount];
+                    $combined = [...$rate, 'amount' => $amount, 'shipping_cost' => $amount];
+
+                    if (! $supportsCod) {
+                        $combined['is_cod'] = false;
+                    }
+
+                    return $combined;
                 },
                 $rates,
             )));
@@ -513,6 +554,108 @@ final class CheckoutController extends Controller
         usort($rates, static fn (array $a, array $b): int => (int) ($a['amount'] ?? 0) <=> (int) ($b['amount'] ?? 0));
 
         return ['plan' => $plan, 'by_shipment' => $byShipment, 'rates' => $rates];
+    }
+
+    /**
+     * Parity with Shop\CheckoutController::shippingRatesHint(): returns a
+     * customer-facing Indonesian hint and structured failure reason whenever
+     * single-package rates or any multi-package shipment lacks courier options.
+     *
+     * @param  array<string, mixed>|null  $address
+     * @param  list<array<string, mixed>>|null  $allocation
+     * @param  list<array<string, mixed>>  $rates
+     * @param  array<int|string, list<array<string, mixed>>>  $ratesByShipment
+     * @return array{hint: ?string, failure: ?array{reason: string, retry_at_wib: ?string}}
+     */
+    private function shippingRatesFeedback(
+        ?array $address,
+        bool $cartIsEmpty,
+        ?array $allocation,
+        array $rates,
+        array $ratesByShipment,
+    ): array {
+        if ($address === null || $cartIsEmpty) {
+            return ['hint' => null, 'failure' => null];
+        }
+
+        $allPackagesHaveRates = $ratesByShipment !== []
+            ? ! collect($ratesByShipment)->contains(
+                static fn (mixed $opts): bool => ! is_array($opts) || $opts === []
+            )
+            : $rates !== [];
+
+        if ($allPackagesHaveRates) {
+            return ['hint' => null, 'failure' => null];
+        }
+
+        $capabilities = resolve(ShippingCapabilities::class);
+        $destinationDrivers = $capabilities->destinationDriverCode() !== null
+            ? $capabilities->destinationDriverFamilyCodes()
+            : null;
+
+        if ($capabilities->requiresDestination()
+            && AddressDestination::id($address, $destinationDrivers) === null) {
+            return [
+                'hint' => __('Kecamatan tujuan pengiriman belum dipilih. Silakan kembali ke langkah Alamat dan pilih kecamatan dari hasil pencarian otomatis.'),
+                'failure' => ['reason' => 'no_destination', 'retry_at_wib' => null],
+            ];
+        }
+
+        if ($allocation === null || $allocation === []) {
+            return [
+                'hint' => __('Stok produk di keranjang tidak dapat dipenuhi oleh lokasi gudang toko saat ini.'),
+                'failure' => ['reason' => 'no_allocation', 'retry_at_wib' => null],
+            ];
+        }
+
+        $failure = resolve(ShippingQuoteContext::class)->lastFailure();
+
+        $context = [
+            'country_id' => $address['country_id'] ?? null,
+            'provider_failure' => $failure === null ? null : [
+                'driver' => $failure->driver,
+                'reason' => $failure->reason,
+                'message' => $failure->message,
+            ],
+            'configured_drivers' => $capabilities->drivers()->keys()->all(),
+            'hint' => 'Enable a carrier with a CarrierOption for this zone in /cpanel (Settings > Zones), configure a shipping provider, or set shopper.shipping.fallback_to_zone_options.',
+        ];
+        $fingerprint = sha1(json_encode([
+            $context['country_id'],
+            $address['postal_code'] ?? null,
+            $address['city'] ?? null,
+            AddressDestination::id($address),
+            $failure?->driver,
+            $failure?->reason,
+            $context['configured_drivers'],
+        ]) ?: '');
+
+        if (Cache::add('checkout:no-shipping-option:'.$fingerprint, true, now()->addHour())) {
+            Log::notice('Checkout found no shipping option for the address.', $context);
+        }
+
+        if ($failure?->isQuota()) {
+            $retryAtWib = $failure->retryAfter?->copy()->setTimezone('Asia/Jakarta')->format('d M Y H:i') ?? '00:00';
+
+            return [
+                'hint' => __('Batas cek ongkir harian toko ini sudah tercapai. Silakan coba lagi setelah :time WIB atau hubungi kami untuk menyelesaikan pesanan.', [
+                    'time' => $retryAtWib,
+                ]),
+                'failure' => ['reason' => ShippingQuoteFailure::QUOTA, 'retry_at_wib' => $retryAtWib],
+            ];
+        }
+
+        if ($failure !== null) {
+            return [
+                'hint' => __('Gagal mengambil tarif ongkir (gangguan koneksi ke layanan pengiriman). Silakan muat ulang halaman atau coba lagi beberapa saat.'),
+                'failure' => ['reason' => ShippingQuoteFailure::UNAVAILABLE, 'retry_at_wib' => null],
+            ];
+        }
+
+        return [
+            'hint' => __('Belum ada opsi pengiriman untuk alamat ini. Silakan periksa kembali alamat pengiriman atau hubungi kami.'),
+            'failure' => ['reason' => ShippingQuoteFailure::UNAVAILABLE, 'retry_at_wib' => null],
+        ];
     }
 
     /**

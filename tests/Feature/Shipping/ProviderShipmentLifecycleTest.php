@@ -24,6 +24,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Enum\ShipmentStatus;
 use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderCompleted;
@@ -60,7 +61,12 @@ final class ProviderShipmentLifecycleTest extends TestCase
 
     public function test_provider_scans_are_recorded_once_in_the_shopper_event_log_and_not_shown_twice(): void
     {
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $shipment = $this->shipment($order, 'plainship', [
             'awb' => 'AWB-LOG',
             'status' => 'in_transit',
@@ -101,7 +107,12 @@ final class ProviderShipmentLifecycleTest extends TestCase
     public function test_provider_transitions_fire_shopper_events_once_including_a_jump_to_delivered(): void
     {
         Event::fake([OrderShipmentCreated::class, OrderShipped::class, OrderShipmentDelivered::class, OrderCompleted::class]);
-        $order = Order::factory()->create(['currency_code' => 'IDR', 'status' => OrderStatus::Processing, 'shipping_status' => ShippingStatus::Unfulfilled]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $this->shipment($order, 'plainship', ['awb' => 'AWB-JUMP', 'status' => 'delivered']);
 
         $sync = resolve(SyncOrderShippingFromShipments::class);
@@ -119,7 +130,12 @@ final class ProviderShipmentLifecycleTest extends TestCase
     public function test_shipped_order_moving_on_to_delivered_does_not_fire_order_shipped_again(): void
     {
         Event::fake([OrderShipped::class, OrderShipmentDelivered::class]);
-        $order = Order::factory()->create(['currency_code' => 'IDR', 'status' => OrderStatus::Processing, 'shipping_status' => ShippingStatus::Unfulfilled]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $shipment = $this->shipment($order, 'plainship', ['awb' => 'AWB-STEP', 'status' => 'in_transit']);
 
         $sync = resolve(SyncOrderShippingFromShipments::class);
@@ -135,7 +151,12 @@ final class ProviderShipmentLifecycleTest extends TestCase
     public function test_status_from_a_shopper_track_answer_is_normalised(): void
     {
         $driver = $this->register(new PlainTrackDriver);
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $shipment = $this->shipment($order, 'plainship', ['awb' => 'AWB-NORM', 'status' => 'labeled']);
 
         $driver->status = 'out_for_delivery';
@@ -152,7 +173,12 @@ final class ProviderShipmentLifecycleTest extends TestCase
     public function test_tracking_cron_polls_hand_entered_awbs_through_a_tracking_driver_with_its_own_budget(): void
     {
         $driver = $this->register(new FulfilTrackDriver);
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $provider = $this->shipment($order, 'fullship', ['awb' => 'PROV-1', 'external_reference' => 'FS-1']);
         $handA = $this->shipment($order, 'manual', ['awb' => 'HAND-A', 'updated_at' => now()->subHours(2)]);
         $handB = $this->shipment($order, 'manual', ['awb' => 'HAND-B', 'updated_at' => now()->subHour()]);

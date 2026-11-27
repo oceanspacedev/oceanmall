@@ -6,6 +6,7 @@ namespace App\Actions\Shipping;
 
 use App\Jobs\FulfillOrderShipment;
 use App\Models\OrderShipment;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
 use App\Support\OrderPaymentType;
 use Illuminate\Support\Facades\DB;
@@ -67,6 +68,16 @@ final readonly class DispatchShipmentFulfillment
 
         if (strtolower((string) $shipment->status) === NormalizeShipmentStatus::CANCELLED) {
             return false;
+        }
+
+        if (is_numeric(data_get($shipment->metadata, ShipmentMetadata::RESHIPPED_TO_SHIPMENT_ID))) {
+            $orderShipments = OrderShipment::query()
+                ->where('order_id', $shipment->order_id)
+                ->get(['id', 'metadata']);
+
+            if (ShipmentMetadata::isSupersededByReship($shipment, $orderShipments)) {
+                return false;
+            }
         }
 
         return $this->capabilities->fulfillerFor($shipment) !== null;

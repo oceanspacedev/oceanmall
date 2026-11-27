@@ -13,6 +13,7 @@ import type { PaymentInstructions } from '@/lib/api';
 import { openPaymentPage } from '@/lib/browser';
 import { useCountdown } from '@/lib/countdown';
 import { formatDateTime, formatMoney, paymentTypeLabel } from '@/lib/format';
+import { expiredPaymentMessage } from '@/lib/order-helpers';
 import { guideFor, qrisGuide, type PaymentGuide } from '@/lib/payment-guides';
 import { toast } from '@/lib/toast';
 import { Clock, ExternalLink } from 'lucide-react-native';
@@ -92,7 +93,7 @@ export function PaymentPanel({
         className="flex-row items-center gap-2 rounded-sm bg-om-sale-soft px-3 py-2.5">
         <Icon as={Clock} size={15} className="text-om-sale" />
         <Text className="flex-1 text-[12px] leading-4 text-om-sale-text">
-          Batas pembayaran sudah lewat. Buat pembayaran baru untuk melanjutkan.
+          {expiredPaymentMessage(canRetry, 'panel')}
         </Text>
       </View>
     );

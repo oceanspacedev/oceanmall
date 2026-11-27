@@ -78,8 +78,8 @@ notice.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     notice.form = noticeForm
 /**
-* @see \Laravel\Fortify\Http\Controllers\VerifyEmailController::verify
- * @see vendor/laravel/fortify/src/Http/Controllers/VerifyEmailController.php:18
+* @see \App\Http\Controllers\Auth\VerifyEmailLinkController::__invoke
+ * @see app/Http/Controllers/Auth/VerifyEmailLinkController.php:22
  * @route '/email/verify/{id}/{hash}'
  */
 export const verify = (args: { id: string | number, hash: string | number } | [id: string | number, hash: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -93,8 +93,8 @@ verify.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Laravel\Fortify\Http\Controllers\VerifyEmailController::verify
- * @see vendor/laravel/fortify/src/Http/Controllers/VerifyEmailController.php:18
+* @see \App\Http\Controllers\Auth\VerifyEmailLinkController::__invoke
+ * @see app/Http/Controllers/Auth/VerifyEmailLinkController.php:22
  * @route '/email/verify/{id}/{hash}'
  */
 verify.url = (args: { id: string | number, hash: string | number } | [id: string | number, hash: string | number ], options?: RouteQueryOptions) => {
@@ -119,8 +119,8 @@ verify.url = (args: { id: string | number, hash: string | number } | [id: string
 }
 
 /**
-* @see \Laravel\Fortify\Http\Controllers\VerifyEmailController::verify
- * @see vendor/laravel/fortify/src/Http/Controllers/VerifyEmailController.php:18
+* @see \App\Http\Controllers\Auth\VerifyEmailLinkController::__invoke
+ * @see app/Http/Controllers/Auth/VerifyEmailLinkController.php:22
  * @route '/email/verify/{id}/{hash}'
  */
 verify.get = (args: { id: string | number, hash: string | number } | [id: string | number, hash: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -128,8 +128,8 @@ verify.get = (args: { id: string | number, hash: string | number } | [id: string
     method: 'get',
 })
 /**
-* @see \Laravel\Fortify\Http\Controllers\VerifyEmailController::verify
- * @see vendor/laravel/fortify/src/Http/Controllers/VerifyEmailController.php:18
+* @see \App\Http\Controllers\Auth\VerifyEmailLinkController::__invoke
+ * @see app/Http/Controllers/Auth/VerifyEmailLinkController.php:22
  * @route '/email/verify/{id}/{hash}'
  */
 verify.head = (args: { id: string | number, hash: string | number } | [id: string | number, hash: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -138,8 +138,8 @@ verify.head = (args: { id: string | number, hash: string | number } | [id: strin
 })
 
     /**
-* @see \Laravel\Fortify\Http\Controllers\VerifyEmailController::verify
- * @see vendor/laravel/fortify/src/Http/Controllers/VerifyEmailController.php:18
+* @see \App\Http\Controllers\Auth\VerifyEmailLinkController::__invoke
+ * @see app/Http/Controllers/Auth/VerifyEmailLinkController.php:22
  * @route '/email/verify/{id}/{hash}'
  */
     const verifyForm = (args: { id: string | number, hash: string | number } | [id: string | number, hash: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -148,8 +148,8 @@ verify.head = (args: { id: string | number, hash: string | number } | [id: strin
     })
 
             /**
-* @see \Laravel\Fortify\Http\Controllers\VerifyEmailController::verify
- * @see vendor/laravel/fortify/src/Http/Controllers/VerifyEmailController.php:18
+* @see \App\Http\Controllers\Auth\VerifyEmailLinkController::__invoke
+ * @see app/Http/Controllers/Auth/VerifyEmailLinkController.php:22
  * @route '/email/verify/{id}/{hash}'
  */
         verifyForm.get = (args: { id: string | number, hash: string | number } | [id: string | number, hash: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -157,8 +157,8 @@ verify.head = (args: { id: string | number, hash: string | number } | [id: strin
             method: 'get',
         })
             /**
-* @see \Laravel\Fortify\Http\Controllers\VerifyEmailController::verify
- * @see vendor/laravel/fortify/src/Http/Controllers/VerifyEmailController.php:18
+* @see \App\Http\Controllers\Auth\VerifyEmailLinkController::__invoke
+ * @see app/Http/Controllers/Auth/VerifyEmailLinkController.php:22
  * @route '/email/verify/{id}/{hash}'
  */
         verifyForm.head = (args: { id: string | number, hash: string | number } | [id: string | number, hash: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

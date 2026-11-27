@@ -12,14 +12,17 @@ use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
 use App\Integrations\Komerce\Actions\Payment\MarkOrderPaidFromKomerce;
 use App\Integrations\Komerce\Exceptions\KomercePaidAfterCancellation;
 use App\Integrations\Komerce\Jobs\CreateRajaOngkirDeliveryForShipment;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
 use App\Jobs\FulfillOrderShipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
+use Laravel\Sanctum\Sanctum;
 use RuntimeException;
 use Shopper\Cart\CartManager;
 use Shopper\Cart\Models\Cart;
@@ -1031,5 +1034,134 @@ final class KomerceCheckoutTest extends TestCase
             fn (KomercePaidAfterCancellation $e): bool => $e->orderNumber === 'ORD-PAID-AFTER-CANCEL'
                 && $e->paymentId === 'KOMPAY-PAID-AFTER-CANCEL',
         );
+    }
+
+    public function test_401_and_403_payment_catalog_revocation_never_leaks_first_komerce_method(): void
+    {
+        $this->withoutVite();
+
+        $country = Country::factory()->create();
+        $zone = Zone::factory()->create(['is_enabled' => true]);
+        $zone->countries()->attach($country->id);
+
+        // Seed Komerce VA FIRST (regression target for the first-method leak),
+        // followed by a second Komerce VA, Komerce QRIS, and manual COD.
+        $vaBca = PaymentMethod::factory()->create([
+            'slug' => 'komerce-va-bca',
+            'title' => 'BCA Virtual Account',
+            'driver' => 'komerce',
+            'is_enabled' => true,
+            'metadata' => json_encode(['channel_code' => 'BCA', 'payment_type' => 'bank_transfer']),
+        ]);
+        $vaBri = PaymentMethod::factory()->create([
+            'slug' => 'komerce-va-bri',
+            'title' => 'BRI Virtual Account',
+            'driver' => 'komerce',
+            'is_enabled' => true,
+            'metadata' => json_encode(['channel_code' => 'BRI', 'payment_type' => 'bank_transfer']),
+        ]);
+        $qris = PaymentMethod::factory()->create([
+            'slug' => 'komerce-qris',
+            'title' => 'QRIS',
+            'driver' => 'komerce',
+            'is_enabled' => true,
+            'metadata' => json_encode(['payment_type' => 'qris']),
+        ]);
+        $manual = PaymentMethod::factory()->create([
+            'slug' => 'cod',
+            'title' => 'Cash on delivery',
+            'driver' => 'manual',
+            'is_enabled' => true,
+        ]);
+        $zone->paymentMethods()->attach([$vaBca->id, $vaBri->id, $qris->id, $manual->id]);
+
+        $user = User::factory()->create();
+        $product = Product::factory()->standard()->create(['published_at' => now()->subDay()]);
+        $cart = Cart::query()->create(['currency_code' => 'IDR', 'customer_id' => $user->id]);
+        CartLine::query()->create([
+            'cart_id' => $cart->id,
+            'purchasable_type' => $product->getMorphClass(),
+            'purchasable_id' => $product->id,
+            'quantity' => 1,
+            'unit_price_amount' => 50000,
+        ]);
+
+        foreach ([
+            401 => ['meta' => ['message' => 'Invalid API Key']],
+            403 => ['meta' => ['message' => 'Forbidden']],
+            400 => ['meta' => ['message' => 'Invalid API key']],
+        ] as $status => $payload) {
+            // Case A: Payment API key set, QRISLY off -> ZERO Komerce methods leak anywhere.
+            Cache::flush();
+            resolve(KomerceCapabilities::class)->forget();
+            $this->komerceFakeConfig();
+            config()->set('komerce.qrisly_api_key', '');
+            config()->set('komerce.qrisly_qris_id', '');
+
+            Http::swap(new Factory);
+            Http::fake([
+                'https://payment.example.test/user/api/v1/user/methods' => Http::response($payload, $status),
+            ]);
+
+            $methods = resolve(FetchPaymentMethods::class)->handle($country->id);
+            $this->assertSame(['cod'], array_column($methods, 'slug'), "HTTP {$status} must not leak first Komerce method");
+
+            // Footer Inertia props (fresh cache, first request hits /user/methods and gets 401/403).
+            Cache::flush();
+            resolve(KomerceCapabilities::class)->forget();
+            $this->get(route('home'))
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->has('shop.payment_methods', 1)
+                    ->where('shop.payment_methods.0.key', 'cod')
+                );
+
+            // Web checkout (fresh cache, first request hits /user/methods and gets 401/403).
+            Cache::flush();
+            resolve(KomerceCapabilities::class)->forget();
+            $this->actingAs($user)
+                ->withSession([
+                    config('shopper.cart.session.key', 'shopper_cart') => $cart->id,
+                    'checkout' => $this->makeCheckoutSession($country->id, $manual->id),
+                ])
+                ->get(route('shop.checkout.index', ['step' => 3]), ['X-Inertia' => 'true'])
+                ->assertOk()
+                ->assertJsonPath('props.paymentOptions.0.slug', 'cod')
+                ->assertJsonCount(1, 'props.paymentOptions');
+
+            // API v1 checkout (fresh cache, first request hits /user/methods and gets 401/403).
+            Cache::flush();
+            resolve(KomerceCapabilities::class)->forget();
+            Sanctum::actingAs($user);
+            $this->getJson('/api/v1/checkout')
+                ->assertOk()
+                ->assertJsonCount(1, 'data.payment_methods')
+                ->assertJsonPath('data.payment_methods.0.slug', 'cod');
+
+            // Case B: Payment API key set, QRISLY enabled -> VA #1 & #2 excluded, QRIS kept with 1k..100M bounds.
+            Cache::flush();
+            resolve(KomerceCapabilities::class)->forget();
+            config()->set('komerce.qrisly_api_key', 'qrisly-key');
+            config()->set('komerce.qrisly_qris_id', '18');
+            config()->set('komerce.qrisly_base_url', 'https://qrisly.example.test/user');
+
+            $methodsWithQrisly = resolve(FetchPaymentMethods::class)->handle($country->id);
+            $slugsWithQrisly = array_column($methodsWithQrisly, 'slug');
+            $this->assertNotContains('komerce-va-bca', $slugsWithQrisly);
+            $this->assertNotContains('komerce-va-bri', $slugsWithQrisly);
+            $this->assertSame(['komerce-qris', 'cod'], $slugsWithQrisly);
+            $this->assertSame(1000, $methodsWithQrisly[0]['min_amount']);
+            $this->assertSame(100_000_000, $methodsWithQrisly[0]['max_amount']);
+
+            Cache::flush();
+            resolve(KomerceCapabilities::class)->forget();
+            $this->get(route('home'))
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->has('shop.payment_methods', 2)
+                    ->where('shop.payment_methods.0.key', 'komerce-qris')
+                    ->where('shop.payment_methods.1.key', 'cod')
+                );
+        }
     }
 }

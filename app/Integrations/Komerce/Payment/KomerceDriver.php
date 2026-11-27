@@ -9,18 +9,21 @@ use App\Integrations\Komerce\Actions\Payment\CreateKomercePayment;
 use App\Integrations\Komerce\Actions\Payment\ResolveKomercePaymentInstructions;
 use App\Integrations\Komerce\Actions\Payment\RetryKomercePayment;
 use App\Integrations\Komerce\Actions\Payment\SyncKomercePaymentStatus;
+use App\Integrations\Komerce\Exceptions\KomerceNotConfiguredException;
 use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Services\PaymentClient;
 use App\Integrations\Komerce\Services\QrislyClient;
 use App\Integrations\Komerce\Support\KomerceCallbackSignature;
 use App\Integrations\Komerce\Support\KomercePaymentCatalog;
 use App\Integrations\Komerce\Support\KomercePaymentLookupContext;
+use App\Integrations\Komerce\Support\KomercePaymentProvider;
 use App\Payment\Contracts\ExpiresPayments;
 use App\Payment\Contracts\ProvidesPaymentAction;
 use App\Payment\Contracts\ProvidesPaymentCatalog;
 use App\Payment\Contracts\ReconcilesPayments;
 use App\Payment\Contracts\RetriesPayments;
 use Carbon\CarbonInterface;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 use RuntimeException;
@@ -41,6 +44,12 @@ use Throwable;
 final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPaymentAction, ProvidesPaymentCatalog, ReconcilesPayments, RetriesPayments
 {
     public const CODE = 'komerce';
+
+    public const QRISLY_MIN_AMOUNT = 1000;
+
+    public const QRISLY_MAX_AMOUNT = 100_000_000;
+
+    public const PAYMENT_API_MIN_AMOUNT = 10_000;
 
     /**
      * The lookup context is scoped and resolved per call: Shopper's
@@ -91,7 +100,55 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
 
     public function paymentCatalog(): ?array
     {
-        return resolve(KomercePaymentCatalog::class)->official();
+        if (! Komerce::paymentEnabled()) {
+            return Komerce::qrislyEnabled() ? [$this->qrislyCatalogRow()] : null;
+        }
+
+        $official = resolve(KomercePaymentCatalog::class)->official();
+
+        if ($official === null) {
+            if (! Komerce::paymentEnabled() && Komerce::qrislyEnabled()) {
+                return [$this->qrislyCatalogRow()];
+            }
+
+            return null;
+        }
+
+        return Komerce::qrislyEnabled() ? $this->withQrislyCatalog($official) : $official;
+    }
+
+    /**
+     * Effective order-amount bounds when the live catalog is unreachable or
+     * omits a bound.
+     *
+     * @param  array<string, mixed>  $methodMetadata
+     * @return array{min_amount: int|null, max_amount: int|null}
+     */
+    public function amountLimitsFor(array $methodMetadata): array
+    {
+        $paymentType = strtolower((string) ($methodMetadata['payment_type'] ?? 'bank_transfer'));
+
+        if ($paymentType === 'qris') {
+            if (Komerce::qrislyEnabled()) {
+                return [
+                    'min_amount' => self::QRISLY_MIN_AMOUNT,
+                    'max_amount' => self::QRISLY_MAX_AMOUNT,
+                ];
+            }
+
+            if (Komerce::paymentEnabled()) {
+                return [
+                    'min_amount' => self::PAYMENT_API_MIN_AMOUNT,
+                    'max_amount' => null,
+                ];
+            }
+
+            return ['min_amount' => null, 'max_amount' => null];
+        }
+
+        return Komerce::paymentEnabled()
+            ? ['min_amount' => self::PAYMENT_API_MIN_AMOUNT, 'max_amount' => null]
+            : ['min_amount' => null, 'max_amount' => null];
     }
 
     /**
@@ -169,9 +226,9 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
      */
     public function canExpireUnpaidOrder(Order $order): bool
     {
-        $provider = data_get($this->decodeMetadata($order->getAttribute('metadata')), 'komerce.provider', 'payment_api');
-
-        return $provider === 'qrisly' ? Komerce::qrislyEnabled() : Komerce::paymentEnabled();
+        return KomercePaymentProvider::resolve($order) === 'qrisly'
+            ? Komerce::qrislyEnabled()
+            : Komerce::paymentEnabled();
     }
 
     public function expireUnpaidOrder(Order $order, string $reason = 'Payment expired'): Order
@@ -224,8 +281,22 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
 
         $order = $this->resolveOrder($context);
 
-        if ($paymentType === 'qris' && Komerce::qrislyEnabled()) {
-            return $this->createViaQrisly($order, $amount, $currency);
+        if ($paymentType === 'qris' && Komerce::qrislyEnabled() && ($amount <= self::QRISLY_MAX_AMOUNT || ! Komerce::paymentEnabled())) {
+            try {
+                return $this->createViaQrisly($order, $amount, $currency);
+            } catch (RequestException|KomerceNotConfiguredException|RuntimeException $e) {
+                if ($this->shouldFallbackFromQrisly($e) && Komerce::paymentEnabled()) {
+                    return $this->createViaPaymentApi(
+                        $order,
+                        $amount,
+                        $currency,
+                        'qris',
+                        null,
+                    );
+                }
+
+                throw $e;
+            }
         }
 
         if (! Komerce::paymentEnabled()) {
@@ -237,7 +308,7 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
             $amount,
             $currency,
             $paymentType,
-            isset($context['channel_code']) ? (string) $context['channel_code'] : null,
+            $paymentType === 'qris' ? null : (isset($context['channel_code']) ? (string) $context['channel_code'] : null),
         );
     }
 
@@ -249,14 +320,18 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
             throw PaymentException::apiError($this->code(), 'Payment reference is required.');
         }
 
-        $provider = resolve(KomercePaymentLookupContext::class)->provider();
+        $lookup = resolve(KomercePaymentLookupContext::class);
+        $provider = $lookup->explicitProvider() ?? KomercePaymentProvider::resolveForReference($reference);
+        $allowUnentitled = $lookup->allowUnentitled();
 
         if ($provider === 'qrisly') {
-            if (! Komerce::qrislyEnabled()) {
+            $ready = $allowUnentitled ? Komerce::qrislyConfigured() : Komerce::qrislyEnabled();
+
+            if (! $ready) {
                 throw PaymentException::notConfigured($this->code());
             }
 
-            $response = $this->qrisly->getPaymentStatus($reference);
+            $response = $this->qrisly->getPaymentStatus($reference, allowUnentitled: $allowUnentitled);
             $dataObj = data_get($response, 'data', []);
             $status = $this->normalizePaymentStatus((string) (
                 data_get($dataObj, 'payment_status')
@@ -277,11 +352,13 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
             );
         }
 
-        if (! Komerce::paymentEnabled()) {
+        $ready = $allowUnentitled ? Komerce::paymentConfigured() : Komerce::paymentEnabled();
+
+        if (! $ready) {
             throw PaymentException::notConfigured($this->code());
         }
 
-        $response = $this->payments->getStatus($reference);
+        $response = $this->payments->getStatus($reference, allowUnentitled: $allowUnentitled);
         $dataObj = data_get($response, 'data', []);
         $status = $this->normalizePaymentStatus((string) data_get($dataObj, 'status', 'pending'));
 
@@ -303,6 +380,25 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
 
         if ($reference === '') {
             throw PaymentException::apiError($this->code(), 'Payment reference is required.');
+        }
+
+        $provider = resolve(KomercePaymentLookupContext::class)->explicitProvider()
+            ?? KomercePaymentProvider::resolveForReference($reference);
+
+        if ($provider === 'qrisly') {
+            if (! Komerce::qrislyEnabled()) {
+                throw PaymentException::notConfigured($this->code());
+            }
+
+            // QRISLY exposes no remote cancel endpoint; local cancellation voids the order safely.
+            return new PaymentResult(
+                success: true,
+                status: 'canceled',
+                reference: $reference,
+                data: [
+                    'provider' => 'qrisly',
+                ],
+            );
         }
 
         if (! Komerce::paymentEnabled()) {
@@ -493,8 +589,12 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
     {
         $qrisId = config('komerce.qrisly_qris_id');
 
-        if ($amount < 1000) {
+        if ($amount < self::QRISLY_MIN_AMOUNT) {
             throw new RuntimeException('QRISLY requires a minimum amount of Rp1,000.');
+        }
+
+        if ($amount > self::QRISLY_MAX_AMOUNT) {
+            throw new RuntimeException('QRISLY supports a maximum amount of Rp100,000,000.');
         }
 
         $response = $this->qrisly->generateQris([
@@ -706,5 +806,76 @@ final class KomerceDriver extends Driver implements ExpiresPayments, ProvidesPay
             'canceled', 'cancelled' => 'canceled',
             default => 'pending',
         };
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $official
+     * @return list<array<string, mixed>>
+     */
+    private function withQrislyCatalog(array $official): array
+    {
+        $hasQris = false;
+        $updated = [];
+
+        foreach ($official as $row) {
+            $type = strtolower(trim((string) ($row['payment_type'] ?? '')));
+
+            if ($type === 'qris') {
+                $hasQris = true;
+                $row['min_amount'] = self::QRISLY_MIN_AMOUNT;
+                $row['max_amount'] = self::QRISLY_MAX_AMOUNT;
+            }
+
+            $updated[] = $row;
+        }
+
+        if (! $hasQris) {
+            $updated[] = $this->qrislyCatalogRow();
+        }
+
+        return $updated;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function qrislyCatalogRow(): array
+    {
+        return [
+            'payment_type' => 'qris',
+            'bank_code' => '',
+            'display_name' => null,
+            'logo_url' => null,
+            'min_amount' => self::QRISLY_MIN_AMOUNT,
+            'max_amount' => self::QRISLY_MAX_AMOUNT,
+        ];
+    }
+
+    private function shouldFallbackFromQrisly(Throwable $e): bool
+    {
+        if ($e instanceof KomerceNotConfiguredException || ! Komerce::qrislyEnabled()) {
+            return true;
+        }
+
+        if (! $e instanceof RequestException) {
+            return false;
+        }
+
+        $status = $e->response?->status();
+
+        if (in_array($status, [401, 403], true)) {
+            return true;
+        }
+
+        if ($status === 400) {
+            $body = $e->response?->json();
+            $message = is_array($body)
+                ? (string) (data_get($body, 'meta.message') ?? data_get($body, 'message') ?? '')
+                : (string) ($e->response?->body() ?? '');
+
+            return preg_match('/invalid api ?key/i', $message) === 1;
+        }
+
+        return false;
     }
 }

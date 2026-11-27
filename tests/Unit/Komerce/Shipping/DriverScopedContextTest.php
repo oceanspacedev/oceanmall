@@ -10,6 +10,9 @@ use App\Shipping\ShippingQuoteContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Shipping\DataTransferObjects\Address;
@@ -121,7 +124,12 @@ final class DriverScopedContextTest extends TestCase
         Http::fake();
 
         $shipment = OrderShipment::query()->create([
-            'order_id' => Order::factory()->create()->id,
+            'order_id' => Order::factory()->create([
+                'currency_code' => 'IDR',
+                'status' => OrderStatus::Processing,
+                'payment_status' => PaymentStatus::Paid,
+                'shipping_status' => ShippingStatus::Unfulfilled,
+            ])->id,
             'inventory_id' => Inventory::factory()->create()->id,
             'carrier_code' => 'jne',
             'service_code' => 'REG',

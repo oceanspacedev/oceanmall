@@ -151,6 +151,8 @@ final class CreateKomercePayment
         if ($provider === 'qrisly') {
             $komerceMeta['qrisly_history_id'] = $paymentId;
             $komerceMeta['qrisly_qris_id'] = config('komerce.qrisly_qris_id');
+        } else {
+            unset($komerceMeta['qrisly_history_id'], $komerceMeta['qrisly_qris_id']);
         }
 
         $orderMetadata['komerce'] = $komerceMeta;

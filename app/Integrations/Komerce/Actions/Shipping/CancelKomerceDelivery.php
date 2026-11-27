@@ -60,8 +60,18 @@ final readonly class CancelKomerceDelivery
             $response = $this->delivery->cancelOrder($orderNo);
 
             $metaStatus = strtolower(trim((string) data_get($response, 'meta.status', '')));
-            if ($metaStatus !== '' && $metaStatus !== 'success') {
-                throw new \RuntimeException((string) (data_get($response, 'meta.message') ?: 'Komerce gagal membatalkan pengiriman.'));
+            $metaCode = data_get($response, 'meta.code');
+
+            if (
+                ($response['success'] ?? null) === false
+                || (is_numeric($metaCode) && ((int) $metaCode < 200 || (int) $metaCode >= 300))
+                || ($metaStatus !== '' && ! in_array($metaStatus, ['success', 'succeeded', 'ok'], true))
+            ) {
+                throw new \RuntimeException((string) (
+                    data_get($response, 'meta.message')
+                    ?: data_get($response, 'message')
+                    ?: 'Komerce gagal membatalkan pengiriman.'
+                ));
             }
         } catch (Throwable $e) {
             report($e);

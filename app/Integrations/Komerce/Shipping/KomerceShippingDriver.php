@@ -8,30 +8,47 @@ use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Integrations\Komerce\Actions\Shipping\CancelKomerceDelivery;
 use App\Integrations\Komerce\Actions\Shipping\ReconcileKomerceShipment;
 use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Services\KomerceCarrierSync;
 use App\Integrations\Komerce\Services\KomerceDeliveryFulfillment;
 use App\Integrations\Komerce\Services\KomerceShipmentTracker;
 use App\Integrations\Komerce\Services\ShippingDeliveryClient;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
 use App\Integrations\Komerce\Support\KomerceCourierAssets;
 use App\Integrations\Komerce\Support\KomerceLabelResponse;
 use App\Integrations\Komerce\Support\KomerceTrackingContext;
 use App\Integrations\Komerce\Support\RajaOngkirCouriers;
+use App\Models\InventoryShippingOrigin;
 use App\Models\OrderShipment;
+use App\Shipping\AddressDestination;
+use App\Shipping\CarrierSyncResult;
 use App\Shipping\Contracts\CancelsShipments;
 use App\Shipping\Contracts\FulfillsShipments;
 use App\Shipping\Contracts\NormalizesSelectedRates;
+use App\Shipping\Contracts\PresentsCarriers;
 use App\Shipping\Contracts\PrintsLabels;
 use App\Shipping\Contracts\ReconcilesShipments;
 use App\Shipping\Contracts\RequiresCoordinates;
 use App\Shipping\Contracts\RequiresDestination;
+use App\Shipping\Contracts\RequiresOriginId;
+use App\Shipping\Contracts\ResolvesDestinations;
+use App\Shipping\Contracts\SyncsCarriers;
 use App\Shipping\Contracts\TracksShipments;
+use App\Shipping\Contracts\ValidatesOriginIds;
 use App\Shipping\DestinationCoordinateResolver;
+use App\Shipping\InventoryOrigins;
+use App\Shipping\ShippingCapabilities;
 use App\Shipping\ShippingQuoteContext;
+use App\Shipping\ShippingQuoteFailure;
+use App\Support\EnabledCarriers;
 use App\Support\OrderShipmentOpsPresenter;
 use DateTimeInterface;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
+use Shopper\Core\Models\Carrier;
+use Shopper\Core\Models\Inventory;
 use Shopper\Shipping\DataTransferObjects\Address;
 use Shopper\Shipping\DataTransferObjects\Package;
 use Shopper\Shipping\DataTransferObjects\Shipment;
@@ -53,7 +70,7 @@ use Throwable;
  * quotes here first, see DelegatesQuotes) and reads RajaOngkir origin /
  * destination ids from the neutral ShippingQuoteContext.
  */
-final class KomerceShippingDriver extends Driver implements CancelsShipments, FulfillsShipments, NormalizesSelectedRates, PrintsLabels, ReconcilesShipments, RequiresCoordinates, RequiresDestination, TracksShipments
+final class KomerceShippingDriver extends Driver implements CancelsShipments, FulfillsShipments, NormalizesSelectedRates, PresentsCarriers, PrintsLabels, ReconcilesShipments, RequiresCoordinates, RequiresDestination, RequiresOriginId, ResolvesDestinations, SyncsCarriers, TracksShipments, ValidatesOriginIds
 {
     public const CODE = 'komerce';
 
@@ -94,6 +111,157 @@ final class KomerceShippingDriver extends Driver implements CancelsShipments, Fu
     public function normalizeSelectedRate(array $rate, int $cost): array
     {
         return RajaOngkirCourier::deliveryRate($rate, $cost);
+    }
+
+    /**
+     * Destination (subdistrict) search via Shipping Delivery.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function searchDestinations(string $query, int $limit = 10): array
+    {
+        if (! $this->isConfigured()) {
+            throw ShippingException::notConfigured($this->code());
+        }
+
+        $query = mb_strtolower(trim($query));
+        $limit = max(1, min($limit, 50));
+
+        if ($query === '') {
+            return [];
+        }
+
+        $cacheKey = 'komerce:delivery:destinations:v1:'.sha1($query);
+        $rows = Cache::get($cacheKey);
+
+        if (! is_array($rows)) {
+            $capabilities = resolve(KomerceCapabilities::class);
+
+            if ($capabilities->quotaExhausted('shipping_delivery')) {
+                throw ShippingException::apiError($this->code(), 'Komerce Delivery daily quota exhausted.');
+            }
+
+            try {
+                $response = $this->delivery->searchDestinations($query);
+            } catch (Throwable $e) {
+                throw ShippingException::apiError(
+                    $this->code(),
+                    $capabilities->quotaExhausted('shipping_delivery')
+                        ? 'Komerce Delivery daily quota exhausted.'
+                        : $e->getMessage(),
+                );
+            }
+
+            if ($this->isErrorEnvelope($response)) {
+                $message = $this->envelopeMessage($response);
+                $metaCode = (int) data_get($response, 'meta.code', 400);
+                $capabilities->observe('shipping_delivery', $metaCode >= 400 ? $metaCode : 400, json_encode($response) ?: '');
+
+                throw ShippingException::apiError(
+                    $this->code(),
+                    $capabilities->quotaExhausted('shipping_delivery')
+                        ? 'Komerce Delivery daily quota exhausted.'
+                        : $message,
+                );
+            }
+
+            $rawRows = data_get($response, 'data', []);
+            $rows = collect(is_array($rawRows) ? $rawRows : [])
+                ->filter(static fn (mixed $row): bool => is_array($row) && isset($row['id']))
+                ->map(static function (array $row): array {
+                    $zip = isset($row['zip_code']) ? (string) $row['zip_code'] : null;
+                    $city = isset($row['city_name']) ? (string) $row['city_name'] : null;
+                    $province = isset($row['province_name']) ? (string) $row['province_name'] : null;
+                    $district = isset($row['district_name']) ? (string) $row['district_name'] : null;
+                    $subdistrict = isset($row['subdistrict_name']) ? (string) $row['subdistrict_name'] : null;
+
+                    return [
+                        'id' => (string) $row['id'],
+                        'label' => (string) ($row['label'] ?? $row['id']),
+                        'province_name' => $province,
+                        'city_name' => $city,
+                        'district_name' => $district,
+                        'subdistrict_name' => $subdistrict,
+                        'zip_code' => $zip,
+                        'postal_code' => $zip,
+                        'city' => $city,
+                        'state' => $province,
+                        'district' => $district,
+                    ];
+                })
+                ->values()
+                ->all();
+
+            Cache::put($cacheKey, $rows, now()->addDays(30));
+        }
+
+        return array_slice($rows, 0, $limit);
+    }
+
+    public function resolveOrigin(Inventory $inventory): ?array
+    {
+        // In Komship mode (both Cost and Delivery enabled), RajaOngkirDriver owns
+        // origin resolution in the shared vocabulary to avoid duplicate lookups/rows.
+        if (! $this->isConfigured() || Komerce::shippingCostEnabled()) {
+            return null;
+        }
+
+        // Reuse an existing RajaOngkir origin in the shared vocabulary without
+        // firing another API lookup (e.g., when migrating from Starter to Delivery-only).
+        if ($inventory->getKey() !== null) {
+            $existing = InventoryShippingOrigin::query()
+                ->where('inventory_id', $inventory->getKey())
+                ->where('driver', RajaOngkirDriver::CODE)
+                ->first(['external_id', 'label']);
+
+            if ($existing !== null && trim((string) $existing->external_id) !== '') {
+                return [
+                    'id' => trim((string) $existing->external_id),
+                    'label' => is_scalar($existing->label) && trim((string) $existing->label) !== ''
+                        ? trim((string) $existing->label)
+                        : null,
+                ];
+            }
+        }
+
+        return resolve(RajaOngkirOriginMatcher::class)->matchWith(
+            $inventory,
+            fn (string $query): array => $this->searchDestinations($query, 50),
+            'shipping_delivery',
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function originIdRules(): array
+    {
+        return ['nullable', 'integer', 'min:1'];
+    }
+
+    public function syncCarriers(bool $dryRun = false): CarrierSyncResult
+    {
+        if (! $this->isConfigured()
+            && (trim((string) config('komerce.shipping_delivery_api_key', '')) === '' || ! Komerce::shippingCostEnabled())) {
+            return CarrierSyncResult::failed('Komerce Shipping Delivery is not configured.');
+        }
+
+        return resolve(KomerceCarrierSync::class)->sync($dryRun);
+    }
+
+    public function presentCarrier(Carrier $carrier): ?array
+    {
+        $code = EnabledCarriers::courierCode($carrier);
+        $override = array_values(array_filter(array_map(
+            static fn (mixed $value): string => strtolower(trim((string) $value)),
+            (array) config('komerce.couriers', []),
+        )));
+
+        if (! RajaOngkirCouriers::isOfficial($code) || ($override !== [] && ! in_array($code, $override, true))) {
+            return null;
+        }
+
+        return ['code' => $code, 'label' => RajaOngkirCouriers::name($code) ?? (string) $carrier->name];
     }
 
     /**
@@ -142,15 +310,11 @@ final class KomerceShippingDriver extends Driver implements CancelsShipments, Fu
         try {
             $response = $this->delivery->printLabel($printable, $page);
         } catch (Throwable $e) {
-            $message = $e->getMessage();
-
-            // Sandbox answers 500 / "awb not found" for labels it cannot render:
-            // the caller falls back to the built-in thermal label.
-            if (str_contains(strtolower($message), 'awb not found') || str_contains($message, '500')) {
+            if ($this->shouldFallbackToThermalLabel($e)) {
                 return ['label_url' => null, 'pdf' => null, 'response' => []];
             }
 
-            throw new RuntimeException($message, 0, $e);
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
 
         return [
@@ -232,7 +396,21 @@ final class KomerceShippingDriver extends Driver implements CancelsShipments, Fu
         // derive warehouse / destination id from the Address DTO, with the
         // RajaOngkir destination vocabulary Delivery uses.
         $resolver = $context->active() ? null : $this->destinationResolver();
-        $derived = $context->beginFromAddress($to, $resolver, RajaOngkirDriver::CODE, [$this->code(), RajaOngkirDriver::CODE]);
+        $resolverCode = $resolver?->code() ?? RajaOngkirDriver::CODE;
+
+        if ($resolver === $this) {
+            $defaultOrigin = Inventory::query()->where('is_default', true)->first()
+                ?? Inventory::query()->orderBy('id')->first();
+            $origins = resolve(InventoryOrigins::class);
+
+            if ($defaultOrigin instanceof Inventory
+                && $origins->get($defaultOrigin, $this->code()) === null
+                && $origins->get($defaultOrigin, RajaOngkirDriver::CODE) !== null) {
+                $resolverCode = RajaOngkirDriver::CODE;
+            }
+        }
+
+        $derived = $context->beginFromAddress($to, $resolver, $resolverCode, [$this->code(), RajaOngkirDriver::CODE]);
 
         try {
             return $this->quote($context, $packages);
@@ -243,15 +421,15 @@ final class KomerceShippingDriver extends Driver implements CancelsShipments, Fu
         }
     }
 
-    private function destinationResolver(): ?RajaOngkirDriver
+    private function destinationResolver(): ResolvesDestinations
     {
         try {
             $driver = Shipping::driver(RajaOngkirDriver::CODE);
         } catch (Throwable) {
-            return null;
+            $driver = null;
         }
 
-        return $driver instanceof RajaOngkirDriver && $driver->isConfigured() ? $driver : null;
+        return $driver instanceof RajaOngkirDriver && $driver->isConfigured() ? $driver : $this;
     }
 
     /**
@@ -261,17 +439,40 @@ final class KomerceShippingDriver extends Driver implements CancelsShipments, Fu
     private function quote(ShippingQuoteContext $context, array $packages): Collection
     {
         $inventory = $context->origin();
-        $originId = (string) $context->originId(RajaOngkirDriver::CODE);
+        $originId = (string) ($context->originId($this->code()) ?? $context->originId(RajaOngkirDriver::CODE));
         $originPin = $this->pinPoint($inventory?->getAttribute('latitude'), $inventory?->getAttribute('longitude'));
-        $destinationId = (string) $context->destinationId(RajaOngkirDriver::CODE);
+        $address = $context->address();
+        $shippingCapabilities = resolve(ShippingCapabilities::class);
+        $primaryDriver = $shippingCapabilities->destinationDriverCode();
+        $sameFamilyPrimary = $primaryDriver !== null
+            && $shippingCapabilities->providerFamily($primaryDriver) === $shippingCapabilities->providerFamily($this->code());
+
+        $destinationId = (string) (
+            AddressDestination::id($address, $this->code())
+            ?? AddressDestination::id($address, RajaOngkirDriver::CODE)
+            ?? ($sameFamilyPrimary ? null : $context->destinationId($this->code()))
+        );
 
         if ($inventory === null || $originId === '' || $originPin === null || $destinationId === '') {
             return collect();
         }
 
-        $destinationPin = resolve(DestinationCoordinateResolver::class)->resolve($context->address(), $originPin);
+        $destinationPin = resolve(DestinationCoordinateResolver::class)->resolve($address, $originPin);
 
         if ($destinationPin === null) {
+            return collect();
+        }
+
+        $capabilities = resolve(KomerceCapabilities::class);
+
+        if ($capabilities->quotaExhausted('shipping_delivery')) {
+            $context->markFailure(
+                $this->code(),
+                ShippingQuoteFailure::QUOTA,
+                'Komerce Delivery daily quota exhausted.',
+                $capabilities->quotaExhaustedUntil('shipping_delivery'),
+            );
+
             return collect();
         }
 
@@ -280,17 +481,57 @@ final class KomerceShippingDriver extends Driver implements CancelsShipments, Fu
         $itemValue = max(1, $context->itemValue());
         $cacheKey = 'komerce_delivery_rates:'.sha1("{$originId}:{$destinationId}:{$originPin}:{$destinationPin}:{$weightKg}:{$itemValue}");
 
-        try {
-            $response = Cache::remember($cacheKey, now()->addMinutes(10), fn (): array => $this->delivery->calculate(
-                $originId,
-                $destinationId,
-                $originPin,
-                $destinationPin,
-                $weightKg,
-                $itemValue,
-            ));
-        } catch (Throwable $e) {
-            throw ShippingException::apiError($this->code(), $e->getMessage());
+        $response = Cache::get($cacheKey);
+
+        if (! is_array($response)) {
+            try {
+                $response = $this->delivery->calculate(
+                    $originId,
+                    $destinationId,
+                    $originPin,
+                    $destinationPin,
+                    $weightKg,
+                    $itemValue,
+                );
+            } catch (Throwable $e) {
+                if ($capabilities->quotaExhausted('shipping_delivery')) {
+                    $context->markFailure(
+                        $this->code(),
+                        ShippingQuoteFailure::QUOTA,
+                        $e->getMessage(),
+                        $capabilities->quotaExhaustedUntil('shipping_delivery'),
+                    );
+
+                    return collect();
+                }
+
+                throw ShippingException::apiError($this->code(), $e->getMessage());
+            }
+
+            if (! is_array($response)) {
+                throw ShippingException::invalidResponse($this->code());
+            }
+
+            if ($this->isErrorEnvelope($response)) {
+                $message = $this->envelopeMessage($response);
+                $metaCode = (int) data_get($response, 'meta.code', 400);
+                $capabilities->observe('shipping_delivery', $metaCode >= 400 ? $metaCode : 400, json_encode($response) ?: '');
+
+                if ($capabilities->quotaExhausted('shipping_delivery')) {
+                    $context->markFailure(
+                        $this->code(),
+                        ShippingQuoteFailure::QUOTA,
+                        $message,
+                        $capabilities->quotaExhaustedUntil('shipping_delivery'),
+                    );
+
+                    return collect();
+                }
+
+                throw ShippingException::apiError($this->code(), $message);
+            }
+
+            Cache::put($cacheKey, $response, now()->addMinutes(10));
         }
 
         return $this->tariffRates($response, $context);
@@ -328,14 +569,37 @@ final class KomerceShippingDriver extends Driver implements CancelsShipments, Fu
             throw ShippingException::apiError($this->code(), 'Courier (shipping) is required to track a Shipping Delivery airway bill.');
         }
 
+        $capabilities = resolve(KomerceCapabilities::class);
+
+        if ($capabilities->quotaExhausted('shipping_delivery')) {
+            throw ShippingException::apiError($this->code(), 'Komerce Delivery daily quota exhausted.');
+        }
+
         try {
             $response = $this->delivery->track($trackingNumber, $courier);
         } catch (Throwable $e) {
+            if ($capabilities->quotaExhausted('shipping_delivery')) {
+                throw ShippingException::apiError($this->code(), 'Komerce Delivery daily quota exhausted.');
+            }
+
             throw ShippingException::apiError($this->code(), $e->getMessage());
         }
 
         if (! is_array($response)) {
             throw ShippingException::invalidResponse($this->code());
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            $message = $this->envelopeMessage($response);
+            $metaCodeRaw = data_get($response, 'meta.code');
+            $metaCode = is_numeric($metaCodeRaw) ? (int) $metaCodeRaw : 400;
+            $capabilities->observe('shipping_delivery', $metaCode >= 400 ? $metaCode : 400, json_encode($response) ?: '');
+
+            if ($capabilities->quotaExhausted('shipping_delivery')) {
+                throw ShippingException::apiError($this->code(), 'Komerce Delivery daily quota exhausted.');
+            }
+
+            throw ShippingException::apiError($this->code(), $message);
         }
 
         $trackingContext->setLastRaw($response);
@@ -512,5 +776,81 @@ final class KomerceShippingDriver extends Driver implements CancelsShipments, Fu
         $value = trim((string) preg_replace('/\s*(hari|days?)\s*$/iu', '', $value));
 
         return $value !== '' && $value !== '-' ? $value : null;
+    }
+
+    /**
+     * Sandbox answers 404 / 500 / "awb not found" when a synthetic order has no
+     * downloadable PDF yet. Auth/entitlement (401/403), quota (429), and generic
+     * 4xx rejections must surface as real errors instead of rendering 200 thermal.
+     */
+    private function shouldFallbackToThermalLabel(Throwable $e): bool
+    {
+        if (! $this->isConfigured()) {
+            return false;
+        }
+
+        $previous = $e->getPrevious();
+        $status = null;
+
+        if ($e instanceof RequestException) {
+            $status = $e->response->status();
+        } elseif ($previous instanceof RequestException) {
+            $status = $previous->response->status();
+        }
+
+        $message = $e->getMessage();
+
+        if ($status === null && preg_match('/HTTP request returned status code (\d{3})/i', $message, $matches) === 1) {
+            $status = (int) $matches[1];
+        }
+
+        if ($status !== null && ! in_array($status, [404, 500], true)) {
+            return false;
+        }
+
+        $lower = strtolower($message);
+
+        if (preg_match('/(invalid api ?key|unauthorized|forbidden|quota|kuota|limit|too many)/i', $lower) === 1) {
+            return false;
+        }
+
+        return str_contains($lower, 'awb not found')
+            || str_contains($lower, 'label not found')
+            || in_array($status, [404, 500], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function isErrorEnvelope(array $response): bool
+    {
+        if (($response['success'] ?? null) === false) {
+            return true;
+        }
+
+        $status = strtolower(trim((string) (data_get($response, 'meta.status') ?? '')));
+        if ($status !== '' && ! in_array($status, ['success', 'succeeded', 'ok'], true)) {
+            return true;
+        }
+
+        $codeRaw = data_get($response, 'meta.code');
+
+        return is_numeric($codeRaw) && ((int) $codeRaw < 200 || (int) $codeRaw >= 300);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function envelopeMessage(array $response): string
+    {
+        foreach (['meta.message', 'message'] as $path) {
+            $value = data_get($response, $path);
+
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return 'Komerce Delivery returned an error response.';
     }
 }

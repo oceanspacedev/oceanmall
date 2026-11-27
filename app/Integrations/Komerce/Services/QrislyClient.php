@@ -8,6 +8,7 @@ use App\Integrations\Komerce\Exceptions\KomerceNotConfiguredException;
 use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Services\Concerns\UsesKomerceHttp;
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * QRISLY product API (optional).
@@ -116,9 +117,9 @@ final class QrislyClient
     /**
      * @return array<string, mixed>
      */
-    public function getPaymentStatus(string|int $historyId): array
+    public function getPaymentStatus(string|int $historyId, bool $allowUnentitled = false): array
     {
-        $this->ensureQrislyEnabled();
+        $this->ensureQrislyEnabled($allowUnentitled);
 
         $historyId = trim((string) $historyId);
 
@@ -126,18 +127,67 @@ final class QrislyClient
             throw new InvalidArgumentException('QRISLY payment-status requires a history_id.');
         }
 
-        $response = $this->qrislyHttp()
+        $response = $this->qrislyHttp($allowUnentitled)
             ->get(self::STATUS_ENDPOINT.'/'.rawurlencode($historyId))
             ->throw()
             ->json();
 
-        return is_array($response) ? $response : [];
+        if (! is_array($response)) {
+            throw new RuntimeException('QRISLY payment status returned an invalid response.');
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            throw new RuntimeException($this->envelopeMessage($response, 'QRISLY payment status returned an error response.'));
+        }
+
+        if (! array_key_exists('data', $response) || ! is_array($response['data'])) {
+            throw new RuntimeException('QRISLY payment status returned an invalid data payload.');
+        }
+
+        return $response;
     }
 
-    private function ensureQrislyEnabled(): void
+    private function ensureQrislyEnabled(bool $allowUnentitled = false): void
     {
-        if (! Komerce::qrislyEnabled()) {
+        $ready = $allowUnentitled ? Komerce::qrislyConfigured() : Komerce::qrislyEnabled();
+
+        if (! $ready) {
             throw KomerceNotConfiguredException::make();
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function isErrorEnvelope(array $response): bool
+    {
+        if (($response['success'] ?? null) === false) {
+            return true;
+        }
+
+        $status = strtolower(trim((string) (data_get($response, 'meta.status') ?? '')));
+        if ($status !== '' && ! in_array($status, ['success', 'succeeded', 'ok'], true)) {
+            return true;
+        }
+
+        $code = data_get($response, 'meta.code');
+
+        return is_numeric($code) && ((int) $code < 200 || (int) $code >= 300);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function envelopeMessage(array $response, string $fallback): string
+    {
+        foreach (['meta.message', 'message'] as $path) {
+            $value = data_get($response, $path);
+
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return $fallback;
     }
 }

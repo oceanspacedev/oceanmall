@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Services;
 
 use App\Integrations\Komerce\Services\Concerns\UsesKomerceHttp;
+use Illuminate\Http\Client\RequestException;
 use InvalidArgumentException;
+use RuntimeException;
 
 final class ShippingDeliveryClient
 {
@@ -49,12 +51,24 @@ final class ShippingDeliveryClient
             throw new InvalidArgumentException('Shipping Delivery destination keyword is required.');
         }
 
-        $response = $this->deliveryHttp()
-            ->get(self::SEARCH_DESTINATION_ENDPOINT, ['keyword' => $keyword])
-            ->throw()
-            ->json();
+        try {
+            $response = $this->deliveryHttp()
+                ->get(self::SEARCH_DESTINATION_ENDPOINT, ['keyword' => $keyword]);
+        } catch (RequestException $e) {
+            if ($e->response->status() === 404) {
+                return [];
+            }
 
-        return is_array($response) ? $response : [];
+            throw $e;
+        }
+
+        if ($response->status() === 404) {
+            return [];
+        }
+
+        $json = $response->throw()->json();
+
+        return is_array($json) ? $json : [];
     }
 
     /**
@@ -106,7 +120,15 @@ final class ShippingDeliveryClient
             ->throw()
             ->json();
 
-        return is_array($response) ? $response : [];
+        if (! is_array($response)) {
+            return [];
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            throw new RuntimeException($this->envelopeMessage($response, 'Shipping Delivery tariff calculation returned an error response.'));
+        }
+
+        return $response;
     }
 
     /**
@@ -136,11 +158,11 @@ final class ShippingDeliveryClient
      *
      * @return array<string, mixed>
      */
-    public function detailOrder(string $orderNo): array
+    public function detailOrder(string $orderNo, bool $allowUnentitled = false): array
     {
         $orderNo = $this->orderNo($orderNo);
 
-        $response = $this->deliveryHttp()
+        $response = $this->deliveryHttp($allowUnentitled)
             ->get(self::DETAIL_ORDER_ENDPOINT, ['order_no' => $orderNo])
             ->throw()
             ->json();
@@ -165,7 +187,15 @@ final class ShippingDeliveryClient
             ->throw()
             ->json();
 
-        return is_array($response) ? $response : [];
+        if (! is_array($response)) {
+            return [];
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            throw new RuntimeException($this->envelopeMessage($response, 'Komerce gagal membatalkan pengiriman.'));
+        }
+
+        return $response;
     }
 
     /**
@@ -220,7 +250,23 @@ final class ShippingDeliveryClient
             ->throw()
             ->json();
 
-        return is_array($response) ? $response : [];
+        if (! is_array($response)) {
+            throw new RuntimeException('Komerce print-label returned an invalid response.');
+        }
+
+        if ($this->isErrorEnvelope($response)) {
+            $metaCodeRaw = data_get($response, 'meta.code');
+            $metaCode = is_numeric($metaCodeRaw) ? (int) $metaCodeRaw : 0;
+            $message = $this->envelopeMessage($response, 'Komerce print-label returned an error response.');
+
+            if ($metaCode >= 400) {
+                throw new RuntimeException(sprintf('HTTP request returned status code %d: %s', $metaCode, $message));
+            }
+
+            throw new RuntimeException($message);
+        }
+
+        return $response;
     }
 
     /**
@@ -297,5 +343,40 @@ final class ShippingDeliveryClient
         }
 
         return $orderNo;
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function isErrorEnvelope(array $response): bool
+    {
+        if (($response['success'] ?? null) === false) {
+            return true;
+        }
+
+        $status = strtolower(trim((string) (data_get($response, 'meta.status') ?? '')));
+        if ($status !== '' && ! in_array($status, ['success', 'succeeded', 'ok'], true)) {
+            return true;
+        }
+
+        $codeRaw = data_get($response, 'meta.code');
+
+        return is_numeric($codeRaw) && ((int) $codeRaw < 200 || (int) $codeRaw >= 300);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function envelopeMessage(array $response, string $fallback): string
+    {
+        foreach (['meta.message', 'message'] as $path) {
+            $value = data_get($response, $path);
+
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return $fallback;
     }
 }

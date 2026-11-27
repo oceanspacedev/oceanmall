@@ -49,7 +49,13 @@ final class KomerceShipmentReferenceObserver
             }
         }
 
+        $hasAwb = filled($shipment->getAttribute('awb')) || filled($shipment->getAttribute('tracking_number'));
         $mirrored = $metadata;
+
+        if ($hasAwb) {
+            unset($komerce['fulfillment_error'], $komerce['fulfillment_failed_at']);
+            $mirrored['komerce'] = $komerce;
+        }
 
         if (is_array($komerce['tracking_history'] ?? null) && $komerce['tracking_history'] !== []) {
             $mirrored[ShipmentMetadata::TRACKING_HISTORY] = array_values($komerce['tracking_history']);
@@ -57,7 +63,7 @@ final class KomerceShipmentReferenceObserver
 
         $error = $komerce['fulfillment_error'] ?? null;
 
-        if (is_string($error) && trim($error) !== '') {
+        if (! $hasAwb && is_string($error) && trim($error) !== '') {
             $mirrored[ShipmentMetadata::FULFILLMENT_ERROR] = $error;
         } else {
             unset($mirrored[ShipmentMetadata::FULFILLMENT_ERROR]);

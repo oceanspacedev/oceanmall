@@ -7,13 +7,12 @@ namespace App\Integrations\Komerce\Actions\Payment;
 use App\Actions\Notify\NotifyOrderCustomer;
 use App\Actions\Orders\CancelOrderWithProviders;
 use App\Actions\Stock\ReleaseOrderShipmentStock;
-use App\Enums\OrderNotificationType;
 use App\Integrations\Komerce\Komerce;
-use Illuminate\Support\Facades\DB;
+use App\Integrations\Komerce\Support\KomercePaymentLookupContext;
+use App\Integrations\Komerce\Support\KomercePaymentProvider;
 use RuntimeException;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
-use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Models\Order;
 use Shopper\Payment\Enum\TransactionStatus;
 use Shopper\Payment\Facades\Payment;
@@ -45,7 +44,7 @@ final readonly class CancelUnpaidKomerceOrder
 
         // A VA/QRIS transfer can land minutes before expiry while its webhook
         // is still in flight: settle it instead of cancelling a paid order.
-        if (Komerce::paymentEnabled() || Komerce::qrislyEnabled()) {
+        if ($this->subProviderEnabled($order)) {
             $verdict = $this->syncPaymentStatus->reconcile($order);
 
             if ($verdict === 'lookup_failed') {
@@ -60,48 +59,41 @@ final readonly class CancelUnpaidKomerceOrder
 
         $this->cancelRemotePayment($order, $reason);
 
-        $cancelled = DB::transaction(function () use ($order): ?Order {
-            $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
+        $order->refresh();
 
-            if ($locked->payment_status === PaymentStatus::Paid || $locked->status === OrderStatus::Cancelled) {
-                return null;
-            }
+        if ($order->payment_status === PaymentStatus::Paid || $order->status === OrderStatus::Cancelled) {
+            return $order;
+        }
 
-            $locked->forceFill([
-                'status' => OrderStatus::Cancelled,
-                'cancelled_at' => now(),
-                'payment_status' => PaymentStatus::Voided,
-            ])->save();
+        $cancelled = $this->cancelWithProviders->handle($order, throughPaymentProvider: false, reason: $reason);
 
+        if ($cancelled->status === OrderStatus::Cancelled) {
             PaymentTransaction::query()
-                ->where('order_id', $locked->id)
+                ->where('order_id', $cancelled->id)
                 ->where('driver', 'komerce')
                 ->where('status', TransactionStatus::Pending)
                 ->update(['status' => TransactionStatus::Failed]);
-
-            $refreshed = $locked->refresh();
-
-            if (! $this->cancelWithProviders->hasShipped($refreshed)) {
-                $this->releaseStock->handle($refreshed);
-            }
-
-            return $refreshed;
-        });
-
-        if (! $cancelled instanceof Order) {
-            return $order->refresh();
         }
 
-        $this->notifyOrderCustomer->handle($cancelled, OrderNotificationType::Cancelled);
-        event(new OrderCancelled($cancelled));
+        return $cancelled->refresh();
+    }
 
-        return $cancelled;
+    private function subProviderEnabled(Order $order): bool
+    {
+        return $this->resolveProvider($order) === 'qrisly'
+            ? Komerce::qrislyEnabled()
+            : Komerce::paymentEnabled();
+    }
+
+    private function resolveProvider(Order $order): string
+    {
+        return KomercePaymentProvider::resolve($order);
     }
 
     private function cancelRemotePayment(Order $order, string $reason): void
     {
         $metadata = $this->decodeMetadata($order->getAttribute('metadata'));
-        $provider = data_get($metadata, 'komerce.provider', 'payment_api');
+        $provider = $this->resolveProvider($order);
 
         // QRISLY has no documented cancel endpoint — expire locally only.
         if ($provider === 'qrisly') {
@@ -123,10 +115,15 @@ final readonly class CancelUnpaidKomerceOrder
             return;
         }
 
+        $lookup = resolve(KomercePaymentLookupContext::class);
+        $lookup->setProvider($provider);
+
         try {
             Payment::driver('komerce')->cancelPayment(trim($paymentId));
         } catch (Throwable $e) {
             report($e);
+        } finally {
+            $lookup->clear();
         }
     }
 

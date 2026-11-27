@@ -11,12 +11,34 @@
                             <span class="text-base font-bold text-gray-900 dark:text-white">
                                 Pengiriman RajaOngkir / Komerce
                             </span>
-                            @if ($canPrintAnyLabel && ! $hasUnprocessedShipment)
-                                <x-filament::badge color="success" size="sm">Terkirim ke Komerce</x-filament::badge>
-                            @elseif ($canPrintAnyLabel && $hasUnprocessedShipment)
-                                <x-filament::badge color="info" size="sm">Sebagian Terdaftar</x-filament::badge>
+                            @if ($allCancelled ?? false)
+                                <x-filament::badge color="danger" size="sm">Dibatalkan</x-filament::badge>
+                            @elseif (($allHaveAwb ?? false) && ! ($anyRegistered ?? false))
+                                <x-filament::badge color="success" size="sm">Resi Manual Terbit</x-filament::badge>
+                            @elseif ($komerceEnabled)
+                                @if (($allRegistered ?? false) && ! ($needsPickup ?? false) && ($canPrintAnyLabel || ($allHaveAwb ?? false)))
+                                    <x-filament::badge color="success" size="sm">Terkirim ke Komerce</x-filament::badge>
+                                @elseif (($allRegistered ?? false) && ! ($needsPickup ?? false))
+                                    <x-filament::badge color="info" size="sm">Menunggu Resi Kurir</x-filament::badge>
+                                @elseif ($anyRegistered ?? false)
+                                    <x-filament::badge color="info" size="sm">Sebagian Terdaftar</x-filament::badge>
+                                @else
+                                    <x-filament::badge color="warning" size="sm">Belum Terdaftar</x-filament::badge>
+                                @endif
+                            @elseif ($anyRegistered ?? false)
+                                @if (($allHaveAwb ?? false) || (($allRegistered ?? false) && ! ($needsPickup ?? false)))
+                                    <x-filament::badge color="success" size="sm">Terkirim ke Komerce</x-filament::badge>
+                                @else
+                                    <x-filament::badge color="info" size="sm">Sebagian Terdaftar</x-filament::badge>
+                                @endif
+                            @elseif ($allHaveAwb ?? false)
+                                <x-filament::badge color="success" size="sm">Resi Manual Terbit</x-filament::badge>
+                            @elseif ($anyHasAwb ?? false)
+                                <x-filament::badge color="info" size="sm">Sebagian Resi Manual</x-filament::badge>
+                            @elseif ($shippingCostEnabled ?? false)
+                                <x-filament::badge color="warning" size="sm">Mode Starter · Menunggu Resi Manual</x-filament::badge>
                             @else
-                                <x-filament::badge color="warning" size="sm">Belum Terdaftar</x-filament::badge>
+                                <x-filament::badge color="gray" size="sm">Menunggu Resi Manual</x-filament::badge>
                             @endif
                         </div>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -35,7 +57,7 @@
                             icon="heroicon-o-check-circle"
                             size="sm"
                         >
-                            <span wire:loading.remove wire:target="markPaidAndProcessDelivery">Sinkronkan Bayar & Pickup</span>
+                            <span wire:loading.remove wire:target="markPaidAndProcessDelivery">{{ $komerceEnabled ? 'Sinkronkan Bayar & Pickup' : 'Sinkronkan Bayar' }}</span>
                             <span wire:loading wire:target="markPaidAndProcessDelivery">Menyelaraskan…</span>
                         </x-filament::button>
                     @endif
@@ -70,7 +92,7 @@
                         </x-filament::button>
                     @endif
 
-                    @if ($canPrintAnyLabel && $komerceEnabled)
+                    @if ($canPrintAnyLabel)
                         <x-filament::button
                             tag="a"
                             href="{{ route('shopper.orders.fulfillment.print-label', $order) }}"
@@ -254,20 +276,40 @@
                                     Barang & Aksi Pengiriman
                                 </span>
 
-                                {{-- ID Order Komerce --}}
-                                <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50/90 dark:bg-gray-700/40 text-xs">
-                                    <span class="text-gray-500 dark:text-gray-400">ID Order Komerce</span>
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-mono font-bold text-gray-900 dark:text-white">
-                                            {{ $shipment['delivery_order_no'] ?? 'Belum terdaftar' }}
-                                        </span>
-                                        @if ($shipment['delivery_order_no'])
-                                            <x-filament::badge color="success" size="sm" icon="heroicon-s-check-circle">
-                                                Terdaftar
-                                            </x-filament::badge>
-                                        @endif
+                                {{-- ID Order Komerce / Mode Fulfillment --}}
+                                @if (($komerceEnabled && ($shipment['driver'] ?? null) !== 'manual') || filled($shipment['delivery_order_no']))
+                                    <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50/90 dark:bg-gray-700/40 text-xs">
+                                        <span class="text-gray-500 dark:text-gray-400">ID Order Komerce</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-mono font-bold text-gray-900 dark:text-white">
+                                                {{ $shipment['delivery_order_no'] ?? 'Belum terdaftar' }}
+                                            </span>
+                                            @if ($shipment['delivery_order_no'])
+                                                <x-filament::badge color="success" size="sm" icon="heroicon-s-check-circle">
+                                                    Terdaftar
+                                                </x-filament::badge>
+                                            @endif
+                                        </div>
                                     </div>
-                                </div>
+                                @else
+                                    <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50/90 dark:bg-gray-700/40 text-xs">
+                                        <span class="text-gray-500 dark:text-gray-400">Mode Fulfillment</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-semibold text-gray-900 dark:text-white">
+                                                {{ ($shippingCostEnabled ?? false) ? 'Starter (Resi Manual)' : 'Pengiriman Manual' }}
+                                            </span>
+                                            @if ($shipment['awb'] || $shipment['tracking_number'])
+                                                <x-filament::badge color="success" size="sm" icon="heroicon-s-check-circle">
+                                                    Resi Manual
+                                                </x-filament::badge>
+                                            @else
+                                                <x-filament::badge color="gray" size="sm">
+                                                    Input via Kartu Fulfillment
+                                                </x-filament::badge>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endif
 
                                 {{-- Daftar Barang (Tanpa Border) --}}
                                 <div class="space-y-1.5">
@@ -287,13 +329,13 @@
                                     @endforeach
                                 </div>
 
-                                @if (! empty($shipment['fulfillment_error']))
+                                @if (! empty($shipment['fulfillment_error']) && $komerceEnabled && $status !== 'cancelled' && empty($shipment['awb']) && empty($shipment['tracking_number']))
                                     <x-shopper::alert color="danger" icon="heroicon-o-exclamation-triangle" title="Kendala Fulfillment" :message="$shipment['fulfillment_error']" />
                                 @endif
 
                                 {{-- Tombol Aksi Pengiriman --}}
                                 <div class="flex items-center gap-2 pt-1 flex-wrap">
-                                    @if ($shipment['can_print_label'] && ($komerceEnabled || ($shipment['awb'] || $shipment['tracking_number'])))
+                                    @if ($shipment['can_print_label'])
                                         <x-filament::button
                                             tag="a"
                                             href="{{ route('shopper.orders.fulfillment.print-label', ['order' => $order, 'shipment' => $shipment['id']]) }}"
@@ -306,7 +348,7 @@
                                         </x-filament::button>
                                     @endif
 
-                                    @if (($shipment['awb'] || $shipment['tracking_number']) && ($canTrackShipping ?? false))
+                                    @if ($status !== 'cancelled' && ($shipment['awb'] || $shipment['tracking_number']) && ($canTrackShipping ?? false))
                                         <x-filament::button
                                             type="button"
                                             wire:click="refreshTracking({{ $shipment['id'] }})"
@@ -333,7 +375,7 @@
                                         </x-filament::button>
                                     @endif
 
-                                    @if ($komerceEnabled && ($orderIsPaid ?? false) && ($shipment['needs_pickup'] ?? false))
+                                    @if ($status !== 'cancelled' && ! ($shipment['is_superseded'] ?? false) && $komerceEnabled && ($orderIsPaid ?? false) && ($shipment['needs_pickup'] ?? false))
                                         <x-filament::button
                                             type="button"
                                             wire:click="requestPickup({{ $shipment['id'] }})"
@@ -344,7 +386,7 @@
                                         >
                                             Request Pickup Kurir
                                         </x-filament::button>
-                                    @elseif ($komerceEnabled && ($orderIsPaid ?? false) && ! $shipment['can_print_label'] && ! ($shipment['awb'] || $shipment['tracking_number']))
+                                    @elseif ($status !== 'cancelled' && ! ($shipment['is_superseded'] ?? false) && $komerceEnabled && ($shipment['driver'] ?? null) !== 'manual' && ($orderIsPaid ?? false) && ! $shipment['can_print_label'] && ! ($shipment['awb'] || $shipment['tracking_number']))
                                         <x-filament::button
                                             type="button"
                                             wire:click="processDeliveryOrder({{ $shipment['id'] }})"
@@ -361,7 +403,7 @@
                         </div>
 
                         {{-- 3. BARIS SIMULASI KURIR LAPANGAN (SANDBOX) JIKA AKTIF --}}
-                        @if ($canSimulateCourier ?? false)
+                        @if (($canSimulateCourier ?? false) && $status !== 'cancelled' && ! ($shipment['is_superseded'] ?? false))
                             <div class="rounded-xl bg-gray-50 p-4 text-xs ring-1 ring-gray-200 dark:bg-gray-950 dark:ring-white/10">
                                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                     <div class="flex items-center gap-3">

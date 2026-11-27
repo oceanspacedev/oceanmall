@@ -46,7 +46,7 @@ final class KomercePaymentWebhookController extends Controller
         // before the customer paid must not decide it).
         Cache::forget('komerce:payment-status:'.hash('sha256', trim((string) $paymentId)));
 
-        $verdict = $markOrderPaid->handle($paymentId);
+        $verdict = $markOrderPaid->handle($paymentId, verifyEvenIfUnentitled: true);
 
         // The read-back failed, or does not say paid yet: answer with an
         // error so Komerce delivers the callback again, instead of

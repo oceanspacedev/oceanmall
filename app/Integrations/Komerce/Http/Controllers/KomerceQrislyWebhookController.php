@@ -49,7 +49,7 @@ final class KomerceQrislyWebhookController extends Controller
             || in_array($paymentStatus, ['paid', 'success', 'succeeded'], true);
 
         if ($historyId !== '' && $isSuccessEvent) {
-            $verdict = $markOrderPaid->handle($historyId, 'qrisly');
+            $verdict = $markOrderPaid->handle($historyId, 'qrisly', verifyEvenIfUnentitled: true);
 
             // A payment of ours that could not be read back (provider
             // unreachable) is delivered again. Everything else is

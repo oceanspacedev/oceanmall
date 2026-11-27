@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Integrations\Komerce\Actions\Payment;
 
 use App\Integrations\Komerce\Komerce;
+use App\Integrations\Komerce\Support\KomercePaymentProvider;
+use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Order;
 
@@ -28,10 +30,15 @@ final class ResolveKomercePaymentInstructions
             return null;
         }
 
+        $explicitProvider = is_string($instructions['provider'] ?? null) && trim($instructions['provider']) !== ''
+            ? strtolower(trim($instructions['provider']))
+            : null;
+        $provider = $explicitProvider ?? KomercePaymentProvider::resolve($order, ['provider' => null]);
+
         return [
             'payment_id' => (string) $instructions['payment_id'],
             'payment_type' => (string) ($instructions['payment_type'] ?? 'bank_transfer'),
-            'provider' => (string) ($instructions['provider'] ?? 'payment_api'),
+            'provider' => $provider,
             'virtual_account_number' => $instructions['virtual_account_number'] ?? null,
             'bank_code' => $instructions['bank_code'] ?? null,
             'qris_string' => $instructions['qris_string'] ?? null,
@@ -44,21 +51,64 @@ final class ResolveKomercePaymentInstructions
 
     public function canRetry(Order $order): bool
     {
-        if ($order->payment_status === PaymentStatus::Paid) {
+        if (
+            $order->status === OrderStatus::Cancelled
+            || in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::Voided, PaymentStatus::Refunded], true)
+        ) {
             return false;
         }
 
         $order->loadMissing('paymentMethod');
 
         $metadata = $this->decodeMetadata($order->getAttribute('metadata'));
-        $provider = (string) data_get($metadata, 'komerce.provider', 'payment_api');
+        $isKomerceOrder = ($order->paymentMethod?->driver ?? null) === 'komerce'
+            || filled(data_get($metadata, 'komerce'));
 
-        if ($provider === 'qrisly' ? ! Komerce::qrislyEnabled() : ! Komerce::paymentEnabled()) {
+        if (! $isKomerceOrder) {
             return false;
         }
 
-        return ($order->paymentMethod?->driver ?? null) === 'komerce'
-            || filled(data_get($metadata, 'komerce'));
+        $paymentType = $this->resolvePaymentType($order, $metadata);
+
+        if ($paymentType === 'qris') {
+            $amount = (int) ($order->price_amount ?? 0);
+            $qrislyOk = Komerce::qrislyEnabled() && ($amount <= 0 || ($amount >= 1000 && $amount <= 100_000_000));
+            $paymentApiOk = Komerce::paymentEnabled() && ($amount <= 0 || $amount >= 10_000);
+
+            return $qrislyOk || $paymentApiOk;
+        }
+
+        return Komerce::paymentEnabled();
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function resolvePaymentType(Order $order, array $metadata): string
+    {
+        $methodMeta = $this->decodeMetadata($order->paymentMethod?->metadata);
+
+        $raw = data_get($metadata, 'komerce.payment_type')
+            ?? data_get($metadata, 'komerce.payment_instructions.payment_type')
+            ?? data_get($metadata, 'payment.payment_type')
+            ?? $methodMeta['payment_type']
+            ?? null;
+
+        if (is_string($raw) && trim($raw) !== '') {
+            $normalized = strtolower(trim($raw));
+
+            if ($normalized === 'qris') {
+                return 'qris';
+            }
+
+            if (in_array($normalized, ['bank_transfer', 'va'], true)) {
+                return 'bank_transfer';
+            }
+        }
+
+        $slug = mb_strtolower((string) ($order->paymentMethod?->slug ?? ''));
+
+        return str_contains($slug, 'qris') ? 'qris' : 'bank_transfer';
     }
 
     /**

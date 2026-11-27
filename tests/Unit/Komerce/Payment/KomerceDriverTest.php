@@ -10,6 +10,9 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\OrderItem;
 use Shopper\Payment\Exceptions\PaymentException;
@@ -167,6 +170,9 @@ final class KomerceDriverTest extends TestCase
             'price_amount' => 150000,
             'currency_code' => 'IDR',
             'number' => 'ORD-DRIVER-1',
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
 
         OrderItem::factory()->create([

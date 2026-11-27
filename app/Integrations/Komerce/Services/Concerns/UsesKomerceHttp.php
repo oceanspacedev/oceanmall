@@ -16,9 +16,9 @@ use Throwable;
 
 trait UsesKomerceHttp
 {
-    protected function paymentHttp(): PendingRequest
+    protected function paymentHttp(bool $allowUnentitled = false): PendingRequest
     {
-        $this->ensureServiceEnabled(Komerce::paymentEnabled());
+        $this->ensureServiceEnabled($allowUnentitled ? Komerce::paymentConfigured() : Komerce::paymentEnabled());
 
         return Http::baseUrl($this->baseUrl('komerce.payment_base_url'))
             ->withResponseMiddleware(resolve(KomerceCapabilities::class)->responseObserver('payment'))
@@ -31,9 +31,9 @@ trait UsesKomerceHttp
             ]);
     }
 
-    protected function qrislyHttp(): PendingRequest
+    protected function qrislyHttp(bool $allowUnentitled = false): PendingRequest
     {
-        return $this->qrislyBaseHttp()
+        return $this->qrislyBaseHttp($allowUnentitled)
             ->asJson();
     }
 
@@ -46,9 +46,13 @@ trait UsesKomerceHttp
         return $this->qrislyBaseHttp();
     }
 
-    private function qrislyBaseHttp(): PendingRequest
+    private function qrislyBaseHttp(bool $allowUnentitled = false): PendingRequest
     {
-        $this->ensureServiceEnabled(Komerce::serviceEnabled('komerce.qrisly_api_key'));
+        $this->ensureServiceEnabled(
+            $allowUnentitled
+                ? Komerce::keyConfigured('komerce.qrisly_api_key')
+                : Komerce::serviceEnabled('komerce.qrisly_api_key'),
+        );
 
         return Http::baseUrl($this->baseUrl('komerce.qrisly_base_url'))
             ->withResponseMiddleware(resolve(KomerceCapabilities::class)->responseObserver('qrisly'))
@@ -76,9 +80,13 @@ trait UsesKomerceHttp
             ]);
     }
 
-    protected function deliveryHttp(): PendingRequest
+    protected function deliveryHttp(bool $allowUnentitled = false): PendingRequest
     {
-        $this->ensureServiceEnabled(Komerce::shippingDeliveryEnabled());
+        $this->ensureServiceEnabled(
+            $allowUnentitled
+                ? Komerce::shippingDeliveryConfigured()
+                : Komerce::shippingDeliveryEnabled(),
+        );
 
         return Http::baseUrl($this->baseUrl('komerce.rajaongkir.delivery_base_url'))
             ->withResponseMiddleware(resolve(KomerceCapabilities::class)->responseObserver('shipping_delivery'))

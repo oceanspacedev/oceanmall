@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
+use App\Actions\Checkout\FetchDeliveryRates;
 use App\Integrations\Komerce\Komerce;
 use App\Integrations\Komerce\Services\ShippingDeliveryClient;
 use App\Integrations\Komerce\Support\KomerceCapabilities;
+use App\Shipping\ShippingQuoteContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Shopper\Core\Models\Carrier;
+use Shopper\Core\Models\Inventory;
+use Shopper\Shipping\DataTransferObjects\Package;
 use Tests\TestCase;
 
 final class KomerceCapabilitiesTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -159,6 +167,192 @@ final class KomerceCapabilitiesTest extends TestCase
 
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-14 12:00:00'));
         $this->assertTrue($capabilities->entitled('shipping_delivery'));
+
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_top_level_message_envelopes_are_parsed_for_entitlement_and_quota(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-13 15:00:00', 'Asia/Jakarta'));
+        $capabilities = resolve(KomerceCapabilities::class);
+
+        $capabilities->observe('qrisly', 400, json_encode(['success' => false, 'message' => 'Invalid API Key']));
+        $this->assertFalse($capabilities->entitled('qrisly'));
+        $this->assertSame('Invalid API Key', $capabilities->reason('qrisly'));
+
+        $capabilities->observe('payment', 400, json_encode(['success' => false, 'message' => 'Daily quota limit exceeded']));
+        $this->assertTrue($capabilities->quotaExhausted('payment'));
+        $this->assertSame('Daily quota limit exceeded', data_get($capabilities->state(), 'payment.quota_reason'));
+
+        $capabilities->observe('shipping_cost', 429, json_encode(['message' => 'Too many requests today']));
+        $this->assertTrue($capabilities->quotaExhausted('shipping_cost'));
+        $this->assertSame('Too many requests today', data_get($capabilities->state(), 'shipping_cost.quota_reason'));
+
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_probe_preserves_qrisly_not_entitled_verdict_within_ttl_until_expired_or_unconfigured(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-13 10:00:00'));
+        config()->set('komerce.qrisly_api_key', 'qrisly-key');
+        config()->set('komerce.qrisly_qris_id', 'qris-123');
+        config()->set('komerce.shipping_cost_api_key', '');
+        config()->set('komerce.shipping_delivery_api_key', '');
+        config()->set('komerce.payment_api_key', '');
+
+        $capabilities = resolve(KomerceCapabilities::class);
+        $capabilities->observe('qrisly', 401, json_encode(['success' => false, 'message' => 'Unauthorized QRISLY key']));
+        $checkedAt = data_get($capabilities->state(), 'qrisly.checked_at');
+
+        $capabilities->probe();
+
+        $this->assertFalse($capabilities->entitled('qrisly'));
+        $this->assertFalse(Komerce::qrislyEnabled());
+        $this->assertSame('Unauthorized QRISLY key', $capabilities->reason('qrisly'));
+        $this->assertSame($checkedAt, data_get($capabilities->state(), 'qrisly.checked_at'));
+
+        // After the 24h TTL expires, probe() re-enables a configured QRISLY credential.
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-14 11:00:00'));
+        $capabilities->probe();
+
+        $this->assertTrue($capabilities->entitled('qrisly'));
+        $this->assertTrue(Komerce::qrislyEnabled());
+        $this->assertNull($capabilities->reason('qrisly'));
+
+        // Missing qris_id resets entitlement back to null.
+        config()->set('komerce.qrisly_qris_id', '');
+        $capabilities->probe();
+        $this->assertNull(data_get($capabilities->state(), 'qrisly.entitled'));
+
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_pre_probe_starter_with_unentitled_delivery_key_degrades_cleanly_on_checkout_and_sync(): void
+    {
+        Http::fake([
+            'https://delivery.example.test/tariff/api/v1/calculate*' => Http::response(
+                ['meta' => ['code' => 401, 'status' => 'failed', 'message' => 'Invalid API Key']],
+                401,
+            ),
+            'https://cost.example.test/api/v1/calculate/domestic-cost' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [
+                    ['code' => 'jne', 'name' => 'JNE', 'service' => 'REG', 'cost' => 15000, 'etd' => '2-3'],
+                ],
+            ]),
+        ]);
+
+        Carrier::query()->create(['slug' => 'jne', 'name' => 'JNE Express', 'driver' => 'rajaongkir', 'is_enabled' => true]);
+        Inventory::factory()->create([
+            'is_default' => true,
+            'rajaongkir_origin_id' => '17248',
+            'latitude' => -6.7366,
+            'longitude' => 108.5414,
+        ]);
+
+        $rates = resolve(FetchDeliveryRates::class)->handle([
+            'country_id' => 1,
+            'postal_code' => '10110',
+            'destination_id' => '17601',
+            'destination_driver' => 'rajaongkir',
+            'pin_point' => '-6.1754,106.8272',
+        ], [new Package(10, 10, 10, 1.0)], itemValue: 100000);
+
+        $this->assertCount(1, $rates);
+        $this->assertSame('jne:REG', $rates[0]['service_code']);
+        $this->assertNull(resolve(ShippingQuoteContext::class)->lastFailure());
+        $this->assertFalse(Komerce::shippingDeliveryEnabled());
+
+        // Also test cold-cache carrier sync degradation in a fresh capabilities cache.
+        resolve(KomerceCapabilities::class)->forget();
+        Carrier::query()->where('slug', 'jne')->update(['is_enabled' => false]);
+        config()->set('komerce.sync.destination_id', 17601);
+
+        $this->artisan('shipping:sync-carriers')->assertSuccessful();
+
+        $this->assertTrue((bool) Carrier::query()->where('slug', 'jne')->value('is_enabled'));
+        $this->assertFalse(Komerce::shippingDeliveryEnabled());
+    }
+
+    public function test_403_quota_message_records_quota_exhaustion_without_disabling_entitlement(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-13 15:00:00', 'Asia/Jakarta'));
+        $capabilities = resolve(KomerceCapabilities::class);
+
+        $capabilities->observe('shipping_cost', 403, json_encode(['message' => 'Kuota harian habis']));
+
+        $this->assertTrue($capabilities->entitled('shipping_cost'));
+        $this->assertTrue(Komerce::shippingCostEnabled());
+        $this->assertTrue($capabilities->quotaExhausted('shipping_cost'));
+        $this->assertSame('2026-10-14 00:00', $capabilities->quotaExhaustedUntil('shipping_cost')?->setTimezone('Asia/Jakarta')->format('Y-m-d H:i'));
+
+        $capabilities->observe('shipping_delivery', 403, json_encode(['meta' => ['message' => 'Daily limit exceeded']]));
+
+        $this->assertTrue($capabilities->entitled('shipping_delivery'));
+        $this->assertTrue($capabilities->quotaExhausted('shipping_delivery'));
+
+        // Non-quota 403 and 401 still disable entitlement.
+        $capabilities->observe('payment', 403, json_encode(['message' => 'Access denied for this endpoint']));
+        $this->assertFalse($capabilities->entitled('payment'));
+        $this->assertFalse($capabilities->quotaExhausted('payment'));
+
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_http_200_error_and_quota_envelopes_are_detected_in_observe_and_probe(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-13 15:00:00', 'Asia/Jakarta'));
+        $capabilities = resolve(KomerceCapabilities::class);
+
+        $capabilities->observe('shipping_cost', 200, json_encode([
+            'meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily limit exceeded'],
+            'data' => [],
+        ]));
+
+        $this->assertTrue($capabilities->quotaExhausted('shipping_cost'));
+        $this->assertSame(0, $capabilities->requestsToday('shipping_cost'));
+        $this->assertNull(data_get($capabilities->state(), 'shipping_cost.entitled'));
+
+        $capabilities->observe('payment', 200, json_encode([
+            'meta' => ['code' => 401, 'status' => 'failed', 'message' => 'Invalid API Key'],
+            'data' => [],
+        ]));
+
+        $this->assertFalse($capabilities->entitled('payment'));
+        $this->assertSame(0, $capabilities->requestsToday('payment'));
+
+        $capabilities->observe('qrisly', 200, json_encode([
+            'success' => false,
+            'message' => 'Invalid API Key',
+        ]));
+
+        $this->assertFalse($capabilities->entitled('qrisly'));
+        $this->assertSame(0, $capabilities->requestsToday('qrisly'));
+
+        // probe() also detects HTTP 200 error envelopes.
+        $capabilities->forget();
+        Http::fake([
+            'https://cost.example.test/api/v1/destination/domestic-destination*' => Http::response([
+                'meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily limit exceeded'],
+                'data' => [],
+            ], 200),
+            'https://delivery.example.test/tariff/api/v1/destination/search*' => Http::response([
+                'meta' => ['code' => 401, 'status' => 'failed', 'message' => 'Invalid API Key'],
+                'data' => [],
+            ], 200),
+            'https://payment.example.test/user/api/v1/user/methods' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [],
+            ], 200),
+        ]);
+
+        $capabilities->probe();
+
+        $this->assertTrue($capabilities->quotaExhausted('shipping_cost'));
+        $this->assertSame(0, $capabilities->requestsToday('shipping_cost'));
+        $this->assertFalse($capabilities->entitled('shipping_delivery'));
+        $this->assertSame('starter', $capabilities->plan());
+        $this->assertTrue($capabilities->entitled('payment'));
 
         CarbonImmutable::setTestNow();
     }

@@ -38,19 +38,15 @@ final readonly class ApplyDeliveryWebhookStatus
             return 'not_found';
         }
 
-        // Never trust an unauthenticated webhook's cnote over the DB or
-        // overwrite AWB in memory: reconcile through the authenticated Komerce
-        // detail-order API first to persist the official airway bill.
+        // Never trust an unauthenticated webhook's order_no or cnote over the
+        // DB: verify through the authenticated Komerce detail-order API first
+        // without persisting the candidate order_no before verification passes.
         if ($orderNo !== '') {
-            if (blank($shipment->external_reference) && blank(data_get($shipment->metadata, 'komerce.order_no'))) {
-                $metadata = is_array($shipment->metadata) ? $shipment->metadata : [];
-                $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
-                $komerce['order_no'] = $orderNo;
-                $metadata['komerce'] = $komerce;
-                $shipment->forceFill(['metadata' => $metadata])->save();
-            }
-
-            $shipment = $this->reconcile->handle($shipment);
+            $shipment = $this->reconcile->handle(
+                $shipment,
+                verifyEvenIfUnentitled: true,
+                candidateOrderNo: $orderNo,
+            );
         }
 
         $persistedAwb = $shipment->awb ?: $shipment->tracking_number ?: data_get($shipment->metadata, 'komerce.awb');
@@ -63,9 +59,6 @@ final readonly class ApplyDeliveryWebhookStatus
         $komerce = is_array($metadata['komerce'] ?? null) ? $metadata['komerce'] : [];
         $komerce['webhook_reported_status'] = $status;
         $komerce['webhook_received_at'] = now()->toIso8601String();
-        if ($orderNo !== '') {
-            $komerce['order_no'] = $orderNo;
-        }
         $metadata['komerce'] = $komerce;
 
         $shipment->forceFill(['metadata' => $metadata])->save();

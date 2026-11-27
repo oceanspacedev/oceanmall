@@ -27,23 +27,40 @@ final readonly class ReconcileKomerceShipment
         private SyncOrderShippingFromShipments $syncOrderShipping,
     ) {}
 
-    public function handle(OrderShipment $shipment): OrderShipment
-    {
-        if (! Komerce::shippingDeliveryEnabled() || ! KomerceShipments::owns($shipment)) {
+    public function handle(
+        OrderShipment $shipment,
+        bool $verifyEvenIfUnentitled = false,
+        ?string $candidateOrderNo = null,
+    ): OrderShipment {
+        $enabled = $verifyEvenIfUnentitled
+            ? $this->deliveryKeyConfigured()
+            : Komerce::shippingDeliveryEnabled();
+
+        if (! $enabled || ! KomerceShipments::owns($shipment)) {
             return $shipment;
         }
 
-        $orderNo = $this->presenter->deliveryOrderNo($shipment);
+        $persistedOrderNo = $this->presenter->deliveryOrderNo($shipment);
+        $candidate = is_string($candidateOrderNo) ? trim($candidateOrderNo) : '';
+        $orderNo = $persistedOrderNo ?? ($candidate !== '' ? $candidate : null);
 
         if ($orderNo === null) {
             return $shipment;
         }
 
-        $detail = $this->delivery->detailOrder($orderNo);
+        $detail = $this->delivery->detailOrder($orderNo, allowUnentitled: $verifyEvenIfUnentitled);
         $status = data_get($detail, 'meta.status');
+        $metaCode = data_get($detail, 'meta.code');
+        $detailData = data_get($detail, 'data');
 
-        if (is_scalar($status) && strtolower(trim((string) $status)) !== 'success') {
-            $message = data_get($detail, 'meta.message');
+        if (
+            ($detail['success'] ?? null) === false
+            || (is_scalar($status) && strtolower(trim((string) $status)) !== 'success')
+            || (is_numeric($metaCode) && ((int) $metaCode < 200 || (int) $metaCode >= 300))
+            || ! is_array($detailData)
+            || $detailData === []
+        ) {
+            $message = data_get($detail, 'meta.message') ?? data_get($detail, 'message');
 
             throw new RuntimeException(sprintf(
                 'Komerce detail-order failed for [%s]: %s.',
@@ -57,6 +74,16 @@ final readonly class ReconcileKomerceShipment
             'data.airway_bill',
             'data.cnote',
         ]);
+
+        $existingAwb = trim((string) ($shipment->awb ?: $shipment->tracking_number));
+        if ($persistedOrderNo === null && $existingAwb !== '' && ($awb === null || strcasecmp($existingAwb, $awb) !== 0)) {
+            throw new RuntimeException(sprintf(
+                'Komerce detail-order [%s] airway bill does not match shipment [%d].',
+                $orderNo,
+                $shipment->id,
+            ));
+        }
+
         $remoteOrderNo = $this->scalar($detail, ['data.order_no']) ?? $orderNo;
         $remoteOrderId = $this->scalar($detail, ['data.order_id']);
         $rawStatus = $this->scalar($detail, [
@@ -131,5 +158,11 @@ final readonly class ReconcileKomerceShipment
             is_string($current) ? $current : null,
             $incoming,
         );
+    }
+
+    private function deliveryKeyConfigured(): bool
+    {
+        return config('komerce.enabled') !== false
+            && trim((string) config('komerce.shipping_delivery_api_key', '')) !== '';
     }
 }

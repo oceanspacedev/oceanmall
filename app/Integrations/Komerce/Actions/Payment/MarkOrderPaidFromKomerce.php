@@ -9,6 +9,7 @@ use App\Actions\Orders\RecordPaymentDispute;
 use App\Integrations\Komerce\Exceptions\KomercePaidAfterCancellation;
 use App\Integrations\Komerce\Payment\KomerceDriver;
 use App\Integrations\Komerce\Support\KomercePaymentLookupContext;
+use App\Integrations\Komerce\Support\KomercePaymentProvider;
 use App\Models\PaymentDispute;
 use RuntimeException;
 use Shopper\Core\Enum\PaymentStatus;
@@ -41,16 +42,21 @@ final class MarkOrderPaidFromKomerce
     /**
      * @param  'payment_api'|'qrisly'|null  $provider  Null = auto-detect from transaction/order metadata.
      */
-    public function handle(string $paymentId, ?string $provider = null): string
-    {
+    public function handle(
+        string $paymentId,
+        ?string $provider = null,
+        ?Order $knownOrder = null,
+        bool $verifyEvenIfUnentitled = false,
+    ): string {
         $transaction = PaymentTransaction::query()
             ->where('driver', 'komerce')
             ->where('reference', $paymentId)
+            ->when($knownOrder instanceof Order, fn ($query) => $query->where('order_id', $knownOrder->id))
             ->first();
 
         $order = $transaction
             ? Order::query()->find($transaction->order_id)
-            : $this->findOrderByPaymentReference($paymentId);
+            : ($knownOrder ?? $this->findOrderByPaymentReference($paymentId));
 
         if (! $transaction && ! $order) {
             return 'no_transaction';
@@ -63,7 +69,7 @@ final class MarkOrderPaidFromKomerce
         $provider ??= $this->resolveProvider($transaction, $order);
 
         if ($this->isTerminallyCancelled($order)) {
-            return $this->handleCancelledOrder($order, $paymentId, $provider);
+            return $this->handleCancelledOrder($order, $paymentId, $provider, $verifyEvenIfUnentitled);
         }
 
         if ($order->payment_status === PaymentStatus::Paid) {
@@ -81,7 +87,7 @@ final class MarkOrderPaidFromKomerce
                 ->exists();
 
             if (! $alreadyCapturedHere) {
-                $retrieved = $this->retrieve($paymentId, $provider);
+                $retrieved = $this->retrieve($paymentId, $provider, $verifyEvenIfUnentitled);
                 if ($retrieved instanceof PaymentResult && $retrieved->status === 'captured') {
                     $remotePayment = is_array($retrieved->data['raw_response'] ?? null)
                         ? $retrieved->data['raw_response']
@@ -105,7 +111,7 @@ final class MarkOrderPaidFromKomerce
             return 'already_processed';
         }
 
-        $retrieved = $this->retrieve($paymentId, $provider);
+        $retrieved = $this->retrieve($paymentId, $provider, $verifyEvenIfUnentitled);
 
         if (! $retrieved instanceof PaymentResult) {
             return 'lookup_failed';
@@ -173,13 +179,17 @@ final class MarkOrderPaidFromKomerce
      * afterwards (late VA transfer, QRIS without a remote cancel) has to be
      * refunded by a human — so verify it and raise a critical alert.
      */
-    private function handleCancelledOrder(Order $order, string $paymentId, string $provider): string
-    {
+    private function handleCancelledOrder(
+        Order $order,
+        string $paymentId,
+        string $provider,
+        bool $verifyEvenIfUnentitled = false,
+    ): string {
         if (in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::Refunded], true)) {
             return 'cancelled_order';
         }
 
-        if ($this->retrieve($paymentId, $provider)?->status !== 'captured') {
+        if ($this->retrieve($paymentId, $provider, $verifyEvenIfUnentitled)?->status !== 'captured') {
             return 'cancelled_order';
         }
 
@@ -204,9 +214,10 @@ final class MarkOrderPaidFromKomerce
         );
     }
 
-    private function retrieve(string $paymentId, string $provider): ?PaymentResult
+    private function retrieve(string $paymentId, string $provider, bool $verifyEvenIfUnentitled = false): ?PaymentResult
     {
         $this->lookupContext->setProvider($provider);
+        $this->lookupContext->setAllowUnentitled($verifyEvenIfUnentitled);
 
         try {
             return Payment::driver('komerce')->retrievePayment($paymentId);
@@ -235,24 +246,16 @@ final class MarkOrderPaidFromKomerce
 
     private function resolveProvider(?PaymentTransaction $transaction, Order $order): string
     {
-        $fromTx = data_get($transaction?->metadata, 'komerce_provider');
-        if (is_string($fromTx) && $fromTx !== '') {
-            return $fromTx;
+        $fromTx = data_get(
+            KomercePaymentProvider::decodeMetadata($transaction?->metadata),
+            'komerce_provider',
+        );
+
+        if (is_string($fromTx) && trim($fromTx) !== '') {
+            return strtolower(trim($fromTx));
         }
 
-        $metadata = $order->getAttribute('metadata');
-        if (is_string($metadata) && $metadata !== '') {
-            $decoded = json_decode($metadata, true);
-            $metadata = is_array($decoded) ? $decoded : [];
-        }
-
-        if (! is_array($metadata)) {
-            $metadata = [];
-        }
-
-        $fromOrder = data_get($metadata, 'komerce.provider');
-
-        return is_string($fromOrder) && $fromOrder !== '' ? $fromOrder : 'payment_api';
+        return KomercePaymentProvider::resolve($order);
     }
 
     /**

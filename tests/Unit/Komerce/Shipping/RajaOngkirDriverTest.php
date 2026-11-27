@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Tests\Unit\Komerce\Shipping;
 
 use App\Integrations\Komerce\Shipping\RajaOngkirDriver;
+use App\Integrations\Komerce\Support\KomerceCapabilities;
 use App\Integrations\Komerce\Support\KomerceTrackingContext;
 use App\Shipping\ShippingQuoteContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Shopper\Core\Models\Inventory;
 use Shopper\Shipping\DataTransferObjects\Address;
 use Shopper\Shipping\DataTransferObjects\Package;
 use Shopper\Shipping\DataTransferObjects\ShippingRate;
+use Shopper\Shipping\Exceptions\ShippingException;
 use Shopper\Shipping\Facades\Shipping;
 use Tests\TestCase;
 
@@ -171,5 +174,145 @@ final class RajaOngkirDriverTest extends TestCase
             state: 'DKI Jakarta',
             country: 'ID',
         );
+    }
+
+    public function test_search_destinations_serves_warm_cache_and_throws_on_cold_miss_when_quota_exhausted(): void
+    {
+        Http::fake([
+            'https://shipping.example.test/api/v1/destination/domestic-destination*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [['id' => 17547, 'label' => 'MELAWAI, KEBAYORAN BARU', 'zip_code' => '12160']],
+            ]),
+        ]);
+
+        $driver = Shipping::driver('rajaongkir');
+        $warm = $driver->searchDestinations('Melawai', 10);
+        $this->assertSame('17547', $warm[0]['id']);
+        Http::assertSentCount(1);
+
+        resolve(KomerceCapabilities::class)->observe('shipping_cost', 429, json_encode(['meta' => ['message' => 'Daily limit']]));
+
+        // Warm cache still works without sending HTTP.
+        $cached = $driver->searchDestinations('Melawai', 10);
+        $this->assertSame($warm, $cached);
+        Http::assertSentCount(1);
+
+        // Cold cache miss throws ShippingException without sending HTTP.
+        try {
+            $driver->searchDestinations('Kemang', 10);
+            $this->fail('Expected ShippingException when Cost quota exhausted on cache miss.');
+        } catch (ShippingException $e) {
+            $this->assertStringContainsString('quota', strtolower($e->getMessage()));
+        }
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_track_skips_http_when_shipping_cost_quota_is_exhausted(): void
+    {
+        resolve(KomerceCapabilities::class)->observe('shipping_cost', 429, json_encode(['meta' => ['message' => 'Daily limit']]));
+        resolve(KomerceTrackingContext::class)->setCourier('jne');
+        Http::fake();
+
+        try {
+            Shipping::driver('rajaongkir')->track('JNE123');
+            $this->fail('Expected ShippingException when Cost quota exhausted on track.');
+        } catch (ShippingException $e) {
+            $this->assertStringContainsString('quota', strtolower($e->getMessage()));
+        }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_http_200_error_envelope_is_not_cached_in_12h_rate_cache(): void
+    {
+        Http::fake([
+            'https://shipping.example.test/api/v1/calculate/domestic-cost' => Http::sequence()
+                ->push(['meta' => ['code' => 500, 'status' => 'error', 'message' => 'Upstream hiccup'], 'data' => []], 200)
+                ->push([
+                    'meta' => ['code' => 200, 'status' => 'success'],
+                    'data' => [['name' => 'JNE', 'code' => 'jne', 'service' => 'REG', 'cost' => 18000, 'etd' => '2-3']],
+                ], 200),
+        ]);
+
+        $context = resolve(ShippingQuoteContext::class);
+        $context->begin(
+            ['destination_id' => '114', 'destination_driver' => 'rajaongkir'],
+            Inventory::factory()->create(['rajaongkir_origin_id' => '501']),
+        );
+        $context->forCouriers(['jne']);
+
+        try {
+            Shipping::driver('rajaongkir')->calculateRates(
+                $this->address(),
+                $this->address(),
+                [new Package(length: 10, width: 10, height: 10, weight: 1)],
+            );
+            $this->fail('Expected ShippingException on HTTP 200 error envelope.');
+        } catch (ShippingException) {
+        }
+
+        // Follow-up request must not hit a poisoned cache; it retries and succeeds.
+        $rates = Shipping::driver('rajaongkir')->calculateRates(
+            $this->address(),
+            $this->address(),
+            [new Package(length: 10, width: 10, height: 10, weight: 1)],
+        );
+
+        $this->assertCount(1, $rates);
+        $this->assertSame(18000, $rates[0]->amount);
+        Http::assertSentCount(2);
+    }
+
+    public function test_search_destinations_does_not_cache_http_200_quota_or_error_envelope(): void
+    {
+        Http::fake([
+            'https://shipping.example.test/api/v1/destination/domestic-destination*' => Http::sequence()
+                ->push(['meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily limit exceeded'], 'data' => []], 200)
+                ->push([
+                    'meta' => ['code' => 200, 'status' => 'success'],
+                    'data' => [['id' => 17601, 'label' => 'GAMBIR, JAKARTA PUSAT', 'zip_code' => '10110']],
+                ], 200),
+        ]);
+
+        $driver = Shipping::driver('rajaongkir');
+
+        try {
+            $driver->searchDestinations('Gambir', 10);
+            $this->fail('Expected ShippingException on HTTP 200 quota envelope.');
+        } catch (ShippingException $e) {
+            $this->assertStringContainsString('quota', strtolower($e->getMessage()));
+        }
+
+        $this->assertTrue(resolve(KomerceCapabilities::class)->quotaExhausted('shipping_cost'));
+        $this->assertNull(Cache::get('rajaongkir:destinations:v1:'.sha1('gambir|10')));
+
+        // Once quota resets, searchDestinations does not hit a poisoned empty cache.
+        resolve(KomerceCapabilities::class)->forget();
+        $rows = $driver->searchDestinations('Gambir', 10);
+        $this->assertCount(1, $rows);
+        $this->assertSame('17601', $rows[0]['id']);
+        Http::assertSentCount(2);
+    }
+
+    public function test_track_throws_and_records_quota_on_http_200_error_envelope(): void
+    {
+        Http::fake([
+            'https://shipping.example.test/api/v1/track/waybill*' => Http::response([
+                'meta' => ['code' => 429, 'status' => 'error', 'message' => 'Daily limit exceeded'],
+                'data' => null,
+            ], 200),
+        ]);
+
+        resolve(KomerceTrackingContext::class)->setCourier('jne');
+
+        try {
+            Shipping::driver('rajaongkir')->track('JNE123');
+            $this->fail('Expected ShippingException on HTTP 200 quota envelope.');
+        } catch (ShippingException $e) {
+            $this->assertStringContainsString('quota', strtolower($e->getMessage()));
+        }
+
+        $this->assertTrue(resolve(KomerceCapabilities::class)->quotaExhausted('shipping_cost'));
     }
 }

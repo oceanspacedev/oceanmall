@@ -216,7 +216,7 @@ final class KomerceServiceProvider extends ServiceProvider
 
         $this->app->afterResolving(ProviderQuotaRegistry::class, static function (ProviderQuotaRegistry $registry): void {
             $registry->extend('komerce_shipping_cost', static function (): ?array {
-                if (! Komerce::shippingEnabled()) {
+                if (! Komerce::shippingCostEnabled()) {
                     return null;
                 }
 
@@ -229,6 +229,24 @@ final class KomerceServiceProvider extends ServiceProvider
                     'limit' => $capabilities->dailyQuota('shipping_cost'),
                     'exhausted' => $capabilities->quotaExhausted('shipping_cost'),
                     'exhausted_until' => $capabilities->quotaExhaustedUntil('shipping_cost')?->toIso8601String(),
+                    'plan' => $capabilities->plan(),
+                ];
+            });
+
+            $registry->extend('komerce_shipping_delivery', static function (): ?array {
+                if (! Komerce::shippingDeliveryEnabled()) {
+                    return null;
+                }
+
+                $capabilities = resolve(KomerceCapabilities::class);
+
+                return [
+                    'provider' => 'komerce',
+                    'label' => 'Komerce Shipping Delivery',
+                    'used' => $capabilities->requestsToday('shipping_delivery'),
+                    'limit' => null,
+                    'exhausted' => $capabilities->quotaExhausted('shipping_delivery'),
+                    'exhausted_until' => $capabilities->quotaExhaustedUntil('shipping_delivery')?->toIso8601String(),
                     'plan' => $capabilities->plan(),
                 ];
             });

@@ -7,6 +7,9 @@ namespace Tests\Feature\Komerce\Checkout;
 use App\Actions\Checkout\FetchDeliveryRates;
 use App\CheckoutSession;
 use App\Models\User;
+use App\Shipping\ShippingQuoteContext;
+use App\Shipping\ShippingQuoteFailure;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
@@ -316,5 +319,69 @@ final class RajaOngkirRatesTest extends TestCase
 
         $this->assertSame([], $rates);
         Http::assertNothingSent();
+    }
+
+    public function test_first_429_immediately_classifies_quote_failure_as_quota_and_renders_hint(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-13 15:00:00', 'Asia/Jakarta'));
+
+        $this->fakeRajaOngkirConfig();
+        $user = User::factory()->create();
+        [$country, , $inventory] = $this->seedCountryZoneInventory();
+
+        $cart = Cart::query()->create([
+            'currency_code' => 'IDR',
+            'customer_id' => $user->id,
+        ]);
+        $product = Product::factory()->standard()->create([
+            'name' => 'Kopi Cirebon',
+            'weight_value' => 500,
+            'weight_unit' => 'g',
+        ]);
+        $product->mutateStock($inventory->id, 10);
+        CartLine::query()->create([
+            'cart_id' => $cart->id,
+            'purchasable_type' => $product->getMorphClass(),
+            'purchasable_id' => $product->id,
+            'quantity' => 1,
+            'unit_price_amount' => 50000,
+        ]);
+
+        $this->fakeCartManager();
+        Http::fake([
+            'https://shipping.example.test/api/v1/calculate/domestic-cost' => Http::response(
+                ['meta' => ['code' => 429, 'message' => 'Daily request limit exceeded']],
+                429,
+            ),
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withSession([
+                config('shopper.cart.session.key', 'shopper_cart') => $cart->id,
+                CheckoutSession::KEY => [
+                    'shipping_address' => [
+                        'first_name' => 'Budi',
+                        'last_name' => 'Santoso',
+                        'street_address' => 'Jl. Merdeka 1',
+                        'postal_code' => '10110',
+                        'city' => 'Jakarta',
+                        'country_id' => $country->id,
+                        'phone_number' => '081234567890',
+                        'destination_id' => '114',
+                        'destination_driver' => 'rajaongkir',
+                    ],
+                ],
+            ])
+            ->get(route('shop.checkout.index', ['step' => 2]), ['X-Inertia' => 'true'])
+            ->assertOk();
+
+        $failure = resolve(ShippingQuoteContext::class)->lastFailure();
+        $this->assertNotNull($failure);
+        $this->assertSame(ShippingQuoteFailure::QUOTA, $failure->reason);
+        $this->assertTrue($failure->isQuota());
+        $this->assertSame('2026-10-14 00:00', $failure->retryAfter?->copy()->setTimezone('Asia/Jakarta')->format('Y-m-d H:i'));
+        $this->assertStringContainsString('Batas cek ongkir harian', (string) $response->json('props.shippingRatesHint'));
+
+        CarbonImmutable::setTestNow();
     }
 }

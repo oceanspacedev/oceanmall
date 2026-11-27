@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Komerce;
 
+use App\Shipping\InventoryOrigins;
 use App\Shipping\ShippingQuoteContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -85,6 +86,47 @@ final class DirectRateCallTest extends TestCase
 
         $this->assertCount(0, $rates);
         Http::assertNotSent(static fn (Request $request): bool => str_contains($request->url(), '/calculate/'));
+    }
+
+    public function test_delivery_only_direct_calculate_rates_derives_komerce_origin_and_destination(): void
+    {
+        config()->set('komerce.shipping_cost_api_key', '');
+        config()->set('komerce.shipping_delivery_api_key', 'test-delivery-key');
+        config()->set('komerce.rajaongkir.delivery_base_url', 'https://delivery.example.test');
+        config()->set('shopper.shipping.drivers.komerce.enabled', true);
+
+        $inventory = Inventory::query()->where('is_default', true)->firstOrFail();
+        $inventory->forceFill(['latitude' => -6.7366, 'longitude' => 108.5414])->save();
+        resolve(InventoryOrigins::class)->forget($inventory, 'rajaongkir');
+        resolve(InventoryOrigins::class)->put($inventory, 'komerce', '17248');
+
+        Http::fake([
+            'https://delivery.example.test/tariff/api/v1/destination/search*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [
+                    ['id' => 17547, 'label' => 'HARJAMUKTI, CIREBON', 'zip_code' => '45153'],
+                ],
+            ]),
+            'https://delivery.example.test/tariff/api/v1/calculate*' => Http::response([
+                'meta' => ['code' => 200, 'status' => 'success'],
+                'data' => [
+                    'calculate_reguler' => [
+                        ['shipping_name' => 'JNE', 'service_name' => 'JNEFlat', 'shipping_cost' => 12000, 'shipping_cashback' => 0, 'etd' => '1-2 day'],
+                    ],
+                    'calculate_cargo' => [],
+                    'calculate_instant' => [],
+                ],
+            ]),
+        ]);
+
+        $rates = Shipping::driver('komerce')->calculateRates($this->origin(), $this->destination('45153'), [new Package(10, 10, 10, 0.5)]);
+
+        $this->assertCount(1, $rates);
+        $this->assertSame(12000, $rates->first()->amount);
+        Http::assertSent(static fn (Request $request): bool => str_contains($request->url(), '/tariff/api/v1/calculate')
+            && (string) $request['shipper_destination_id'] === '17248'
+            && (string) $request['receiver_destination_id'] === '17547');
+        $this->assertFalse(resolve(ShippingQuoteContext::class)->active());
     }
 
     private function origin(): Address

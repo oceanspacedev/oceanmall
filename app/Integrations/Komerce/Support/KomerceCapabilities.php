@@ -141,7 +141,7 @@ final class KomerceCapabilities
     /**
      * Passive observation of a real API response.
      */
-    public function observe(string $product, int $status, string $body = ''): void
+    public function observe(string $product, int $status, string $body = '', bool $clearQuotaOnSuccess = false): void
     {
         if (! in_array($product, self::PRODUCTS, true)) {
             return;
@@ -149,29 +149,38 @@ final class KomerceCapabilities
 
         $now = CarbonImmutable::now()->toIso8601String();
         $message = $this->message($body);
-        $count = $status >= 200 && $status < 300 ? $this->countRequest($product) : 0;
+        $effectiveStatus = $this->errorEnvelopeStatus($status, $body) ?? $status;
+        $isSuccess = $effectiveStatus >= 200 && $effectiveStatus < 300;
+        $count = $isSuccess ? $this->countRequest($product) : 0;
 
-        $this->update($product, function (array $entry) use ($status, $message, $now, $count): array {
-            if ($status >= 200 && $status < 300) {
+        $this->update($product, function (array $entry) use ($effectiveStatus, $isSuccess, $message, $now, $count, $clearQuotaOnSuccess): array {
+            if ($isSuccess) {
+                $until = $entry['quota_exhausted_until'] ?? null;
+                $quotaActive = is_string($until) && CarbonImmutable::parse($until)->isFuture();
+                $clearQuota = $clearQuotaOnSuccess || ! $quotaActive;
+
                 return array_merge($entry, [
                     'entitled' => true,
                     'reason' => null,
                     'checked_at' => $now,
                     'max_daily_requests' => max((int) ($entry['max_daily_requests'] ?? 0), $count),
-                ]);
+                ], $clearQuota ? [
+                    'quota_exhausted_until' => null,
+                    'quota_reason' => null,
+                ] : []);
             }
 
-            if ($this->isNotEntitled($status, $message)) {
+            if ($this->isNotEntitled($effectiveStatus, $message)) {
                 return array_merge($entry, [
                     'entitled' => false,
-                    'reason' => $message !== '' ? $message : "HTTP {$status}",
+                    'reason' => $message !== '' ? $message : "HTTP {$effectiveStatus}",
                     'checked_at' => $now,
                 ]);
             }
 
-            if ($this->isQuotaExceeded($status, $message)) {
+            if ($this->isQuotaExceeded($effectiveStatus, $message)) {
                 $entry['quota_exhausted_until'] = $this->nextWibMidnight()->toIso8601String();
-                $entry['quota_reason'] = $message !== '' ? $message : "HTTP {$status}";
+                $entry['quota_reason'] = $message !== '' ? $message : "HTTP {$effectiveStatus}";
             }
 
             return $entry;
@@ -227,16 +236,37 @@ final class KomerceCapabilities
                 continue;
             }
 
-            $this->observe($product, $response->status(), (string) $response->body());
+            $this->observe($product, $response->status(), (string) $response->body(), clearQuotaOnSuccess: true);
         }
 
         // QRISLY needs a merchant qris_id and has no cheap read endpoint; treat
-        // "configured" as the entitlement signal.
-        $this->touch('qrisly', [
-            'entitled' => Komerce::qrislyEnabled() ? true : null,
-            'reason' => Komerce::qrislyEnabled() ? null : 'QRISLY key or qris_id not configured',
-            'checked_at' => CarbonImmutable::now()->toIso8601String(),
-        ]);
+        // "configured" as the entitlement signal, while keeping any recent
+        // 401/403 lockout intact until its TTL expires.
+        $qrislyConfigured = config('komerce.enabled') !== false
+            && trim((string) config('komerce.qrisly_api_key', '')) !== ''
+            && trim((string) config('komerce.qrisly_qris_id', '')) !== '';
+
+        if (! $qrislyConfigured) {
+            $this->touch('qrisly', [
+                'entitled' => null,
+                'reason' => config('komerce.enabled') === false
+                    ? 'Komerce integration disabled'
+                    : 'QRISLY key or qris_id not configured',
+                'checked_at' => CarbonImmutable::now()->toIso8601String(),
+            ]);
+        } else {
+            $this->update('qrisly', function (array $entry): array {
+                if (($entry['entitled'] ?? null) === false && $this->fresh($entry['checked_at'] ?? null)) {
+                    return $entry;
+                }
+
+                return array_merge($entry, [
+                    'entitled' => true,
+                    'reason' => null,
+                    'checked_at' => CarbonImmutable::now()->toIso8601String(),
+                ]);
+            });
+        }
 
         return $this->state();
     }
@@ -370,13 +400,53 @@ final class KomerceCapabilities
     {
         $decoded = json_decode($body, true);
 
-        return is_array($decoded) ? trim((string) data_get($decoded, 'meta.message', '')) : '';
+        if (! is_array($decoded)) {
+            return '';
+        }
+
+        foreach (['meta.message', 'message'] as $path) {
+            $value = data_get($decoded, $path);
+
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return '';
+    }
+
+    private function errorEnvelopeStatus(int $httpStatus, string $body): ?int
+    {
+        if ($httpStatus < 200 || $httpStatus >= 300 || trim($body) === '') {
+            return null;
+        }
+
+        $decoded = json_decode($body, true);
+
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        $metaStatus = strtolower(trim((string) data_get($decoded, 'meta.status', '')));
+        $metaCodeRaw = data_get($decoded, 'meta.code');
+        $metaCode = is_numeric($metaCodeRaw) ? (int) $metaCodeRaw : 200;
+        $success = $decoded['success'] ?? null;
+
+        if (! in_array($metaStatus, ['error', 'failed'], true) && $success !== false && $metaCode < 400) {
+            return null;
+        }
+
+        return $metaCode >= 400 ? $metaCode : 400;
     }
 
     private function isNotEntitled(int $status, string $message): bool
     {
-        if (in_array($status, [401, 403], true)) {
+        if ($status === 401) {
             return true;
+        }
+
+        if ($status === 403) {
+            return ! $this->isQuotaExceeded($status, $message);
         }
 
         return $status === 400 && preg_match('/invalid api ?key/i', $message) === 1;

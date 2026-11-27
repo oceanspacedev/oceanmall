@@ -6,7 +6,7 @@ import biteship from './biteship'
 import kiriminaja from './kiriminaja'
 /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:30
+ * @see app/Http/Controllers/StripeWebhookController.php:39
  * @route '/webhooks/stripe'
  */
 export const stripe = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -21,7 +21,7 @@ stripe.definition = {
 
 /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:30
+ * @see app/Http/Controllers/StripeWebhookController.php:39
  * @route '/webhooks/stripe'
  */
 stripe.url = (options?: RouteQueryOptions) => {
@@ -30,7 +30,7 @@ stripe.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:30
+ * @see app/Http/Controllers/StripeWebhookController.php:39
  * @route '/webhooks/stripe'
  */
 stripe.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -40,7 +40,7 @@ stripe.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:30
+ * @see app/Http/Controllers/StripeWebhookController.php:39
  * @route '/webhooks/stripe'
  */
     const stripeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -50,7 +50,7 @@ stripe.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\StripeWebhookController::__invoke
- * @see app/Http/Controllers/StripeWebhookController.php:30
+ * @see app/Http/Controllers/StripeWebhookController.php:39
  * @route '/webhooks/stripe'
  */
         stripeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

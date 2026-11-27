@@ -1,7 +1,7 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../../wayfinder'
 /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
 const Carriers = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -15,8 +15,8 @@ Carriers.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
 Carriers.url = (options?: RouteQueryOptions) => {
@@ -24,8 +24,8 @@ Carriers.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
 Carriers.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -33,8 +33,8 @@ Carriers.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
 Carriers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -43,8 +43,8 @@ Carriers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
     const CarriersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -53,8 +53,8 @@ Carriers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
         CarriersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -62,8 +62,8 @@ Carriers.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
-* @see \Shopper\Livewire\Pages\Settings\Carriers::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/Carriers.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\Carriers::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/Carriers.php:7
  * @route '/cpanel/setting/carriers'
  */
         CarriersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

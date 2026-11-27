@@ -79,7 +79,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     home.form = homeForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::featured
- * @see app/Http/Controllers/Api/V1/CatalogController.php:454
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:468
  * @route '/api/v1/catalog/featured'
  */
 export const featured = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -94,7 +94,7 @@ featured.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::featured
- * @see app/Http/Controllers/Api/V1/CatalogController.php:454
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:468
  * @route '/api/v1/catalog/featured'
  */
 featured.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ featured.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::featured
- * @see app/Http/Controllers/Api/V1/CatalogController.php:454
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:468
  * @route '/api/v1/catalog/featured'
  */
 featured.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -112,7 +112,7 @@ featured.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::featured
- * @see app/Http/Controllers/Api/V1/CatalogController.php:454
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:468
  * @route '/api/v1/catalog/featured'
  */
 featured.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -122,7 +122,7 @@ featured.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::featured
- * @see app/Http/Controllers/Api/V1/CatalogController.php:454
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:468
  * @route '/api/v1/catalog/featured'
  */
     const featuredForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -132,7 +132,7 @@ featured.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::featured
- * @see app/Http/Controllers/Api/V1/CatalogController.php:454
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:468
  * @route '/api/v1/catalog/featured'
  */
         featuredForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -141,7 +141,7 @@ featured.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::featured
- * @see app/Http/Controllers/Api/V1/CatalogController.php:454
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:468
  * @route '/api/v1/catalog/featured'
  */
         featuredForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -157,7 +157,7 @@ featured.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     featured.form = featuredForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::promo
- * @see app/Http/Controllers/Api/V1/CatalogController.php:470
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:484
  * @route '/api/v1/catalog/promo'
  */
 export const promo = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -172,7 +172,7 @@ promo.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::promo
- * @see app/Http/Controllers/Api/V1/CatalogController.php:470
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:484
  * @route '/api/v1/catalog/promo'
  */
 promo.url = (options?: RouteQueryOptions) => {
@@ -181,7 +181,7 @@ promo.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::promo
- * @see app/Http/Controllers/Api/V1/CatalogController.php:470
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:484
  * @route '/api/v1/catalog/promo'
  */
 promo.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -190,7 +190,7 @@ promo.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::promo
- * @see app/Http/Controllers/Api/V1/CatalogController.php:470
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:484
  * @route '/api/v1/catalog/promo'
  */
 promo.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -200,7 +200,7 @@ promo.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::promo
- * @see app/Http/Controllers/Api/V1/CatalogController.php:470
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:484
  * @route '/api/v1/catalog/promo'
  */
     const promoForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -210,7 +210,7 @@ promo.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::promo
- * @see app/Http/Controllers/Api/V1/CatalogController.php:470
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:484
  * @route '/api/v1/catalog/promo'
  */
         promoForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -219,7 +219,7 @@ promo.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::promo
- * @see app/Http/Controllers/Api/V1/CatalogController.php:470
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:484
  * @route '/api/v1/catalog/promo'
  */
         promoForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -235,7 +235,7 @@ promo.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     promo.form = promoForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::brands
- * @see app/Http/Controllers/Api/V1/CatalogController.php:489
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:503
  * @route '/api/v1/catalog/brands'
  */
 export const brands = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -250,7 +250,7 @@ brands.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::brands
- * @see app/Http/Controllers/Api/V1/CatalogController.php:489
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:503
  * @route '/api/v1/catalog/brands'
  */
 brands.url = (options?: RouteQueryOptions) => {
@@ -259,7 +259,7 @@ brands.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::brands
- * @see app/Http/Controllers/Api/V1/CatalogController.php:489
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:503
  * @route '/api/v1/catalog/brands'
  */
 brands.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -268,7 +268,7 @@ brands.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::brands
- * @see app/Http/Controllers/Api/V1/CatalogController.php:489
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:503
  * @route '/api/v1/catalog/brands'
  */
 brands.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -278,7 +278,7 @@ brands.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::brands
- * @see app/Http/Controllers/Api/V1/CatalogController.php:489
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:503
  * @route '/api/v1/catalog/brands'
  */
     const brandsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -288,7 +288,7 @@ brands.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::brands
- * @see app/Http/Controllers/Api/V1/CatalogController.php:489
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:503
  * @route '/api/v1/catalog/brands'
  */
         brandsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -297,7 +297,7 @@ brands.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::brands
- * @see app/Http/Controllers/Api/V1/CatalogController.php:489
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:503
  * @route '/api/v1/catalog/brands'
  */
         brandsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -313,7 +313,7 @@ brands.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     brands.form = brandsForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collections
- * @see app/Http/Controllers/Api/V1/CatalogController.php:512
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:526
  * @route '/api/v1/catalog/collections'
  */
 export const collections = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -328,7 +328,7 @@ collections.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collections
- * @see app/Http/Controllers/Api/V1/CatalogController.php:512
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:526
  * @route '/api/v1/catalog/collections'
  */
 collections.url = (options?: RouteQueryOptions) => {
@@ -337,7 +337,7 @@ collections.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collections
- * @see app/Http/Controllers/Api/V1/CatalogController.php:512
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:526
  * @route '/api/v1/catalog/collections'
  */
 collections.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -346,7 +346,7 @@ collections.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collections
- * @see app/Http/Controllers/Api/V1/CatalogController.php:512
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:526
  * @route '/api/v1/catalog/collections'
  */
 collections.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -356,7 +356,7 @@ collections.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collections
- * @see app/Http/Controllers/Api/V1/CatalogController.php:512
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:526
  * @route '/api/v1/catalog/collections'
  */
     const collectionsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -366,7 +366,7 @@ collections.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collections
- * @see app/Http/Controllers/Api/V1/CatalogController.php:512
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:526
  * @route '/api/v1/catalog/collections'
  */
         collectionsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -375,7 +375,7 @@ collections.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collections
- * @see app/Http/Controllers/Api/V1/CatalogController.php:512
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:526
  * @route '/api/v1/catalog/collections'
  */
         collectionsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -391,7 +391,7 @@ collections.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     collections.form = collectionsForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::products
- * @see app/Http/Controllers/Api/V1/CatalogController.php:122
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:123
  * @route '/api/v1/catalog/products'
  */
 export const products = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -406,7 +406,7 @@ products.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::products
- * @see app/Http/Controllers/Api/V1/CatalogController.php:122
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:123
  * @route '/api/v1/catalog/products'
  */
 products.url = (options?: RouteQueryOptions) => {
@@ -415,7 +415,7 @@ products.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::products
- * @see app/Http/Controllers/Api/V1/CatalogController.php:122
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:123
  * @route '/api/v1/catalog/products'
  */
 products.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -424,7 +424,7 @@ products.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::products
- * @see app/Http/Controllers/Api/V1/CatalogController.php:122
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:123
  * @route '/api/v1/catalog/products'
  */
 products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -434,7 +434,7 @@ products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::products
- * @see app/Http/Controllers/Api/V1/CatalogController.php:122
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:123
  * @route '/api/v1/catalog/products'
  */
     const productsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -444,7 +444,7 @@ products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::products
- * @see app/Http/Controllers/Api/V1/CatalogController.php:122
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:123
  * @route '/api/v1/catalog/products'
  */
         productsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -453,7 +453,7 @@ products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::products
- * @see app/Http/Controllers/Api/V1/CatalogController.php:122
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:123
  * @route '/api/v1/catalog/products'
  */
         productsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -469,7 +469,7 @@ products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     products.form = productsForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::product
- * @see app/Http/Controllers/Api/V1/CatalogController.php:175
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:177
  * @route '/api/v1/catalog/products/{slug}'
  */
 export const product = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -484,7 +484,7 @@ product.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::product
- * @see app/Http/Controllers/Api/V1/CatalogController.php:175
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:177
  * @route '/api/v1/catalog/products/{slug}'
  */
 product.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -512,7 +512,7 @@ product.url = (args: { slug: string | number } | [slug: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::product
- * @see app/Http/Controllers/Api/V1/CatalogController.php:175
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:177
  * @route '/api/v1/catalog/products/{slug}'
  */
 product.get = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -521,7 +521,7 @@ product.get = (args: { slug: string | number } | [slug: string | number ] | stri
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::product
- * @see app/Http/Controllers/Api/V1/CatalogController.php:175
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:177
  * @route '/api/v1/catalog/products/{slug}'
  */
 product.head = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -531,7 +531,7 @@ product.head = (args: { slug: string | number } | [slug: string | number ] | str
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::product
- * @see app/Http/Controllers/Api/V1/CatalogController.php:175
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:177
  * @route '/api/v1/catalog/products/{slug}'
  */
     const productForm = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -541,7 +541,7 @@ product.head = (args: { slug: string | number } | [slug: string | number ] | str
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::product
- * @see app/Http/Controllers/Api/V1/CatalogController.php:175
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:177
  * @route '/api/v1/catalog/products/{slug}'
  */
         productForm.get = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -550,7 +550,7 @@ product.head = (args: { slug: string | number } | [slug: string | number ] | str
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::product
- * @see app/Http/Controllers/Api/V1/CatalogController.php:175
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:177
  * @route '/api/v1/catalog/products/{slug}'
  */
         productForm.head = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -566,7 +566,7 @@ product.head = (args: { slug: string | number } | [slug: string | number ] | str
     product.form = productForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::search
- * @see app/Http/Controllers/Api/V1/CatalogController.php:217
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:231
  * @route '/api/v1/catalog/search'
  */
 export const search = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -581,7 +581,7 @@ search.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::search
- * @see app/Http/Controllers/Api/V1/CatalogController.php:217
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:231
  * @route '/api/v1/catalog/search'
  */
 search.url = (options?: RouteQueryOptions) => {
@@ -590,7 +590,7 @@ search.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::search
- * @see app/Http/Controllers/Api/V1/CatalogController.php:217
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:231
  * @route '/api/v1/catalog/search'
  */
 search.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -599,7 +599,7 @@ search.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::search
- * @see app/Http/Controllers/Api/V1/CatalogController.php:217
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:231
  * @route '/api/v1/catalog/search'
  */
 search.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -609,7 +609,7 @@ search.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::search
- * @see app/Http/Controllers/Api/V1/CatalogController.php:217
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:231
  * @route '/api/v1/catalog/search'
  */
     const searchForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -619,7 +619,7 @@ search.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::search
- * @see app/Http/Controllers/Api/V1/CatalogController.php:217
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:231
  * @route '/api/v1/catalog/search'
  */
         searchForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -628,7 +628,7 @@ search.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::search
- * @see app/Http/Controllers/Api/V1/CatalogController.php:217
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:231
  * @route '/api/v1/catalog/search'
  */
         searchForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -644,7 +644,7 @@ search.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     search.form = searchForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::categories
- * @see app/Http/Controllers/Api/V1/CatalogController.php:426
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:440
  * @route '/api/v1/catalog/categories'
  */
 export const categories = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -659,7 +659,7 @@ categories.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::categories
- * @see app/Http/Controllers/Api/V1/CatalogController.php:426
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:440
  * @route '/api/v1/catalog/categories'
  */
 categories.url = (options?: RouteQueryOptions) => {
@@ -668,7 +668,7 @@ categories.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::categories
- * @see app/Http/Controllers/Api/V1/CatalogController.php:426
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:440
  * @route '/api/v1/catalog/categories'
  */
 categories.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -677,7 +677,7 @@ categories.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::categories
- * @see app/Http/Controllers/Api/V1/CatalogController.php:426
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:440
  * @route '/api/v1/catalog/categories'
  */
 categories.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -687,7 +687,7 @@ categories.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::categories
- * @see app/Http/Controllers/Api/V1/CatalogController.php:426
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:440
  * @route '/api/v1/catalog/categories'
  */
     const categoriesForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -697,7 +697,7 @@ categories.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::categories
- * @see app/Http/Controllers/Api/V1/CatalogController.php:426
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:440
  * @route '/api/v1/catalog/categories'
  */
         categoriesForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -706,7 +706,7 @@ categories.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::categories
- * @see app/Http/Controllers/Api/V1/CatalogController.php:426
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:440
  * @route '/api/v1/catalog/categories'
  */
         categoriesForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -722,7 +722,7 @@ categories.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     categories.form = categoriesForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::category
- * @see app/Http/Controllers/Api/V1/CatalogController.php:237
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:251
  * @route '/api/v1/catalog/categories/{slug}'
  */
 export const category = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -737,7 +737,7 @@ category.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::category
- * @see app/Http/Controllers/Api/V1/CatalogController.php:237
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:251
  * @route '/api/v1/catalog/categories/{slug}'
  */
 category.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -765,7 +765,7 @@ category.url = (args: { slug: string | number } | [slug: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::category
- * @see app/Http/Controllers/Api/V1/CatalogController.php:237
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:251
  * @route '/api/v1/catalog/categories/{slug}'
  */
 category.get = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -774,7 +774,7 @@ category.get = (args: { slug: string | number } | [slug: string | number ] | str
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::category
- * @see app/Http/Controllers/Api/V1/CatalogController.php:237
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:251
  * @route '/api/v1/catalog/categories/{slug}'
  */
 category.head = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -784,7 +784,7 @@ category.head = (args: { slug: string | number } | [slug: string | number ] | st
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::category
- * @see app/Http/Controllers/Api/V1/CatalogController.php:237
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:251
  * @route '/api/v1/catalog/categories/{slug}'
  */
     const categoryForm = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -794,7 +794,7 @@ category.head = (args: { slug: string | number } | [slug: string | number ] | st
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::category
- * @see app/Http/Controllers/Api/V1/CatalogController.php:237
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:251
  * @route '/api/v1/catalog/categories/{slug}'
  */
         categoryForm.get = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -803,7 +803,7 @@ category.head = (args: { slug: string | number } | [slug: string | number ] | st
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::category
- * @see app/Http/Controllers/Api/V1/CatalogController.php:237
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:251
  * @route '/api/v1/catalog/categories/{slug}'
  */
         categoryForm.head = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -819,7 +819,7 @@ category.head = (args: { slug: string | number } | [slug: string | number ] | st
     category.form = categoryForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collection
- * @see app/Http/Controllers/Api/V1/CatalogController.php:253
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:267
  * @route '/api/v1/catalog/collections/{slug}'
  */
 export const collection = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -834,7 +834,7 @@ collection.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collection
- * @see app/Http/Controllers/Api/V1/CatalogController.php:253
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:267
  * @route '/api/v1/catalog/collections/{slug}'
  */
 collection.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -862,7 +862,7 @@ collection.url = (args: { slug: string | number } | [slug: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collection
- * @see app/Http/Controllers/Api/V1/CatalogController.php:253
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:267
  * @route '/api/v1/catalog/collections/{slug}'
  */
 collection.get = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -871,7 +871,7 @@ collection.get = (args: { slug: string | number } | [slug: string | number ] | s
 })
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collection
- * @see app/Http/Controllers/Api/V1/CatalogController.php:253
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:267
  * @route '/api/v1/catalog/collections/{slug}'
  */
 collection.head = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -881,7 +881,7 @@ collection.head = (args: { slug: string | number } | [slug: string | number ] | 
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collection
- * @see app/Http/Controllers/Api/V1/CatalogController.php:253
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:267
  * @route '/api/v1/catalog/collections/{slug}'
  */
     const collectionForm = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -891,7 +891,7 @@ collection.head = (args: { slug: string | number } | [slug: string | number ] | 
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collection
- * @see app/Http/Controllers/Api/V1/CatalogController.php:253
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:267
  * @route '/api/v1/catalog/collections/{slug}'
  */
         collectionForm.get = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -900,7 +900,7 @@ collection.head = (args: { slug: string | number } | [slug: string | number ] | 
         })
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::collection
- * @see app/Http/Controllers/Api/V1/CatalogController.php:253
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:267
  * @route '/api/v1/catalog/collections/{slug}'
  */
         collectionForm.head = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -916,7 +916,7 @@ collection.head = (args: { slug: string | number } | [slug: string | number ] | 
     collection.form = collectionForm
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::storeReview
- * @see app/Http/Controllers/Api/V1/CatalogController.php:287
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:301
  * @route '/api/v1/catalog/products/{slug}/reviews'
  */
 export const storeReview = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -931,7 +931,7 @@ storeReview.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::storeReview
- * @see app/Http/Controllers/Api/V1/CatalogController.php:287
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:301
  * @route '/api/v1/catalog/products/{slug}/reviews'
  */
 storeReview.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -959,7 +959,7 @@ storeReview.url = (args: { slug: string | number } | [slug: string | number ] | 
 
 /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::storeReview
- * @see app/Http/Controllers/Api/V1/CatalogController.php:287
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:301
  * @route '/api/v1/catalog/products/{slug}/reviews'
  */
 storeReview.post = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -969,7 +969,7 @@ storeReview.post = (args: { slug: string | number } | [slug: string | number ] |
 
     /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::storeReview
- * @see app/Http/Controllers/Api/V1/CatalogController.php:287
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:301
  * @route '/api/v1/catalog/products/{slug}/reviews'
  */
     const storeReviewForm = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -979,7 +979,7 @@ storeReview.post = (args: { slug: string | number } | [slug: string | number ] |
 
             /**
 * @see \App\Http\Controllers\Api\V1\CatalogController::storeReview
- * @see app/Http/Controllers/Api/V1/CatalogController.php:287
+ * @see app/Http/Controllers/Api/V1/CatalogController.php:301
  * @route '/api/v1/catalog/products/{slug}/reviews'
  */
         storeReviewForm.post = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

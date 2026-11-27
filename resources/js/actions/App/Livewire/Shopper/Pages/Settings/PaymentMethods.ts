@@ -1,7 +1,7 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../../wayfinder'
 /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
 const PaymentMethods = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -15,8 +15,8 @@ PaymentMethods.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
 PaymentMethods.url = (options?: RouteQueryOptions) => {
@@ -24,8 +24,8 @@ PaymentMethods.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
 PaymentMethods.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -33,8 +33,8 @@ PaymentMethods.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
 PaymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -43,8 +43,8 @@ PaymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
 })
 
     /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
     const PaymentMethodsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -53,8 +53,8 @@ PaymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
     })
 
             /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
         PaymentMethodsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -62,8 +62,8 @@ PaymentMethods.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => 
             method: 'get',
         })
             /**
-* @see \Shopper\Livewire\Pages\Settings\PaymentMethods::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Settings/PaymentMethods.php:7
+* @see \App\Livewire\Shopper\Pages\Settings\PaymentMethods::__invoke
+ * @see app/Livewire/Shopper/Pages/Settings/PaymentMethods.php:7
  * @route '/cpanel/setting/payment-methods'
  */
         PaymentMethodsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

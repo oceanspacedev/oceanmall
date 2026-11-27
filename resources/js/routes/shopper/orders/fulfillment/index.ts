@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Cpanel\PrintShipmentLabelController::__invoke
- * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:24
+ * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:34
  * @route '/cpanel/orders/{order}/fulfillment/label'
  */
 export const printLabel = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ printLabel.definition = {
 
 /**
 * @see \App\Http\Controllers\Cpanel\PrintShipmentLabelController::__invoke
- * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:24
+ * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:34
  * @route '/cpanel/orders/{order}/fulfillment/label'
  */
 printLabel.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ printLabel.url = (args: { order: number | { id: number } } | [order: number | { 
 
 /**
 * @see \App\Http\Controllers\Cpanel\PrintShipmentLabelController::__invoke
- * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:24
+ * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:34
  * @route '/cpanel/orders/{order}/fulfillment/label'
  */
 printLabel.get = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -58,7 +58,7 @@ printLabel.get = (args: { order: number | { id: number } } | [order: number | { 
 })
 /**
 * @see \App\Http\Controllers\Cpanel\PrintShipmentLabelController::__invoke
- * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:24
+ * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:34
  * @route '/cpanel/orders/{order}/fulfillment/label'
  */
 printLabel.head = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -68,7 +68,7 @@ printLabel.head = (args: { order: number | { id: number } } | [order: number | {
 
     /**
 * @see \App\Http\Controllers\Cpanel\PrintShipmentLabelController::__invoke
- * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:24
+ * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:34
  * @route '/cpanel/orders/{order}/fulfillment/label'
  */
     const printLabelForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -78,7 +78,7 @@ printLabel.head = (args: { order: number | { id: number } } | [order: number | {
 
             /**
 * @see \App\Http\Controllers\Cpanel\PrintShipmentLabelController::__invoke
- * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:24
+ * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:34
  * @route '/cpanel/orders/{order}/fulfillment/label'
  */
         printLabelForm.get = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -87,7 +87,7 @@ printLabel.head = (args: { order: number | { id: number } } | [order: number | {
         })
             /**
 * @see \App\Http\Controllers\Cpanel\PrintShipmentLabelController::__invoke
- * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:24
+ * @see app/Http/Controllers/Cpanel/PrintShipmentLabelController.php:34
  * @route '/cpanel/orders/{order}/fulfillment/label'
  */
         printLabelForm.head = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

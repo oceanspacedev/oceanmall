@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
 const RetryOrderPaymentController = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ RetryOrderPaymentController.definition = {
 
 /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
 RetryOrderPaymentController.url = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ RetryOrderPaymentController.url = (args: { order: number | { id: number } } | [o
 
 /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
 RetryOrderPaymentController.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ RetryOrderPaymentController.post = (args: { order: number | { id: number } } | [
 
     /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
     const RetryOrderPaymentControllerForm = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -69,7 +69,7 @@ RetryOrderPaymentController.post = (args: { order: number | { id: number } } | [
 
             /**
 * @see \App\Http\Controllers\Account\RetryOrderPaymentController::__invoke
- * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:15
+ * @see app/Http/Controllers/Account/RetryOrderPaymentController.php:16
  * @route '/account/orders/{order}/retry-payment'
  */
         RetryOrderPaymentControllerForm.post = (args: { order: number | { id: number } } | [order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

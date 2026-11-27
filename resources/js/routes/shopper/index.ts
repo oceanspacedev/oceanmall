@@ -11,6 +11,7 @@ import categories from './categories'
 import collections from './collections'
 import discounts from './discounts'
 import reviews from './reviews'
+import reports from './reports'
 /**
 * @see \Shopper\Livewire\Pages\Auth\Login::__invoke
  * @see vendor/shopper/framework/src/Livewire/Pages/Auth/Login.php:7
@@ -393,8 +394,8 @@ forbidden.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     forbidden.form = forbiddenForm
 /**
-* @see \Shopper\Livewire\Pages\Dashboard::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Dashboard.php:7
+* @see \App\Livewire\Shopper\Pages\Dashboard::__invoke
+ * @see app/Livewire/Shopper/Pages/Dashboard.php:7
  * @route '/cpanel/dashboard'
  */
 export const dashboard = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -408,8 +409,8 @@ dashboard.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Shopper\Livewire\Pages\Dashboard::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Dashboard.php:7
+* @see \App\Livewire\Shopper\Pages\Dashboard::__invoke
+ * @see app/Livewire/Shopper/Pages/Dashboard.php:7
  * @route '/cpanel/dashboard'
  */
 dashboard.url = (options?: RouteQueryOptions) => {
@@ -417,8 +418,8 @@ dashboard.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Shopper\Livewire\Pages\Dashboard::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Dashboard.php:7
+* @see \App\Livewire\Shopper\Pages\Dashboard::__invoke
+ * @see app/Livewire/Shopper/Pages/Dashboard.php:7
  * @route '/cpanel/dashboard'
  */
 dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -426,8 +427,8 @@ dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Shopper\Livewire\Pages\Dashboard::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Dashboard.php:7
+* @see \App\Livewire\Shopper\Pages\Dashboard::__invoke
+ * @see app/Livewire/Shopper/Pages/Dashboard.php:7
  * @route '/cpanel/dashboard'
  */
 dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -436,8 +437,8 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
-* @see \Shopper\Livewire\Pages\Dashboard::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Dashboard.php:7
+* @see \App\Livewire\Shopper\Pages\Dashboard::__invoke
+ * @see app/Livewire/Shopper/Pages/Dashboard.php:7
  * @route '/cpanel/dashboard'
  */
     const dashboardForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -446,8 +447,8 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
-* @see \Shopper\Livewire\Pages\Dashboard::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Dashboard.php:7
+* @see \App\Livewire\Shopper\Pages\Dashboard::__invoke
+ * @see app/Livewire/Shopper/Pages/Dashboard.php:7
  * @route '/cpanel/dashboard'
  */
         dashboardForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -455,8 +456,8 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
-* @see \Shopper\Livewire\Pages\Dashboard::__invoke
- * @see vendor/shopper/framework/src/Livewire/Pages/Dashboard.php:7
+* @see \App\Livewire\Shopper\Pages\Dashboard::__invoke
+ * @see app/Livewire/Shopper/Pages/Dashboard.php:7
  * @route '/cpanel/dashboard'
  */
         dashboardForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -568,6 +569,7 @@ categories: Object.assign(categories, categories),
 collections: Object.assign(collections, collections),
 discounts: Object.assign(discounts, discounts),
 reviews: Object.assign(reviews, reviews),
+reports: Object.assign(reports, reports),
 }
 
 export default shopper

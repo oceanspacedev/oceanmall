@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Shop\CollectionController::show
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
 export const show = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\CollectionController::show
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
 show.url = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ show.url = (args: { collection: string | { slug: string } } | [collection: strin
 
 /**
 * @see \App\Http\Controllers\Shop\CollectionController::show
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
 show.get = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -58,7 +58,7 @@ show.get = (args: { collection: string | { slug: string } } | [collection: strin
 })
 /**
 * @see \App\Http\Controllers\Shop\CollectionController::show
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
 show.head = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -68,7 +68,7 @@ show.head = (args: { collection: string | { slug: string } } | [collection: stri
 
     /**
 * @see \App\Http\Controllers\Shop\CollectionController::show
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
     const showForm = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -78,7 +78,7 @@ show.head = (args: { collection: string | { slug: string } } | [collection: stri
 
             /**
 * @see \App\Http\Controllers\Shop\CollectionController::show
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
         showForm.get = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -87,7 +87,7 @@ show.head = (args: { collection: string | { slug: string } } | [collection: stri
         })
             /**
 * @see \App\Http\Controllers\Shop\CollectionController::show
- * @see app/Http/Controllers/Shop/CollectionController.php:15
+ * @see app/Http/Controllers/Shop/CollectionController.php:16
  * @route '/collections/{collection}'
  */
         showForm.head = (args: { collection: string | { slug: string } } | [collection: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

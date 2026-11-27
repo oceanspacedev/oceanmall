@@ -5,9 +5,9 @@ import CartController from './CartController'
 import CheckoutController from './CheckoutController'
 import DestinationController from './DestinationController'
 import OrderController from './OrderController'
+import ReviewReportController from './ReviewReportController'
 import AddressController from './AddressController'
 import NotificationController from './NotificationController'
-import ReviewReportController from './ReviewReportController'
 const V1 = {
     AuthController: Object.assign(AuthController, AuthController),
 ProfileController: Object.assign(ProfileController, ProfileController),
@@ -16,9 +16,9 @@ CartController: Object.assign(CartController, CartController),
 CheckoutController: Object.assign(CheckoutController, CheckoutController),
 DestinationController: Object.assign(DestinationController, DestinationController),
 OrderController: Object.assign(OrderController, OrderController),
+ReviewReportController: Object.assign(ReviewReportController, ReviewReportController),
 AddressController: Object.assign(AddressController, AddressController),
 NotificationController: Object.assign(NotificationController, NotificationController),
-ReviewReportController: Object.assign(ReviewReportController, ReviewReportController),
 }
 
 export default V1

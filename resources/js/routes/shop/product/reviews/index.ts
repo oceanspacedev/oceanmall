@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Shop\ProductReviewController::store
- * @see app/Http/Controllers/Shop/ProductReviewController.php:17
+ * @see app/Http/Controllers/Shop/ProductReviewController.php:19
  * @route '/shop/{product}/reviews'
  */
 export const store = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Shop\ProductReviewController::store
- * @see app/Http/Controllers/Shop/ProductReviewController.php:17
+ * @see app/Http/Controllers/Shop/ProductReviewController.php:19
  * @route '/shop/{product}/reviews'
  */
 store.url = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { product: string | { slug: string } } | [product: string | {
 
 /**
 * @see \App\Http\Controllers\Shop\ProductReviewController::store
- * @see app/Http/Controllers/Shop/ProductReviewController.php:17
+ * @see app/Http/Controllers/Shop/ProductReviewController.php:19
  * @route '/shop/{product}/reviews'
  */
 store.post = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ store.post = (args: { product: string | { slug: string } } | [product: string | 
 
     /**
 * @see \App\Http\Controllers\Shop\ProductReviewController::store
- * @see app/Http/Controllers/Shop/ProductReviewController.php:17
+ * @see app/Http/Controllers/Shop/ProductReviewController.php:19
  * @route '/shop/{product}/reviews'
  */
     const storeForm = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -69,7 +69,7 @@ store.post = (args: { product: string | { slug: string } } | [product: string | 
 
             /**
 * @see \App\Http\Controllers\Shop\ProductReviewController::store
- * @see app/Http/Controllers/Shop/ProductReviewController.php:17
+ * @see app/Http/Controllers/Shop/ProductReviewController.php:19
  * @route '/shop/{product}/reviews'
  */
         storeForm.post = (args: { product: string | { slug: string } } | [product: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

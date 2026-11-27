@@ -8,6 +8,9 @@ use App\Models\OrderShipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Tests\TestCase;
@@ -50,6 +53,9 @@ final class OrderShipmentTrackingTest extends TestCase
         $order = Order::factory()->create([
             'customer_id' => $customer->id,
             'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
 
         $jakarta = Inventory::factory()->create(['name' => 'Gudang Jakarta']);

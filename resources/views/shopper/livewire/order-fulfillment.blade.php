@@ -14,6 +14,8 @@
                     <span class="font-bold text-gray-900 dark:text-white">{{ implode(', ', $providerAwbs) }}</span>
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Shopper hanya mencatat AWB resmi. Nomor resi tidak diketik manual.</p>
+            @elseif ($allShipmentsCancelled ?? false)
+                <p>Semua pengiriman pada pesanan ini sudah dibatalkan.</p>
             @elseif ($hasPickupRequested)
                 <p>Pickup kurir sudah dijadwalkan (<x-filament::badge size="sm" color="warning">Sedang Dipacking</x-filament::badge>). Menunggu nomor resi diterbitkan kurir.</p>
             @elseif ($orderIsPaid)
@@ -32,27 +34,31 @@
                     icon="heroicon-o-printer"
                     color="primary"
                 >
-                    Cetak Stiker {{ $providerName }}
+                    {{ $printProviderLabelText ?? ($providerAwbs !== [] ? "Cetak Stiker {$providerName}" : 'Cetak Stiker Resi') }}
                 </x-filament::button>
+            @endif
+
+            @if ($allShipmentsCancelled ?? false)
+                {{-- Cancelled shipments cannot issue a new AWB; reship from shipment card if needed. --}}
             @elseif ($hasPickupRequested)
                 <x-filament::button
-                    wire:click="openShippingLabel"
+                    wire:click="issueProviderFulfillment"
                     wire:loading.attr="disabled"
                     icon="heroicon-o-arrow-path"
                     color="gray"
                 >
-                    <span wire:loading.remove wire:target="openShippingLabel">Cek / Perbarui Resi Kurir</span>
-                    <span wire:loading wire:target="openShippingLabel">Memeriksa…</span>
+                    <span wire:loading.remove wire:target="issueProviderFulfillment">Cek / Perbarui Resi Kurir</span>
+                    <span wire:loading wire:target="issueProviderFulfillment">Memeriksa…</span>
                 </x-filament::button>
-            @elseif ($orderIsPaid)
+            @elseif (($hasUnfulfilledProviderShipment ?? ($providerAwbs === [])) && $orderIsPaid)
                 <x-filament::button
-                    wire:click="openShippingLabel"
+                    wire:click="issueProviderFulfillment"
                     wire:loading.attr="disabled"
                     icon="heroicon-o-paper-airplane"
                     color="primary"
                 >
-                    <span wire:loading.remove wire:target="openShippingLabel">Terbitkan Resi {{ $providerName }}</span>
-                    <span wire:loading wire:target="openShippingLabel">Menerbitkan…</span>
+                    <span wire:loading.remove wire:target="issueProviderFulfillment">Terbitkan Resi {{ $providerName }}</span>
+                    <span wire:loading wire:target="issueProviderFulfillment">Menerbitkan…</span>
                 </x-filament::button>
             @endif
         </div>
@@ -66,7 +72,7 @@
                     <p class="mt-0.5">{{ implode(' | ', $fulfillmentErrors) }}</p>
                 </div>
                 @if ($orderIsPaid)
-                    <x-filament::button wire:click="openShippingLabel" size="xs" color="danger">
+                    <x-filament::button wire:click="issueProviderFulfillment" size="xs" color="danger">
                         Coba Ulang
                     </x-filament::button>
                 @endif

@@ -74,10 +74,14 @@ final class PersistUserShippingAddress
     {
         $metadata = $this->decodeMetadata($address->metadata);
         $capabilities = resolve(ShippingCapabilities::class);
+        $destinationDrivers = $capabilities->destinationDriverFamilyCodes();
 
-        // Only an id from the active destination driver's vocabulary counts:
-        // an id saved for another provider is stale after a switch.
-        $destinationId = AddressDestination::id($metadata, $capabilities->destinationDriverCode());
+        // Only an id from the active destination driver's provider family
+        // counts: an id saved for another provider is stale after a switch.
+        $destinationId = AddressDestination::id(
+            $metadata,
+            $destinationDrivers !== [] ? $destinationDrivers : null,
+        );
 
         if ($destinationId === null && $capabilities->requiresDestination()) {
             // Destination missing — still usable as form prefills, but not as
@@ -109,23 +113,25 @@ final class PersistUserShippingAddress
      */
     public function mapSavedAddressesForCheckout(User $user, bool $withLegacyKeys = false): array
     {
-        // Only a destination in the vocabulary of today's destination driver
+        // Only a destination in the provider family of today's destination driver
         // is offered: clients post the id back without its driver and the
-        // checkout stamps the current one, so a stale id from a previous
+        // checkout stamps the current one, so a stale id from an incompatible
         // provider must never round-trip (the customer picks again instead).
         // The address book itself keeps the stored id (see mergeMetadata()).
-        $destinationDriver = resolve(ShippingCapabilities::class)->destinationDriverCode();
+        $capabilities = resolve(ShippingCapabilities::class);
+        $destinationDriver = $capabilities->destinationDriverCode();
+        $destinationDrivers = $destinationDriver !== null ? $capabilities->destinationDriverFamilyCodes() : null;
 
         return $user->addresses()
             ->with('country')
             ->orderByDesc('shipping_default')
             ->orderByDesc('updated_at')
             ->get()
-            ->map(function (Address $address) use ($withLegacyKeys, $destinationDriver): array {
+            ->map(function (Address $address) use ($withLegacyKeys, $destinationDriver, $destinationDrivers): array {
                 $metadata = $this->decodeMetadata($address->metadata);
                 // Without a destination driver nothing is quoted with the id,
                 // so it is listed as stored (the address book keeps it).
-                $destinationId = AddressDestination::id($metadata, $destinationDriver);
+                $destinationId = AddressDestination::id($metadata, $destinationDrivers);
 
                 $row = [
                     'id' => $address->id,

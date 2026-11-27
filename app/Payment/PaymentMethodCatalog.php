@@ -86,6 +86,10 @@ final class PaymentMethodCatalog
 
         $catalog = $this->catalogFor($code, $driver);
 
+        if (! $this->driverReady($code) || ! $driver->methodAvailable($meta)) {
+            return false;
+        }
+
         // Catalog unreachable: trust the local configuration.
         return $catalog === null || $driver->catalogEntryFor($meta, $catalog) !== null;
     }
@@ -109,9 +113,84 @@ final class PaymentMethodCatalog
             return null;
         }
 
+        $meta = self::metadata($method);
+
+        if (! $driver->methodAvailable($meta)) {
+            return null;
+        }
+
         $catalog = $this->catalogFor($code, $driver);
 
-        return $catalog === null ? null : $driver->catalogEntryFor(self::metadata($method), $catalog);
+        if (! $this->driverReady($code) || ! $driver->methodAvailable($meta)) {
+            return null;
+        }
+
+        return $catalog === null ? null : $driver->catalogEntryFor($meta, $catalog);
+    }
+
+    /**
+     * Effective minimum / maximum order amounts for a payment method,
+     * reading the live provider catalog first and falling back to optional
+     * driver-declared limits (`amountLimitsFor`) when the catalog is
+     * unavailable or omits a bound.
+     *
+     * @return array{min_amount: int|null, max_amount: int|null}
+     */
+    public function amountBounds(PaymentMethod $method): array
+    {
+        $match = $this->entry($method);
+        $entry = $match['entry'] ?? [];
+
+        $min = is_numeric($entry['min_amount'] ?? null) ? (int) $entry['min_amount'] : null;
+        $max = is_numeric($entry['max_amount'] ?? null) ? (int) $entry['max_amount'] : null;
+
+        if ($min !== null && $max !== null) {
+            return [
+                'min_amount' => $min,
+                'max_amount' => $max,
+            ];
+        }
+
+        $code = $this->code($method);
+
+        if (! $this->driverReady($code)) {
+            return [
+                'min_amount' => $min,
+                'max_amount' => $max,
+            ];
+        }
+
+        $driver = Payment::driver($code);
+
+        if (! method_exists($driver, 'amountLimitsFor')) {
+            return [
+                'min_amount' => $min,
+                'max_amount' => $max,
+            ];
+        }
+
+        $meta = self::metadata($method);
+
+        if ($driver instanceof ProvidesPaymentCatalog && ! $driver->methodAvailable($meta)) {
+            return [
+                'min_amount' => $min,
+                'max_amount' => $max,
+            ];
+        }
+
+        $limits = $driver->amountLimitsFor($meta);
+
+        if (! is_array($limits)) {
+            return [
+                'min_amount' => $min,
+                'max_amount' => $max,
+            ];
+        }
+
+        return [
+            'min_amount' => $min ?? (is_numeric($limits['min_amount'] ?? null) ? (int) $limits['min_amount'] : null),
+            'max_amount' => $max ?? (is_numeric($limits['max_amount'] ?? null) ? (int) $limits['max_amount'] : null),
+        ];
     }
 
     /**

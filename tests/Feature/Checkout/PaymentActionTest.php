@@ -7,10 +7,13 @@ namespace Tests\Feature\Checkout;
 use App\Actions\Checkout\FetchPaymentMethods;
 use App\Actions\Checkout\InitiateOrderPayment;
 use App\Models\User;
+use App\Payment\Contracts\RetriesPayments;
+use App\Payment\Exceptions\PaymentRetryRefused;
 use App\Payment\PaymentActions;
 use App\Payment\PaymentMethodCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use RuntimeException;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Models\Country;
@@ -167,6 +170,62 @@ final class PaymentActionTest extends TestCase
         $this->assertSame('none', resolve(PaymentActions::class)->forOrder($this->order('manual'))['kind']);
     }
 
+    public function test_web_retry_payment_controller_maps_payment_retry_refused_reasons(): void
+    {
+        Payment::extend('retry_stub', static fn (): RetryStubGatewayDriver => new RetryStubGatewayDriver);
+        config()->set('shopper.payment.drivers.retry_stub.enabled', true);
+
+        $user = User::factory()->create();
+
+        // ALREADY_PAID
+        RetryStubGatewayDriver::$behavior = 'already_paid';
+        $order = $this->order('retry_stub', [], ['customer_id' => $user->id]);
+        $this->actingAs($user)
+            ->from(route('account.orders.show', $order))
+            ->post(route('account.orders.retry-payment', $order))
+            ->assertRedirect(route('account.orders.show', $order))
+            ->assertSessionHasErrors([
+                'payment' => 'Pesanan ini sudah dibayar. Muat ulang halaman untuk memperbarui status.',
+            ]);
+
+        // DB Paid order returns ALREADY_PAID even when PaymentActions::canRetry is false
+        $paidOrder = $this->order('retry_stub', [], [
+            'customer_id' => $user->id,
+            'payment_status' => PaymentStatus::Paid,
+        ]);
+        $this->actingAs($user)
+            ->from(route('account.orders.show', $paidOrder))
+            ->post(route('account.orders.retry-payment', $paidOrder))
+            ->assertRedirect(route('account.orders.show', $paidOrder))
+            ->assertSessionHasErrors([
+                'payment' => 'Pesanan ini sudah dibayar. Muat ulang halaman untuk memperbarui status.',
+            ]);
+
+        // NOT_ELIGIBLE (e.g. cancelled order so PaymentActions::canRetry returns false)
+        $cancelledOrder = $this->order('retry_stub', [], [
+            'customer_id' => $user->id,
+            'status' => OrderStatus::Cancelled,
+            'payment_status' => PaymentStatus::Voided,
+        ]);
+        $this->actingAs($user)
+            ->from(route('account.orders.show', $cancelledOrder))
+            ->post(route('account.orders.retry-payment', $cancelledOrder))
+            ->assertRedirect(route('account.orders.show', $cancelledOrder))
+            ->assertSessionHasErrors([
+                'payment' => 'Pembayaran pesanan ini tidak bisa diulang.',
+            ]);
+
+        // Generic gateway failure
+        RetryStubGatewayDriver::$behavior = 'runtime_error';
+        $this->actingAs($user)
+            ->from(route('account.orders.show', $order))
+            ->post(route('account.orders.retry-payment', $order))
+            ->assertRedirect(route('account.orders.show', $order))
+            ->assertSessionHasErrors([
+                'payment' => 'Gagal membuat ulang pembayaran. Coba lagi sebentar atau hubungi CS.',
+            ]);
+    }
+
     /**
      * @param  array<string, mixed>  $method
      * @param  array<string, mixed>  $order
@@ -240,5 +299,68 @@ final class HostedGatewayDriver extends Driver
     public function handleWebhook(array $payload, array $headers = []): WebhookResult
     {
         return WebhookResult::ignored();
+    }
+}
+
+final class RetryStubGatewayDriver extends Driver implements RetriesPayments
+{
+    public static string $behavior = 'already_paid';
+
+    public function code(): string
+    {
+        return 'retry_stub';
+    }
+
+    public function name(): string
+    {
+        return 'Retry Stub';
+    }
+
+    public function logo(): ?string
+    {
+        return null;
+    }
+
+    public function isConfigured(): bool
+    {
+        return true;
+    }
+
+    public function supportsWebhooks(): bool
+    {
+        return false;
+    }
+
+    public function supportsRefunds(): bool
+    {
+        return false;
+    }
+
+    public function initiatePayment(int $amount, string $currency, array $context = []): PaymentResult
+    {
+        return new PaymentResult(success: true, status: 'pending', reference: 'stub', amount: $amount);
+    }
+
+    public function handleWebhook(array $payload, array $headers = []): WebhookResult
+    {
+        return WebhookResult::ignored();
+    }
+
+    public function canRetryPayment(Order $order): bool
+    {
+        return true;
+    }
+
+    public function retryPayment(Order $order): void
+    {
+        if (self::$behavior === 'already_paid') {
+            throw PaymentRetryRefused::alreadyPaid();
+        }
+
+        if (self::$behavior === 'not_eligible') {
+            throw PaymentRetryRefused::notEligible();
+        }
+
+        throw new RuntimeException('Gateway unreachable.');
     }
 }

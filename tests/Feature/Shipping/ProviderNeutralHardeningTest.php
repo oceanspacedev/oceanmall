@@ -17,7 +17,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Sanctum\Sanctum;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Enum\ShipmentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
@@ -90,7 +93,12 @@ final class ProviderNeutralHardeningTest extends TestCase
         $otherJne = Carrier::query()->create(['name' => 'JNE (Area)', 'slug' => 'area-jne', 'driver' => 'areaship', 'metadata' => ['courier_code' => 'jne']]);
         $sicepat = Carrier::query()->create(['name' => 'SiCepat', 'slug' => 'sicepat', 'driver' => 'rajaongkir']);
 
-        $order = Order::factory()->create();
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $inventory = Inventory::factory()->create();
         $shipment = fn (?string $driver, string $code): int => (int) DB::table('order_shipments')->insertGetId([
             'order_id' => $order->id,
@@ -172,7 +180,13 @@ final class ProviderNeutralHardeningTest extends TestCase
     public function test_staff_recorded_shopper_shipment_events_reach_the_customer_timeline(): void
     {
         $user = User::factory()->create();
-        $order = Order::factory()->create(['customer_id' => $user->id, 'currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'customer_id' => $user->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $inventory = Inventory::factory()->create();
         $shipment = OrderShipment::query()->create([
             'order_id' => $order->id,
@@ -227,7 +241,12 @@ final class ProviderNeutralHardeningTest extends TestCase
 
     public function test_provider_history_and_shopper_events_are_merged_newest_first(): void
     {
-        $order = Order::factory()->create();
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $shipment = OrderShipment::query()->create([
             'order_id' => $order->id,
             'inventory_id' => Inventory::factory()->create()->id,
@@ -247,6 +266,55 @@ final class ProviderNeutralHardeningTest extends TestCase
         $timeline = ShipmentTimeline::forShipments((int) $order->id, collect([$shipment]))[$shipment->id];
 
         $this->assertSame(['Dibawa kurir', 'Tiba di hub'], array_column($timeline, 'description'));
+    }
+
+    public function test_same_minute_carrier_scan_sorts_before_label_event_while_shopper_events_stay_newest_first(): void
+    {
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
+        $baseMinute = now()->startOfMinute()->subMinutes(10);
+
+        $shipment = OrderShipment::query()->create([
+            'order_id' => $order->id,
+            'inventory_id' => Inventory::factory()->create()->id,
+            'awb' => 'AWB-SAME-MIN',
+            'metadata' => ['tracking_history' => [
+                [
+                    'description' => 'Shipment received by JNE',
+                    'datetime' => $baseMinute->format('Y-m-d H:i'),
+                    'location' => 'Jakarta',
+                ],
+            ]],
+        ]);
+        $shipping = OrderShipping::query()->create([
+            'order_id' => $order->id,
+            'tracking_number' => 'AWB-SAME-MIN',
+            'shipped_at' => $baseMinute,
+        ]);
+
+        OrderShippingEvent::query()->create([
+            'order_shipping_id' => $shipping->id,
+            'status' => ShipmentStatus::Pending,
+            'description' => 'Shipping label created',
+            'occurred_at' => $baseMinute->copy()->addSeconds(30),
+        ]);
+        OrderShippingEvent::query()->create([
+            'order_shipping_id' => $shipping->id,
+            'status' => ShipmentStatus::PickedUp,
+            'description' => 'Packed at warehouse',
+            'occurred_at' => $baseMinute->copy()->addSeconds(45),
+        ]);
+
+        $timeline = ShipmentTimeline::forShipments((int) $order->id, collect([$shipment]))[$shipment->id];
+
+        $this->assertSame(
+            ['Shipment received by JNE', 'Packed at warehouse', 'Shipping label created'],
+            array_column($timeline, 'description'),
+        );
     }
 
     public function test_the_fulfilment_call_graph_script_passes(): void

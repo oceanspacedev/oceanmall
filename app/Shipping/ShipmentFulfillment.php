@@ -167,6 +167,16 @@ final class ShipmentFulfillment
             return __('The order payment is refunded or voided; the shipment is not booked with the courier.');
         }
 
+        if (is_numeric(data_get($shipment->metadata, ShipmentMetadata::RESHIPPED_TO_SHIPMENT_ID))) {
+            $orderShipments = OrderShipment::query()
+                ->where('order_id', $order->id)
+                ->get(['id', 'metadata']);
+
+            if (ShipmentMetadata::isSupersededByReship($shipment, $orderShipments)) {
+                return __('The shipment was superseded by a replacement shipment.');
+            }
+        }
+
         return null;
     }
 

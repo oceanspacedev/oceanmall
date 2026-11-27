@@ -51,7 +51,7 @@ final class FetchPaymentMethods
         }
 
         $match = $catalog->entry($method);
-        $entry = $match['entry'] ?? [];
+        $bounds = $catalog->amountBounds($method);
 
         return [
             'id' => $method->id,
@@ -65,8 +65,8 @@ final class FetchPaymentMethods
                 : $logo,
             'channel_code' => $meta['channel_code'] ?? null,
             'payment_type' => $meta['payment_type'] ?? null,
-            'min_amount' => is_numeric($entry['min_amount'] ?? null) ? (int) $entry['min_amount'] : null,
-            'max_amount' => is_numeric($entry['max_amount'] ?? null) ? (int) $entry['max_amount'] : null,
+            'min_amount' => $bounds['min_amount'],
+            'max_amount' => $bounds['max_amount'],
         ];
     }
 }

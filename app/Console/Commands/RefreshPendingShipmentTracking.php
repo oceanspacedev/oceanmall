@@ -10,9 +10,11 @@ use App\Models\OrderShipment;
 use App\Shipping\Contracts\FulfillsShipments;
 use App\Shipping\Contracts\ReconcilesShipments;
 use App\Shipping\Contracts\TracksShipments;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Throwable;
 
 /**
@@ -54,16 +56,18 @@ final class RefreshPendingShipmentTracking extends Command
         $failed = 0;
 
         // Provider shipments only (see FulfillPaidShipments).
-        $shipments = $this->undelivered($capabilities->whereFulfillable(OrderShipment::query()))
-            ->where(function ($query): void {
-                $this->hasAwb($query);
-                $query->orWhere(function ($registered): void {
-                    $registered->whereNotNull('external_reference')->where('external_reference', '!=', '');
-                });
-            })
-            ->orderBy('id')
-            ->limit($limit)
-            ->get();
+        $shipments = $this->filterLiveShipments(
+            $this->undelivered($capabilities->whereFulfillable(OrderShipment::query()))
+                ->where(function ($query): void {
+                    $this->hasAwb($query);
+                    $query->orWhere(function ($registered): void {
+                        $registered->whereNotNull('external_reference')->where('external_reference', '!=', '');
+                    });
+                })
+                ->orderBy('id')
+                ->limit($limit * 3)
+                ->get(),
+        )->take($limit);
 
         foreach ($shipments as $shipment) {
             $driver = $capabilities->fulfillerFor($shipment);
@@ -92,13 +96,15 @@ final class RefreshPendingShipmentTracking extends Command
         if ($capabilities->services(TracksShipments::class)) {
             $fulfillable = $capabilities->whereFulfillable(OrderShipment::query())->select('id');
 
-            $handEntered = $this->undelivered(OrderShipment::query())
-                ->whereNotIn('id', $fulfillable)
-                ->where(fn ($query) => $this->hasAwb($query))
-                ->orderBy('updated_at')
-                ->orderBy('id')
-                ->limit($limit)
-                ->get();
+            $handEntered = $this->filterLiveShipments(
+                $this->undelivered(OrderShipment::query())
+                    ->whereNotIn('id', $fulfillable)
+                    ->where(fn ($query) => $this->hasAwb($query))
+                    ->orderBy('updated_at')
+                    ->orderBy('id')
+                    ->limit($limit * 3)
+                    ->get(),
+            )->take($limit);
 
             foreach ($handEntered as $shipment) {
                 try {
@@ -121,6 +127,36 @@ final class RefreshPendingShipmentTracking extends Command
     }
 
     /**
+     * @param  Collection<int, OrderShipment>  $candidates
+     * @return Collection<int, OrderShipment>
+     */
+    private function filterLiveShipments(Collection $candidates): Collection
+    {
+        if ($candidates->isEmpty()) {
+            return $candidates;
+        }
+
+        $hasReshipPointer = $candidates->contains(
+            static fn (OrderShipment $s): bool => is_numeric(data_get($s->metadata, ShipmentMetadata::RESHIPPED_TO_SHIPMENT_ID)),
+        );
+
+        if (! $hasReshipPointer) {
+            return $candidates;
+        }
+
+        $orderShipmentsByOrder = OrderShipment::query()
+            ->whereIn('order_id', $candidates->pluck('order_id')->unique()->all())
+            ->get(['id', 'order_id', 'metadata'])
+            ->groupBy('order_id');
+
+        return $candidates->reject(static function (OrderShipment $shipment) use ($orderShipmentsByOrder): bool {
+            $siblings = $orderShipmentsByOrder->get($shipment->order_id, collect());
+
+            return ShipmentMetadata::isSupersededByReship($shipment, $siblings);
+        })->values();
+    }
+
+    /**
      * @param  Builder<OrderShipment>  $query
      * @return Builder<OrderShipment>
      */
@@ -130,6 +166,7 @@ final class RefreshPendingShipmentTracking extends Command
             $query->whereNull('status')
                 ->orWhereNotIn('status', [
                     NormalizeShipmentStatus::DELIVERED,
+                    NormalizeShipmentStatus::RETURNED,
                     NormalizeShipmentStatus::CANCELLED,
                 ]);
         });

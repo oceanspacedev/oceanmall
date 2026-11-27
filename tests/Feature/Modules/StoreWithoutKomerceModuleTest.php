@@ -24,6 +24,9 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Sanctum\Sanctum;
 use Shopper\Cart\Models\Cart;
 use Shopper\Cart\Models\CartLine;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
 use Shopper\Core\Models\Country;
@@ -188,7 +191,13 @@ final class StoreWithoutKomerceModuleTest extends TestCase
         Http::fake();
         [, , , $inventory] = $this->store();
         $va = PaymentMethod::factory()->create(['title' => 'BCA VA', 'slug' => 'komerce-bca', 'driver' => 'komerce', 'is_enabled' => true]);
-        $order = Order::factory()->create(['currency_code' => 'IDR', 'payment_method_id' => $va->id]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+            'payment_method_id' => $va->id,
+        ]);
         OrderShipment::query()->create([
             'order_id' => $order->id,
             'inventory_id' => $inventory->id,

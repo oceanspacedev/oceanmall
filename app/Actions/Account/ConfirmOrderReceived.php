@@ -7,6 +7,7 @@ namespace App\Actions\Account;
 use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Actions\Shipping\SyncOrderShippingFromShipments;
 use App\Models\OrderShipment;
+use App\Shipping\ShipmentMetadata;
 use App\Support\OrderPaymentType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -37,12 +38,6 @@ final readonly class ConfirmOrderReceived
             ]);
         }
 
-        if (in_array($order->shipping_status, [ShippingStatus::Returned, ShippingStatus::PartiallyReturned], true)) {
-            throw ValidationException::withMessages([
-                'received' => __('Paket telah dikembalikan ke pengirim dan tidak dapat dikonfirmasi diterima.'),
-            ]);
-        }
-
         $isPaid = $order->payment_status === PaymentStatus::Paid;
 
         if (! $isPaid && ! OrderPaymentType::isCod($order)) {
@@ -59,10 +54,20 @@ final readonly class ConfirmOrderReceived
             ]);
         }
 
-        // Cancelled parcels never arrive; returned/failed parcels must go through RTS/reship instead.
+        // Cancelled parcels and returned/failed parcels already superseded by a
+        // reshipment never arrive; unreshipped returned/failed parcels must go
+        // through RTS/reship first.
         $live = $shipments->reject(
-            static fn (OrderShipment $shipment): bool => strtolower((string) $shipment->status) === NormalizeShipmentStatus::CANCELLED,
+            static fn (OrderShipment $shipment): bool => strtolower((string) $shipment->status) === NormalizeShipmentStatus::CANCELLED
+                || ShipmentMetadata::isSupersededByReship($shipment, $shipments),
         )->values();
+
+        if (in_array($order->shipping_status, [ShippingStatus::Returned, ShippingStatus::PartiallyReturned], true)
+            && $live->count() === $shipments->reject(static fn (OrderShipment $s): bool => strtolower((string) $s->status) === NormalizeShipmentStatus::CANCELLED)->count()) {
+            throw ValidationException::withMessages([
+                'received' => __('Paket telah dikembalikan ke pengirim dan tidak dapat dikonfirmasi diterima.'),
+            ]);
+        }
 
         if ($live->contains(static fn (OrderShipment $s): bool => in_array(
             strtolower((string) $s->status),

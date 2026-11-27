@@ -37,8 +37,14 @@ final class ShipmentTrackingRefreshTest extends TestCase
         $order = Order::factory()->create([
             'customer_id' => $customer->id,
             'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
-        $inventory = Inventory::factory()->create(['name' => 'Gudang Jakarta']);
+        $inventory = Inventory::factory()->create([
+            'name' => 'Gudang Jakarta',
+            'shipping_origins' => ['komerce' => '17248'],
+        ]);
 
         $shipment = OrderShipment::query()->create(array_merge([
             'order_id' => $order->id,

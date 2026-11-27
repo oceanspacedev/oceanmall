@@ -141,15 +141,23 @@ final readonly class FetchDeliveryRates
         try {
             foreach ($chains as $owner => $drivers) {
                 [$couriers, $excluded] = $this->courierCodes($owner, $zone);
+                $previousFailure = $this->context->lastFailure();
+                $chainFailure = null;
+                $chainSucceeded = false;
 
-                foreach ($drivers as $driver) {
+                foreach ($drivers as $index => $driver) {
                     $this->context->forCouriers($couriers, $excluded);
 
                     try {
                         $rates = $driver->calculateRates($from, $to, $packages);
                     } catch (Throwable $e) {
                         report($e);
-                        $this->context->markFailure($driver->code(), ShippingQuoteFailure::UNAVAILABLE, $e->getMessage());
+
+                        if (! $driver->isConfigured() && $index < array_key_last($drivers)) {
+                            continue;
+                        }
+
+                        $chainFailure = [$driver->code(), $e->getMessage()];
 
                         continue;
                     }
@@ -157,10 +165,17 @@ final readonly class FetchDeliveryRates
                     $formatted = $this->formatProviderRates($rates, $driver, $owner, count($chains) > 1);
 
                     if ($formatted !== []) {
+                        $chainSucceeded = true;
                         array_push($rows, ...$formatted);
 
                         break;
                     }
+                }
+
+                if ($chainSucceeded) {
+                    $this->context->restoreFailure($previousFailure);
+                } elseif ($chainFailure !== null && ! $this->context->lastFailure()?->isQuota()) {
+                    $this->context->markFailure($chainFailure[0], ShippingQuoteFailure::UNAVAILABLE, $chainFailure[1]);
                 }
             }
         } finally {

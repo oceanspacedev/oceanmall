@@ -10,6 +10,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Shopper\Core\Enum\AddressType;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Address;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
@@ -85,7 +88,12 @@ final class ProviderNeutralDataMigrationTest extends TestCase
 
     public function test_order_shipments_get_driver_and_external_reference_backfilled(): void
     {
-        $order = Order::factory()->create();
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $inventory = Inventory::factory()->create();
 
         $registered = $this->rawShipment($order, $inventory, 'REG', ['komerce' => ['order_no' => 'KOM-1']]);
@@ -127,7 +135,12 @@ final class ProviderNeutralDataMigrationTest extends TestCase
                 'note' => 'pagar hijau',
             ], JSON_THROW_ON_ERROR),
         ]);
-        $order = Order::factory()->create();
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         DB::table(shopper_table('orders'))->where('id', $order->id)->update([
             'metadata' => json_encode([
                 'komerce' => ['channel_code' => 'BCA'],

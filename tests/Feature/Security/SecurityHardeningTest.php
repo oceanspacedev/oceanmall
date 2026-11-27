@@ -21,6 +21,9 @@ use Laravel\Fortify\Fortify;
 use Laravel\Sanctum\Sanctum;
 use PragmaRX\Google2FA\Google2FA;
 use RuntimeException;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Category;
 use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Inventory;
@@ -278,7 +281,13 @@ final class SecurityHardeningTest extends TestCase
         config()->set('shopper.shipping.drivers.tracksec.enabled', true);
 
         $customer = User::factory()->create();
-        $order = Order::factory()->create(['customer_id' => $customer->id, 'currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'customer_id' => $customer->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $shipment = OrderShipment::query()->create([
             'order_id' => $order->id,
             'inventory_id' => Inventory::factory()->create()->id,
@@ -347,7 +356,13 @@ final class SecurityHardeningTest extends TestCase
     {
         $customer = User::factory()->create();
         $other = User::factory()->create();
-        $order = Order::factory()->create(['customer_id' => $customer->id, 'currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'customer_id' => $customer->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $shipment = OrderShipment::query()->create([
             'order_id' => $order->id,
             'inventory_id' => Inventory::factory()->create()->id,
@@ -382,7 +397,13 @@ final class SecurityHardeningTest extends TestCase
 
         // Per customer, not per address: someone else on the same network is not limited.
         Sanctum::actingAs($other);
-        $theirs = Order::factory()->create(['customer_id' => $other->id, 'currency_code' => 'IDR']);
+        $theirs = Order::factory()->create([
+            'customer_id' => $other->id,
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $this->postJson("/api/v1/orders/{$theirs->number}/shipments/{$shipment->id}/track")->assertNotFound();
     }
 

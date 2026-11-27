@@ -23,7 +23,8 @@
 @foreach ($labels as $entry)
     @php($order = $entry['order'])
     @php($shipment = $entry['shipment'])
-    @php($barcodeValue = (string) ($shipment['awb'] ?: $shipment['tracking_number'] ?: $shipment['delivery_order_no'] ?: $order->number))
+    @php($barcodeValue = trim((string) ($shipment['awb'] ?: $shipment['tracking_number'] ?: '')))
+    @continue($barcodeValue === '')
     <div class="label-container">
         <div class="header">
             <div style="font-size:16px; font-weight:900;">{{ $shipment['carrier'] }}</div>

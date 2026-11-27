@@ -107,4 +107,29 @@ final class AddressDestinationTest extends TestCase
         $this->assertNull($payload['rajaongkir_pin_point']);
         $this->assertSame('rajaongkir', $payload['destination_driver']);
     }
+
+    public function test_same_family_driver_lists_accept_compatible_owners_and_reject_foreign_ones(): void
+    {
+        $rajaAddress = ['destination_id' => '17601', 'destination_label' => 'GAMBIR', 'destination_driver' => 'rajaongkir'];
+        $komerceAddress = ['destination_id' => '17601', 'destination_label' => 'GAMBIR', 'destination_driver' => 'komerce'];
+        $biteshipAddress = ['destination_id' => 'IDNP6', 'destination_label' => 'GAMBIR', 'destination_driver' => 'biteship'];
+
+        $this->assertSame('17601', AddressDestination::id($rajaAddress, ['komerce', 'rajaongkir']));
+        $this->assertSame('17601', AddressDestination::id($komerceAddress, ['rajaongkir', 'komerce']));
+        $this->assertNull(AddressDestination::id($biteshipAddress, ['komerce', 'rajaongkir']));
+
+        $kept = AddressDestination::forDriver($rajaAddress, ['komerce', 'rajaongkir']);
+        $this->assertSame('17601', $kept['destination_id']);
+        $this->assertSame('GAMBIR', $kept['destination_label']);
+        $this->assertSame('rajaongkir', $kept['destination_driver']);
+
+        $cleared = AddressDestination::forDriver($biteshipAddress, ['komerce', 'rajaongkir']);
+        $this->assertNull($cleared['destination_id']);
+        $this->assertNull($cleared['destination_label']);
+        $this->assertArrayNotHasKey('destination_driver', $cleared);
+
+        $emptyCleared = AddressDestination::forDriver($rajaAddress, []);
+        $this->assertNull($emptyCleared['destination_id']);
+        $this->assertArrayNotHasKey('destination_driver', $emptyCleared);
+    }
 }

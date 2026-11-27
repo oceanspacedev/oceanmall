@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
@@ -274,7 +275,12 @@ final class ProviderDriverPipelineTest extends TestCase
     {
         // An open order: the factory picks a random status, and a cancelled /
         // completed / archived order is (rightly) never booked.
-        $order = Order::factory()->create(['currency_code' => 'IDR', 'status' => OrderStatus::Processing, 'payment_status' => PaymentStatus::Paid]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $acmeShipment = $this->shipment($order, 'acme');
         $manualShipment = $this->shipment($order, 'manual');
 
@@ -287,7 +293,12 @@ final class ProviderDriverPipelineTest extends TestCase
 
     public function test_labels_cancel_and_tracking_go_through_the_driver_contracts(): void
     {
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $shipment = $this->shipment($order, 'acme', ['awb' => 'ACME-AWB-1']);
 
         $label = resolve(PrintShipmentLabels::class)->handle($order);
@@ -308,7 +319,12 @@ final class ProviderDriverPipelineTest extends TestCase
     public function test_labels_without_a_printing_provider_give_a_neutral_message(): void
     {
         $this->acme->configured = false;
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $this->shipment($order, 'acme', ['awb' => 'ACME-AWB-1']);
 
         $this->expectExceptionMessage('Label pengiriman otomatis belum tersedia');
@@ -372,7 +388,7 @@ final class ProviderDriverPipelineTest extends TestCase
 
         $this->assertTrue($this->scheduled('shipping:fulfill-paid')->filtersPass($this->app));
         $this->assertTrue($this->scheduled('shipping:refresh-tracking')->filtersPass($this->app));
-        $this->assertFalse($this->scheduled('shipping:sync-carriers')->filtersPass($this->app), 'Komerce Delivery alone syncs no carriers.');
+        $this->assertTrue($this->scheduled('shipping:sync-carriers')->filtersPass($this->app), 'Komerce Delivery alone syncs carriers.');
 
         config()->set('komerce.shipping_cost_api_key', 'cost-key');
         $this->assertTrue($this->scheduled('shipping:sync-carriers')->filtersPass($this->app));
@@ -382,7 +398,13 @@ final class ProviderDriverPipelineTest extends TestCase
     {
         $this->acme->configured = false;
         Inventory::factory()->create(['is_default' => true]);
-        $order = Order::factory()->create(['currency_code' => 'IDR', 'shipping_option_id' => null]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+            'shipping_option_id' => null,
+        ]);
 
         $shipment = resolve(EnsureOrderShipments::class)->handle($order)->first();
 

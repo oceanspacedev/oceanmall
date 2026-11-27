@@ -8,6 +8,8 @@ use App\Models\OrderShipment;
 use App\Shipping\Contracts\TracksShipments;
 use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
+use App\Support\ProviderQuotaRegistry;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Shopper\Shipping\DataTransferObjects\TrackingEvent;
@@ -25,7 +27,8 @@ use Throwable;
  * - Any other Shopper driver is asked with track($awb); its events are stored
  *   here as metadata.tracking_history.
  *
- * A failed lookup keeps the history already recorded instead of erroring.
+ * A failed lookup preserves any history already recorded and surfaces a
+ * customer-safe failure without consuming the customer cooldown.
  */
 final readonly class RefreshShipmentTracking
 {
@@ -100,13 +103,10 @@ final readonly class RefreshShipmentTracking
                 ? $driver->trackShipment($shipment)
                 : $driver->track($awb);
         } catch (Throwable $e) {
+            report($e);
             $shipment->refresh();
 
-            if ($this->hasHistory($shipment)) {
-                return $shipment;
-            }
-
-            throw $e instanceof RuntimeException ? $e : new RuntimeException($e->getMessage(), 0, $e);
+            throw new RuntimeException($this->localizedFailureMessage($e), 0, $e);
         }
 
         $shipment->refresh();
@@ -166,9 +166,45 @@ final readonly class RefreshShipmentTracking
         return null;
     }
 
-    private function hasHistory(OrderShipment $shipment): bool
+    private function localizedFailureMessage(Throwable $e): string
     {
-        return ShipmentMetadata::trackingHistory($shipment) !== [];
+        $raw = $e->getMessage();
+
+        if (preg_match('/(no airway bill|airway bill is required)/i', $raw) === 1) {
+            return 'Nomor resi belum tersedia untuk paket ini.';
+        }
+
+        if (preg_match('/(no courier|courier.*required)/i', $raw) === 1) {
+            return 'Data kurir pengiriman belum lengkap untuk pelacakan.';
+        }
+
+        if (preg_match('/(different airway bill|instead of)/i', $raw) === 1) {
+            return 'Data pelacakan kurir tidak sesuai dengan nomor resi paket ini.';
+        }
+
+        if (preg_match('/(429|quota|kuota|limit|too many|exhausted)/i', $raw) === 1) {
+            foreach (resolve(ProviderQuotaRegistry::class)->all() as $quota) {
+                if (($quota['exhausted'] ?? false) !== true) {
+                    continue;
+                }
+
+                $rawUntil = $quota['exhausted_until'] ?? null;
+
+                if (is_string($rawUntil) && $rawUntil !== '') {
+                    try {
+                        $until = CarbonImmutable::parse($rawUntil)->setTimezone('Asia/Jakarta')->format('d M Y H:i');
+
+                        return "Batas pelacakan harian kurir sudah tercapai. Silakan coba lagi setelah {$until} WIB.";
+                    } catch (Throwable) {
+                        // Fall through to generic quota copy.
+                    }
+                }
+            }
+
+            return 'Batas pelacakan harian kurir sudah tercapai. Silakan coba lagi nanti.';
+        }
+
+        return 'Gagal memperbarui pelacakan dari penyedia pengiriman. Coba lagi sebentar.';
     }
 
     /**

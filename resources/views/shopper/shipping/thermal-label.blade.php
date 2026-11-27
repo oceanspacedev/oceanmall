@@ -116,9 +116,26 @@
     <button onclick="window.print()" style="padding: 8px 16px; font-size: 14px; font-weight: bold; background: #000; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
         🖨️ Cetak Stiker Label Ini
     </button>
+    @if (! empty($isMixedLabelBatch))
+        <div style="margin-top: 8px; font-size: 12px; color: #374151;">
+            Pesanan ini menggabungkan pengiriman manual dan kurir terintegrasi. Semua stiker thermal ditampilkan di bawah.
+            @if (! empty($providerLabelUrl))
+                <a href="{{ $providerLabelUrl }}" target="_blank" rel="noopener noreferrer" style="margin-left: 8px; font-weight: bold; color: #1d4ed8; text-decoration: underline;">
+                    Buka Label PDF Penyedia
+                </a>
+            @endif
+        </div>
+    @endif
 </div>
 
 @foreach ($shipmentPresentations as $shipment)
+    @if (! empty($shipment['provider_print_url']))
+        <div class="no-print" style="max-width: 100mm; margin: 0 auto 6px; text-align: right; font-size: 11px;">
+            <a href="{{ $shipment['provider_print_url'] }}" target="_blank" rel="noopener noreferrer" style="color: #1d4ed8; text-decoration: underline;">
+                Buka Label PDF Kurir ({{ $shipment['delivery_order_no'] }})
+            </a>
+        </div>
+    @endif
     <div class="label-container" style="page-break-after: always; margin-bottom: 16px;">
         <div class="header">
             <div class="logo-box">

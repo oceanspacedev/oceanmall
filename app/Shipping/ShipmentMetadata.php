@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shipping;
 
 use App\Models\OrderShipment;
+use Illuminate\Support\Collection;
 
 /**
  * Provider-neutral keys of order_shipments.metadata that generic code
@@ -26,6 +27,29 @@ final class ShipmentMetadata
     public const FULFILLMENT_ERROR = 'fulfillment_error';
 
     public const PICKUP_REQUESTED_AT = 'pickup_requested_at';
+
+    public const RESHIPPED_TO_SHIPMENT_ID = 'reshipped_to_shipment_id';
+
+    public const string RESHIP_OF_SHIPMENT_ID = 'reship_of_shipment_id';
+
+    /**
+     * Whether a shipment was superseded by a replacement shipment on the same order.
+     *
+     * @param  Collection<int, OrderShipment>  $orderShipments
+     */
+    public static function isSupersededByReship(OrderShipment $shipment, Collection $orderShipments): bool
+    {
+        $replacementId = data_get($shipment->metadata, self::RESHIPPED_TO_SHIPMENT_ID);
+
+        if (! is_numeric($replacementId)) {
+            return false;
+        }
+
+        $targetId = (int) $replacementId;
+
+        return $targetId !== (int) $shipment->id
+            && $orderShipments->contains(static fn (OrderShipment $candidate): bool => (int) $candidate->id === $targetId);
+    }
 
     /**
      * @return list<array{description: string, datetime: string|null, location: string|null}>

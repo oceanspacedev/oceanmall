@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Actions\Notify\NotifyOrderCustomer;
+use App\Actions\Shipping\MirrorManualShopperShipping;
 use App\Addons\Store\OceanMallStoreAddon;
+use App\Enums\OrderNotificationType;
 use App\Http\Middleware\DispatchShopperForStaffOnly;
 use App\Http\Middleware\EnsureStaffHasTwoFactor;
 use App\Http\Responses\CpanelStaffLoginResponse;
@@ -37,13 +40,13 @@ use App\Shipping\ShippingQuoteContext;
 use App\Stock\AllocationPlanStockAllocator;
 use App\Support\CarrierLogos;
 use App\Support\CheckoutAllocationContext;
+use App\Support\CustomerCart;
 use App\Support\PaymentLogos;
 use App\Support\ProviderQuotaRegistry;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
-use Shopper\Cart\CartSessionManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
@@ -55,10 +58,12 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
 use Livewire\Livewire;
+use Shopper\Cart\Models\Cart;
 use Shopper\Contracts\LoginResponse as ShopperLoginResponse;
 use Shopper\Core\Contracts\StockAllocator;
 use Shopper\Core\Events\Orders\OrderCancelled;
 use Shopper\Core\Events\Orders\OrderPaid;
+use Shopper\Core\Events\Orders\OrderShipmentCreated;
 use Shopper\Core\Events\Orders\OrderShipmentDelivered;
 use Shopper\Core\Events\Orders\OrderShipped;
 use Shopper\Core\Models\Carrier;
@@ -214,16 +219,19 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(OrderPaid::class, RecordOrderPaidFinancials::class);
         Event::listen(OrderPaid::class, SendOrderPaidNotification::class);
         Event::listen(OrderPaid::class, FulfillShipmentsOnOrderPaid::class);
+        Event::listen(OrderShipmentCreated::class, static function (OrderShipmentCreated $event): void {
+            resolve(MirrorManualShopperShipping::class)->handle($event->shipment);
+        });
         Event::listen(OrderShipped::class, static function (OrderShipped $event): void {
-            resolve(\App\Actions\Notify\NotifyOrderCustomer::class)->handle(
+            resolve(NotifyOrderCustomer::class)->handle(
                 $event->order,
-                \App\Enums\OrderNotificationType::Shipped,
+                OrderNotificationType::Shipped,
             );
         });
         Event::listen(OrderShipmentDelivered::class, static function (OrderShipmentDelivered $event): void {
-            resolve(\App\Actions\Notify\NotifyOrderCustomer::class)->handle(
+            resolve(NotifyOrderCustomer::class)->handle(
                 $event->order,
-                \App\Enums\OrderNotificationType::Delivered,
+                OrderNotificationType::Delivered,
             );
         });
         Event::listen(OrderCancelled::class, CancelShipmentsOnOrderCancelled::class);
@@ -241,8 +249,8 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $sessionCart = \Shopper\Cart\Models\Cart::query()->find($cartId);
-            resolve(\App\Support\CustomerCart::class)->mergeSessionCart($event->user, $sessionCart);
+            $sessionCart = Cart::query()->find($cartId);
+            resolve(CustomerCart::class)->mergeSessionCart($event->user, $sessionCart);
         });
     }
 

@@ -20,6 +20,7 @@ use Livewire\Livewire;
 use Shopper\Core\Enum\OrderStatus;
 use Shopper\Core\Enum\PaymentStatus;
 use Shopper\Core\Enum\ShipmentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Order;
 use Shopper\Core\Models\OrderShipping;
@@ -89,6 +90,9 @@ final class RootAlignmentHoleTest extends TestCase
         $order = Order::factory()->create([
             'customer_id' => $customer->id,
             'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
         ]);
 
         $this->actingAs($customer)
@@ -100,7 +104,12 @@ final class RootAlignmentHoleTest extends TestCase
     {
         $this->enableKomerce();
         $admin = $this->admin();
-        $order = Order::factory()->create(['currency_code' => 'IDR']);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         $shipping = OrderShipping::factory()->create([
             'order_id' => $order->id,
             'tracking_number' => 'JNE-EVENT',
@@ -166,6 +175,7 @@ final class RootAlignmentHoleTest extends TestCase
             'currency_code' => 'IDR',
             'status' => OrderStatus::Processing,
             'payment_status' => PaymentStatus::Pending,
+            'shipping_status' => ShippingStatus::Shipped,
         ]);
         $inventory = Inventory::factory()->create();
         OrderShipment::query()->create([

@@ -77,20 +77,21 @@ final readonly class CancelOrderWithProviders
                 // Not every driver's own cancel closes the parcels no
                 // provider ships (manual / zone-option carriers).
                 if ($result->status === OrderStatus::Cancelled) {
-                    $shipments = OrderShipment::query()->where('order_id', $result->id)->get();
-                    $unshipped = $this->unshippedShipments($result, $shipments);
+                    $this->closeUnshippedLocalShipments($result);
 
-                    if ($unshipped->isNotEmpty()) {
-                        $this->cancelUnshippedLocalShipments($unshipped);
+                    if (! OrderNote::query()
+                        ->where('order_id', $result->id)
+                        ->where('type', OrderNote::TYPE_AUDIT)
+                        ->where('body', 'like', 'Pesanan dibatalkan:%')
+                        ->exists()) {
+                        OrderNote::query()->create([
+                            'order_id' => $result->id,
+                            'user_id' => $actor?->id,
+                            'type' => OrderNote::TYPE_AUDIT,
+                            'body' => 'Pesanan dibatalkan: '.$reason,
+                            'metadata' => ['reason' => $reason],
+                        ]);
                     }
-
-                    OrderNote::query()->create([
-                        'order_id' => $result->id,
-                        'user_id' => $actor?->id,
-                        'type' => OrderNote::TYPE_AUDIT,
-                        'body' => 'Pesanan dibatalkan: '.$reason,
-                        'metadata' => ['reason' => $reason],
-                    ]);
                 }
 
                 return $result;
@@ -125,12 +126,19 @@ final readonly class CancelOrderWithProviders
             $order->forceFill($updates)->save();
 
             $shipments = OrderShipment::query()->where('order_id', $order->id)->get();
-            $unshipped = $this->unshippedShipments($order, $shipments);
+            $activeShipments = $this->activeShipments($shipments);
+            $cancelledShipments = $this->cancelledShipments($shipments);
 
-            if ($unshipped->isNotEmpty()) {
-                $releaseScope = $unshipped->count() === $shipments->count() ? null : $unshipped;
-                $this->releaseStock->handle($order->refresh(), $releaseScope);
-                $this->cancelUnshippedLocalShipments($unshipped);
+            if ($activeShipments->isNotEmpty()) {
+                $unshipped = $this->unshippedShipments($order, $activeShipments, $cancelledShipments);
+
+                if ($unshipped->isNotEmpty()) {
+                    $releaseScope = $unshipped->count() === $activeShipments->count() ? null : $unshipped;
+                    $this->releaseStock->handle($order->refresh(), $releaseScope);
+                    $this->cancelUnshippedLocalShipments($unshipped);
+                }
+            } elseif ($cancelledShipments->isNotEmpty() && ! $this->unmappedMovedOrderShippingExists($order, $cancelledShipments)) {
+                $this->releaseStock->handle($order->refresh());
             }
 
             OrderNote::query()->create([
@@ -164,12 +172,54 @@ final readonly class CancelOrderWithProviders
     public function hasShipped(Order $order): bool
     {
         $shipments = OrderShipment::query()->where('order_id', $order->id)->get();
+        $activeShipments = $this->activeShipments($shipments);
 
-        if ($shipments->isEmpty()) {
-            return $this->unmappedMovedOrderShippingExists($order);
+        if ($activeShipments->isEmpty()) {
+            return $this->unmappedMovedOrderShippingExists(
+                $order,
+                $shipments->isEmpty() ? null : $this->cancelledShipments($shipments),
+            );
         }
 
-        return $this->unshippedShipments($order, $shipments)->count() < $shipments->count();
+        return $this->unshippedShipments($order, $activeShipments, $this->cancelledShipments($shipments))->count() < $activeShipments->count();
+    }
+
+    public function closeUnshippedLocalShipments(Order $order): void
+    {
+        $shipments = OrderShipment::query()->where('order_id', $order->id)->get();
+        $activeShipments = $this->activeShipments($shipments);
+
+        if ($activeShipments->isEmpty()) {
+            return;
+        }
+
+        $unshipped = $this->unshippedShipments($order, $activeShipments, $this->cancelledShipments($shipments));
+
+        if ($unshipped->isNotEmpty()) {
+            $this->cancelUnshippedLocalShipments($unshipped);
+        }
+    }
+
+    /**
+     * @param  Collection<int, OrderShipment>  $shipments
+     * @return Collection<int, OrderShipment>
+     */
+    private function activeShipments(Collection $shipments): Collection
+    {
+        return $shipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED,
+        )->values();
+    }
+
+    /**
+     * @param  Collection<int, OrderShipment>  $shipments
+     * @return Collection<int, OrderShipment>
+     */
+    private function cancelledShipments(Collection $shipments): Collection
+    {
+        return $shipments->filter(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED,
+        )->values();
     }
 
     /**
@@ -178,11 +228,16 @@ final readonly class CancelOrderWithProviders
      * be released and cancelled. Unmapped Shopper OrderShipping rows that moved
      * stay conservatively locked.
      *
-     * @param  Collection<int, OrderShipment>  $shipments
+     * @param  Collection<int, OrderShipment>  $activeShipments
+     * @param  Collection<int, OrderShipment>  $cancelledShipments
      * @return Collection<int, OrderShipment>
      */
-    private function unshippedShipments(Order $order, Collection $shipments): Collection
+    private function unshippedShipments(Order $order, Collection $activeShipments, Collection $cancelledShipments): Collection
     {
+        if ($activeShipments->isEmpty()) {
+            return new Collection;
+        }
+
         $shippings = OrderShipping::query()->where('order_id', $order->id)->get();
         $order->loadMissing('items');
 
@@ -198,7 +253,7 @@ final readonly class CancelOrderWithProviders
         foreach ($movedShippings as $row) {
             $tracking = strtolower(trim((string) $row->tracking_number));
             $matchedByTracking = $tracking !== ''
-                ? $shipments->first(static fn (OrderShipment $s): bool => in_array(
+                ? $activeShipments->first(static fn (OrderShipment $s): bool => in_array(
                     $tracking,
                     [strtolower(trim((string) $s->awb)), strtolower(trim((string) $s->tracking_number))],
                     true,
@@ -211,9 +266,17 @@ final readonly class CancelOrderWithProviders
                 continue;
             }
 
+            if ($tracking !== '' && $cancelledShipments->contains(static fn (OrderShipment $s): bool => in_array(
+                $tracking,
+                [strtolower(trim((string) $s->awb)), strtolower(trim((string) $s->tracking_number))],
+                true,
+            ))) {
+                continue;
+            }
+
             $linkedItems = $order->items->where('order_shipping_id', $row->id);
             if ($linkedItems->isNotEmpty()) {
-                foreach ($shipments as $s) {
+                foreach ($activeShipments as $s) {
                     $s->loadMissing('lines');
                     foreach ($s->lines as $line) {
                         if ($linkedItems->contains(static fn ($item): bool => (int) $item->product_id === (int) $line->purchasable_id && (string) $item->product_type === (string) $line->purchasable_type)) {
@@ -232,7 +295,7 @@ final readonly class CancelOrderWithProviders
 
         $mappedShipmentIds = array_values(array_unique($mappedShipmentIds));
 
-        return $shipments->reject(static function (OrderShipment $shipment) use ($mappedShipmentIds): bool {
+        return $activeShipments->reject(static function (OrderShipment $shipment) use ($mappedShipmentIds): bool {
             if (trim((string) ($shipment->awb ?: $shipment->tracking_number)) !== '') {
                 return true;
             }
@@ -241,8 +304,16 @@ final readonly class CancelOrderWithProviders
         })->values();
     }
 
-    private function unmappedMovedOrderShippingExists(Order $order): bool
+    /**
+     * @param  Collection<int, OrderShipment>|null  $cancelledShipments
+     */
+    private function unmappedMovedOrderShippingExists(Order $order, ?Collection $cancelledShipments = null): bool
     {
+        $cancelledTrackings = $cancelledShipments?->flatMap(static fn (OrderShipment $s): array => [
+            strtolower(trim((string) $s->awb)),
+            strtolower(trim((string) $s->tracking_number)),
+        ])->filter()->unique()->values()->all() ?? [];
+
         return OrderShipping::query()
             ->where('order_id', $order->id)
             ->where(static function ($query): void {
@@ -254,7 +325,16 @@ final readonly class CancelOrderWithProviders
                         $moved->whereNotNull('status')->where('status', '!=', ShipmentStatus::Pending->value);
                     });
             })
-            ->exists();
+            ->get()
+            ->contains(static function (OrderShipping $row) use ($cancelledTrackings): bool {
+                if ($cancelledTrackings === []) {
+                    return true;
+                }
+
+                $tracking = strtolower(trim((string) $row->tracking_number));
+
+                return $tracking === '' || ! in_array($tracking, $cancelledTrackings, true);
+            });
     }
 
     /**

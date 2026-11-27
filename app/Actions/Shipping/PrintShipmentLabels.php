@@ -6,6 +6,7 @@ namespace App\Actions\Shipping;
 
 use App\Models\OrderShipment;
 use App\Shipping\Contracts\PrintsLabels;
+use App\Shipping\ShipmentMetadata;
 use App\Shipping\ShippingCapabilities;
 use RuntimeException;
 use Shopper\Core\Models\Order;
@@ -26,11 +27,23 @@ final readonly class PrintShipmentLabels
      */
     public function handle(Order $order, ?string $format = null, ?int $shipmentId = null): array
     {
-        $shipments = OrderShipment::query()
+        $allShipments = OrderShipment::query()
             ->where('order_id', $order->id)
-            ->when($shipmentId !== null, fn ($query) => $query->whereKey($shipmentId))
             ->orderBy('id')
             ->get();
+
+        $shipments = $allShipments
+            ->reject(static fn (OrderShipment $shipment): bool => strtolower((string) $shipment->status) === NormalizeShipmentStatus::CANCELLED);
+
+        if ($shipmentId !== null) {
+            $shipments = $shipments->where('id', $shipmentId);
+        } else {
+            $shipments = $shipments->reject(
+                static fn (OrderShipment $shipment): bool => ShipmentMetadata::isSupersededByReship($shipment, $allShipments),
+            );
+        }
+
+        $shipments = $shipments->values();
 
         $byDriver = [];
         $printers = [];

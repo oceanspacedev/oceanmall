@@ -29,11 +29,28 @@ final class AddressController extends Controller
             ->when($currentZoneId, fn ($items) => $items->where('zoneId', $currentZoneId))
             ->pluck('countryId');
 
+        $capabilities = resolve(ShippingCapabilities::class);
+        $drivers = $capabilities->destinationDriverCode() !== null
+            ? $capabilities->destinationDriverFamilyCodes()
+            : null;
+
+        $addresses = auth()->user()
+            ->addresses()
+            ->with('country')
+            ->get()
+            ->each(static function (Address $address) use ($drivers): void {
+                $rawMeta = $address->getAttribute('metadata');
+                if (is_string($rawMeta)) {
+                    $decoded = json_decode($rawMeta, true);
+                    $rawMeta = is_array($decoded) ? $decoded : [];
+                }
+
+                $normalized = AddressDestination::forDriver(is_array($rawMeta) ? $rawMeta : [], $drivers);
+                $address->setAttribute('metadata', $normalized === [] ? null : $normalized);
+            });
+
         return Inertia::render('account/addresses', [
-            'addresses' => auth()->user()
-                ->addresses()
-                ->with('country')
-                ->get(),
+            'addresses' => $addresses,
             'countries' => Country::query()
                 ->when($allowedCountryIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $allowedCountryIds))
                 ->orderBy('name')
@@ -131,6 +148,13 @@ final class AddressController extends Controller
         $allowedCountries = resolve(GetCountriesByZone::class)->handle()->pluck('countryId')->filter()->all();
         $capabilities = resolve(ShippingCapabilities::class);
         $currentDriver = $capabilities->destinationDriverCode();
+
+        $sent = [];
+        foreach ([AddressDestination::ID, AddressDestination::LABEL, AddressDestination::PIN_POINT, AddressDestination::DRIVER] as $neutral) {
+            $legacy = array_search($neutral, AddressDestination::LEGACY_KEYS, true);
+            $sent[$neutral] = $request->exists($neutral) || (is_string($legacy) && $request->exists($legacy));
+        }
+
         $request->merge(AddressDestination::fromRequest($request->all(), $currentDriver));
 
         $isShipping = (string) $request->input('type') === AddressType::Shipping->value;
@@ -154,14 +178,14 @@ final class AddressController extends Controller
             ...AddressDestination::rules(),
         ]);
 
-        $sentDestId = $request->exists(AddressDestination::ID)
-            || $request->exists('rajaongkir_destination_id');
+        $sentDestId = $sent[AddressDestination::ID];
 
         $rawExistingMeta = $existing?->getAttribute('metadata');
         if (is_string($rawExistingMeta)) {
             $rawExistingMeta = json_decode($rawExistingMeta, true);
         }
         $current = AddressDestination::normalize(is_array($rawExistingMeta) ? $rawExistingMeta : []);
+        $existingDestId = $current[AddressDestination::ID] ?? null;
 
         $regionChanged = $existing instanceof Address && (
             mb_strtolower(trim((string) $existing->city)) !== mb_strtolower(trim((string) $data['city']))
@@ -178,15 +202,35 @@ final class AddressController extends Controller
             );
         }
 
+        $submittedDestId = $data[AddressDestination::ID] ?? null;
+
         foreach ([AddressDestination::ID, AddressDestination::LABEL, AddressDestination::PIN_POINT, AddressDestination::DRIVER] as $key) {
-            if (array_key_exists($key, $data) && $data[$key] !== null && $data[$key] !== '') {
-                $current[$key] = $data[$key];
+            if ($sent[$key] || array_key_exists($key, $data)) {
+                $value = $data[$key] ?? null;
+
+                if ($value === null || $value === '') {
+                    unset($current[$key]);
+                } else {
+                    $current[$key] = $value;
+                }
             }
             unset($data[$key]);
         }
 
-        if ($sentDestId && filled($current[AddressDestination::ID] ?? null) && blank($current[AddressDestination::DRIVER] ?? null)) {
-            $current[AddressDestination::DRIVER] = $currentDriver;
+        if (blank($current[AddressDestination::ID] ?? null)) {
+            unset($current[AddressDestination::DRIVER]);
+        }
+
+        if ($sentDestId && filled($submittedDestId) && filled($current[AddressDestination::ID] ?? null)) {
+            $destChanged = $current[AddressDestination::ID] !== $existingDestId;
+
+            if (! $request->filled(AddressDestination::DRIVER) && ($destChanged || blank($current[AddressDestination::DRIVER] ?? null) || ($current[AddressDestination::DRIVER] ?? null) !== $currentDriver)) {
+                if ($currentDriver !== null) {
+                    $current[AddressDestination::DRIVER] = $currentDriver;
+                } else {
+                    unset($current[AddressDestination::DRIVER]);
+                }
+            }
         }
 
         $metadata = array_filter($current, static fn (mixed $v): bool => $v !== null && $v !== '');

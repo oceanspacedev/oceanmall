@@ -55,7 +55,9 @@ final class ManualShopperShippingMirrorTest extends TestCase
     {
         return OrderShipment::query()->create([
             'order_id' => $order->id,
-            'inventory_id' => Inventory::factory()->create()->id,
+            'inventory_id' => Inventory::factory()->create([
+                'shipping_origins' => ['komerce' => '17248'],
+            ])->id,
             'driver' => $driver,
             'carrier_id' => $carrierId,
             'carrier_code' => 'manual',

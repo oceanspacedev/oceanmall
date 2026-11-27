@@ -18,6 +18,9 @@ use Shopper\Core\Enum\DiscountApplyTo;
 use Shopper\Core\Enum\DiscountEligibility;
 use Shopper\Core\Enum\DiscountRequirement;
 use Shopper\Core\Enum\DiscountType;
+use Shopper\Core\Enum\OrderStatus;
+use Shopper\Core\Enum\PaymentStatus;
+use Shopper\Core\Enum\ShippingStatus;
 use Shopper\Core\Models\Carrier;
 use Shopper\Core\Models\CarrierOption;
 use Shopper\Core\Models\Country;
@@ -265,7 +268,13 @@ final class VendorShopperPatchesTest extends TestCase
     {
         $admin = $this->cpanelAdmin();
         $product = Product::factory()->standard()->create(['name' => 'Discontinued Phone']);
-        $order = Order::factory()->create(['currency_code' => 'IDR', 'price_amount' => 50000]);
+        $order = Order::factory()->create([
+            'currency_code' => 'IDR',
+            'price_amount' => 50000,
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'shipping_status' => ShippingStatus::Unfulfilled,
+        ]);
         OrderItem::query()->create([
             'order_id' => $order->id,
             'name' => 'Discontinued Phone',

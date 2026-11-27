@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Shopper\SlideOvers;
 
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderShipment;
 use App\Shipping\ShippingCapabilities;
 use App\Support\OrderPaymentType;
@@ -60,6 +61,10 @@ final class ShipmentAddEvent extends ShopperShipmentAddEvent
 
         $shipments = OrderShipment::query()
             ->where('order_id', $this->shipment->order_id)
+            ->where(static function ($query): void {
+                $query->whereNull('status')
+                    ->orWhereRaw('lower(status) != ?', [NormalizeShipmentStatus::CANCELLED]);
+            })
             ->when($tracking !== '', static fn ($query) => $query->where(
                 static fn ($q) => $q->where('awb', $tracking)->orWhere('tracking_number', $tracking),
             ))

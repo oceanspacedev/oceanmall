@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shipping;
 
+use App\Actions\Shipping\NormalizeShipmentStatus;
 use App\Models\OrderShipment;
 use App\Shipping\Contracts\DelegatesFulfillment;
 use App\Shipping\Contracts\DelegatesQuotes;
@@ -146,6 +147,20 @@ final class ShippingCapabilities
     }
 
     /**
+     * All registered shipping driver codes sharing the active destination
+     * driver's provider family (e.g. ['komerce', 'rajaongkir'] when either is
+     * active), or [] when no destination driver is configured.
+     *
+     * @return list<string>
+     */
+    public function destinationDriverFamilyCodes(): array
+    {
+        $driver = $this->destinationDriverCode();
+
+        return $driver !== null ? $this->familyCodesFor($driver) : [];
+    }
+
+    /**
      * Address forms should offer a destination (area / subdistrict) search.
      */
     public function destinationSearch(): bool
@@ -180,9 +195,28 @@ final class ShippingCapabilities
      */
     public function originDrivers(): Collection
     {
-        return $this->drivers()->filter(static fn (ShippingDriver $driver): bool => $driver instanceof ResolvesDestinations
+        $candidates = $this->drivers()->filter(static fn (ShippingDriver $driver): bool => $driver instanceof ResolvesDestinations
             || $driver instanceof RequiresOriginId
             || $driver instanceof ValidatesOriginIds);
+
+        $preferred = $this->destinationDriverCode();
+        $deduped = [];
+
+        foreach ($candidates as $code => $driver) {
+            $family = $this->providerFamily($code);
+
+            if (! array_key_exists($family, $deduped) || $code === $preferred) {
+                $deduped[$family] = [$code, $driver];
+            }
+        }
+
+        $result = [];
+
+        foreach ($deduped as [$code, $driver]) {
+            $result[$code] = $driver;
+        }
+
+        return collect($result);
     }
 
     /**
@@ -192,6 +226,40 @@ final class ShippingCapabilities
     public function originDriverCode(): ?string
     {
         return $this->requiresDestination() ? $this->destinationDriverCode() : null;
+    }
+
+    /**
+     * All registered shipping driver codes sharing the active origin driver's
+     * provider family (e.g. ['komerce', 'rajaongkir'] when either is active).
+     *
+     * @return list<string>
+     */
+    public function originDriverFamilyCodes(): array
+    {
+        $originDriver = $this->originDriverCode();
+
+        return $originDriver !== null ? $this->familyCodesFor($originDriver) : [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function familyCodesFor(string $driver): array
+    {
+        $family = $this->providerFamily($driver);
+        $codes = [$driver];
+
+        foreach (Shipping::availableDrivers() as $code) {
+            if (! is_string($code) || $code === 'manual' || in_array($code, $codes, true)) {
+                continue;
+            }
+
+            if ($this->providerFamily($code) === $family) {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
     }
 
     /**
@@ -262,14 +330,24 @@ final class ShippingCapabilities
     public function fulfillerForOrder(Order $order): ?ShippingDriver
     {
         $shipments = OrderShipment::query()->where('order_id', $order->id)->get();
+        $activeShipments = $shipments->reject(
+            static fn (OrderShipment $shipment): bool => strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED
+                || ShipmentMetadata::isSupersededByReship($shipment, $shipments),
+        );
 
-        if ($shipments->isNotEmpty()) {
-            foreach ($shipments as $shipment) {
+        if ($activeShipments->isNotEmpty()) {
+            foreach ($activeShipments as $shipment) {
                 if (($driver = $this->fulfillerFor($shipment)) !== null) {
                     return $driver;
                 }
             }
 
+            return null;
+        }
+
+        // All existing warehouse shipments were cancelled: fall back to manual
+        // fulfillment recovery in cpanel instead of routing to a dead provider.
+        if ($shipments->isNotEmpty()) {
             return null;
         }
 
@@ -281,6 +359,33 @@ final class ShippingCapabilities
         }
 
         return $order->shippingOption === null ? $this->soleFulfiller() : null;
+    }
+
+    /**
+     * Whether the order has at least one active (non-cancelled) shipment that
+     * has no AWB yet and is fulfilled manually (not by a provider driver).
+     */
+    public function hasUnlabelledManualShipment(Order $order): bool
+    {
+        $shipments = OrderShipment::query()
+            ->where('order_id', $order->id)
+            ->get();
+
+        return $shipments->contains(function (OrderShipment $shipment) use ($shipments): bool {
+            if (strtolower(trim((string) $shipment->status)) === NormalizeShipmentStatus::CANCELLED) {
+                return false;
+            }
+
+            if (ShipmentMetadata::isSupersededByReship($shipment, $shipments)) {
+                return false;
+            }
+
+            if (filled($shipment->awb) || filled($shipment->tracking_number)) {
+                return false;
+            }
+
+            return $this->fulfillerFor($shipment) === null;
+        });
     }
 
     /**

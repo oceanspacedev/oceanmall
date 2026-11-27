@@ -74,7 +74,9 @@ export default function ResetPasswordScreen() {
           <Text className="mt-2 text-center text-[13px] text-muted-foreground">
             Silakan masuk kembali dengan kata sandi baru.
           </Text>
-          <Button className="mt-6 min-h-12 w-full rounded-sm" onPress={() => router.replace('/login')}>
+          <Button
+            className="mt-6 min-h-12 w-full rounded-sm"
+            onPress={() => router.replace('/login')}>
             <Text className="font-bold">Masuk</Text>
           </Button>
         </View>
@@ -108,11 +110,13 @@ export default function ResetPasswordScreen() {
             label="Konfirmasi kata sandi"
             value={confirm}
             onChangeText={setConfirm}
-            error={
-              confirm.length > 0 && password !== confirm ? 'Kata sandi belum cocok.' : null
-            }
+            error={confirm.length > 0 && password !== confirm ? 'Kata sandi belum cocok.' : null}
           />
-          <Button loading={busy} disabled={!canSubmit} onPress={() => void submit()} className="mt-4 min-h-12 rounded-sm">
+          <Button
+            loading={busy}
+            disabled={!canSubmit}
+            onPress={() => void submit()}
+            className="mt-4 min-h-12 rounded-sm">
             <Text className="font-bold">Simpan kata sandi baru</Text>
           </Button>
         </View>

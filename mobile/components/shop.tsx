@@ -153,6 +153,8 @@ export function OptionCard({
   onPress,
   icon,
   title,
+  badge,
+  badgeLabel,
   subtitle,
   trailing,
   trailingLabel,
@@ -165,6 +167,8 @@ export function OptionCard({
   onPress: () => void;
   icon?: ReactNode;
   title: string;
+  badge?: ReactNode;
+  badgeLabel?: string;
   subtitle?: string | null;
   trailing?: ReactNode;
   trailingLabel?: string;
@@ -172,7 +176,7 @@ export function OptionCard({
   loading?: boolean;
   disabledDim?: boolean;
 }) {
-  const label = [title, subtitle, note, trailingLabel ?? textOf(trailing)]
+  const label = [title, badgeLabel, subtitle, note, trailingLabel ?? textOf(trailing)]
     .filter((part) => Boolean(part))
     .join(', ');
 
@@ -193,9 +197,18 @@ export function OptionCard({
         <View className="size-10 items-center justify-center rounded-sm bg-om-surface">{icon}</View>
       ) : null}
       <View className="min-w-0 flex-1">
-        <Text className="text-[14px] font-semibold" numberOfLines={1}>
-          {title}
-        </Text>
+        {badge ? (
+          <View className="flex-row flex-wrap items-center gap-1.5">
+            <Text className="shrink text-[14px] font-semibold" numberOfLines={1}>
+              {title}
+            </Text>
+            {badge}
+          </View>
+        ) : (
+          <Text className="text-[14px] font-semibold" numberOfLines={1}>
+            {title}
+          </Text>
+        )}
         {subtitle ? (
           <Text className="mt-0.5 text-[12px] text-muted-foreground" numberOfLines={2}>
             {subtitle}

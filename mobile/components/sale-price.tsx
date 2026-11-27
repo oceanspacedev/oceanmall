@@ -32,7 +32,13 @@ export function SalePrice({
         <Text
           className={cn(
             unpriced ? 'font-semibold text-muted-foreground' : 'font-extrabold',
-            detail ? (unpriced ? 'text-[16px]' : 'text-[22px]') : unpriced ? 'text-[12px]' : 'text-[15px]',
+            detail
+              ? unpriced
+                ? 'text-[16px]'
+                : 'text-[22px]'
+              : unpriced
+                ? 'text-[12px]'
+                : 'text-[15px]',
             // om-sale-text clears 4.5:1 on white; the brighter om-sale is for fills.
             !unpriced && (off ? 'text-om-sale-text' : 'text-om-navy')
           )}

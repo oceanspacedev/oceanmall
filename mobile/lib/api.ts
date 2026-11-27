@@ -1,4 +1,6 @@
+import { findPlacedOrderWith } from '@/lib/checkout-helpers';
 import { API_URL } from '@/lib/config';
+import { parseApiDate } from '@/lib/format';
 import {
   fetchWithTimeout,
   isNetworkFailure,
@@ -120,6 +122,8 @@ const ATTRIBUTE_LABELS: [RegExp, string][] = (
     ['phone number', 'nomor HP'],
     ['street address', 'alamat lengkap'],
     ['postal code', 'kode pos'],
+    ['pin point', 'titik lokasi'],
+    ['destination', 'kecamatan'],
     ['password', 'kata sandi'],
     ['city', 'kota'],
     ['state', 'provinsi'],
@@ -556,11 +560,15 @@ export type ShippingRate = {
   service_name: string;
   amount: number;
   currency?: string;
+  driver?: string | null;
   carrier_code?: string;
   carrier_name?: string | null;
   carrier_logo?: string | null;
   description?: string | null;
   estimated_days?: string | number | null;
+  is_cod?: boolean | null;
+  kiriminaja_cod?: boolean | null;
+  available_for_cash_on_delivery?: boolean | null;
 };
 
 export type PaymentMethodOption = {
@@ -581,10 +589,13 @@ export type SavedAddress = {
   first_name: string;
   last_name: string;
   street_address: string;
+  street_address_plus?: string | null;
   city: string;
   postal_code: string;
   state?: string | null;
   phone_number?: string | null;
+  type?: string;
+  country_id?: number | null;
   /** Provider-neutral destination (preferred). */
   destination_id?: string | null;
   destination_label?: string | null;
@@ -595,6 +606,7 @@ export type SavedAddress = {
   /** @deprecated Legacy alias of destination_label. */
   rajaongkir_destination_label?: string | null;
   shipping_default?: boolean;
+  billing_default?: boolean;
 };
 
 /** What the configured shipping drivers need before an address is complete. */
@@ -602,6 +614,24 @@ export type ShippingCapabilities = {
   destination_search: boolean;
   requires_destination: boolean;
   requires_coordinates: boolean;
+};
+
+/**
+ * Before the API sent `shipping_capabilities` the store always required a destination picked from
+ * the search, so that is the fallback.
+ */
+export const LEGACY_CAPABILITIES: ShippingCapabilities = {
+  destination_search: true,
+  requires_destination: true,
+  requires_coordinates: false,
+};
+
+export type ShippingRatesFailureReason =
+  'quota' | 'unavailable' | 'no_destination' | 'no_allocation';
+
+export type ShippingRatesFailure = {
+  reason: ShippingRatesFailureReason;
+  retry_at_wib?: string | null;
 };
 
 /**
@@ -676,9 +706,23 @@ export type CheckoutPayload = {
   shipping_options_by_shipment?: Record<string, string | null>;
   /** Absent on API versions older than the provider-neutral checkout. */
   shipping_capabilities?: ShippingCapabilities;
+  shipping_rates_hint?: string | null;
+  shipping_rates_failure?: ShippingRatesFailure | null;
   payment_methods: PaymentMethodOption[];
   saved_addresses: SavedAddress[];
 };
+
+/**
+ * After a place-order that timed out or lost its connection: did the server create the order
+ * anyway? The server completes the cart the moment the order exists, so an empty cart plus a
+ * newly created order is the answer. Queries `/orders` without `?status=unpaid` so COD orders
+ * are also recovered.
+ */
+export async function findPlacedOrder(
+  submittedAtMs: number
+): Promise<{ state: 'placed'; number: string } | { state: 'none' } | { state: 'unknown' }> {
+  return findPlacedOrderWith(api, submittedAtMs, parseApiDate);
+}
 
 export type OrderSummary = {
   id: number;
@@ -738,6 +782,7 @@ export type OrderDetail = OrderSummary & {
   shipments: {
     id: number;
     status: string;
+    is_superseded?: boolean;
     awb?: string | null;
     tracking_number?: string | null;
     carrier?: string | null;

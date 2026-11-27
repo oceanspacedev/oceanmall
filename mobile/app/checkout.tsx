@@ -4,7 +4,14 @@ import { Field, FieldFrame, inputA11yProps } from '@/components/field';
 import { LoginPrompt } from '@/components/login-prompt';
 import { ProductImage } from '@/components/product-image';
 import { Screen } from '@/components/screen';
-import { LogoImage, OptionCard, Section, StickyBar, SummaryRow } from '@/components/shop';
+import {
+  LogoImage,
+  OptionCard,
+  Section,
+  StatusPill,
+  StickyBar,
+  SummaryRow,
+} from '@/components/shop';
 import { SectionSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -14,25 +21,35 @@ import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { KeyboardAvoider } from '@/components/keyboard-avoider';
 import {
+  LEGACY_CAPABILITIES,
   PROVIDER_TIMEOUT_MS,
   api,
   apiFieldErrors,
   destinationRegion,
   errorMessage,
+  findPlacedOrder,
   resendVerificationEmail,
+  serverNow,
   type Cart,
   type CheckoutPayload,
   type Destination,
-  type OrderSummary,
   type PaymentMethodOption,
   type SavedAddress,
-  type ShippingCapabilities,
   type ShippingRate,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
-import { formatMoney, mediaUrl, parseApiDate } from '@/lib/format';
-import { isNetworkFailure, OFFLINE_COPY, TimeoutError } from '@/lib/network';
+import {
+  PIN_POINT_REGEX,
+  allSelectedRatesSupportCod,
+  etaLabel,
+  paymentDisabledReason,
+  rateCodStatus,
+  resolveDestinationSearchError,
+  resolveEmptyShippingHint,
+} from '@/lib/checkout-helpers';
+import { formatMoney, mediaUrl } from '@/lib/format';
+import { isNetworkFailure, TimeoutError } from '@/lib/network';
 import { ripple } from '@/lib/ripple';
 import { COLORS } from '@/lib/theme';
 import { toast } from '@/lib/toast';
@@ -72,20 +89,11 @@ type AddressField =
   | 'last_name'
   | 'phone_number'
   | 'street_address'
+  | 'pin_point'
   | 'destination'
   | 'city'
   | 'state'
   | 'postal_code';
-
-/**
- * Before the API sent `shipping_capabilities` the store always required a destination picked from
- * the search, so that is the fallback.
- */
-const LEGACY_CAPABILITIES: ShippingCapabilities = {
-  destination_search: true,
-  requires_destination: true,
-  requires_coordinates: false,
-};
 
 /** Neutral destination keys first, then the rajaongkir_* aliases older API versions send. */
 function destinationOf(
@@ -121,6 +129,7 @@ export default function CheckoutScreen() {
   const lastNameRef = useRef<TextInput>(null);
   const phoneRef = useRef<TextInput>(null);
   const streetRef = useRef<TextInput>(null);
+  const pinPointRef = useRef<TextInput>(null);
   const firstNameRef = useRef<TextInput>(null);
   const destinationRef = useRef<TextInput>(null);
   const cityRef = useRef<TextInput>(null);
@@ -198,6 +207,8 @@ export default function CheckoutScreen() {
             id: current.id,
             label: current.label ?? address.city ?? current.id,
           });
+        } else {
+          setDestination(null);
         }
       }
       setSelectedRate(
@@ -224,6 +235,7 @@ export default function CheckoutScreen() {
       return;
     }
     setLoadError(null);
+    setAddressError(null);
     try {
       const res = await api<{ data: CheckoutPayload }>('/checkout');
       const saved = res.data.saved_addresses ?? [];
@@ -238,8 +250,14 @@ export default function CheckoutScreen() {
           });
           applyCheckout(applied.data);
           return;
-        } catch {
-          // Fall back to manual selection below.
+        } catch (e) {
+          // Surface why the default saved address could not be used; fall back to manual selection.
+          setAddressError(
+            errorMessage(
+              e,
+              'Alamat utama belum bisa dipakai. Pilih alamat atau lengkapi kecamatannya.'
+            )
+          );
         }
       }
       applyCheckout(res.data);
@@ -273,6 +291,41 @@ export default function CheckoutScreen() {
   /** City, province and postal code come from the picked destination instead of free text. */
   const regionFromDestination = capabilities.requires_destination;
 
+  const shippingAmount = checkout?.shipping_option?.amount ?? 0;
+  const goodsTotal = checkout?.cart.totals.total ?? 0;
+  const payable = goodsTotal + shippingAmount;
+  const currency = checkout?.cart.currency || 'IDR';
+  const allocation = checkout?.allocation ?? [];
+  const isSplitShipment = allocation.length > 1;
+  const ratesSupportCod = checkout
+    ? allSelectedRatesSupportCod({
+        isSplitShipment,
+        allocation,
+        shippingRates: checkout.shipping_rates ?? [],
+        selectedRate,
+        shippingRatesByShipment: checkout.shipping_rates_by_shipment,
+        selectedRatesByShipment,
+      })
+    : true;
+  const checkoutPaymentMethods = checkout?.payment_methods;
+  const chosenMethod = checkoutPaymentMethods?.find((method) => method.id === selectedPayment);
+  const chosenDisabledReason = chosenMethod
+    ? paymentDisabledReason(chosenMethod, { amount: payable, currency, ratesSupportCod })
+    : null;
+
+  useEffect(() => {
+    if (selectedPayment === null || !checkoutPaymentMethods) {
+      return;
+    }
+    const method = checkoutPaymentMethods.find((m) => m.id === selectedPayment);
+    if (
+      !method ||
+      paymentDisabledReason(method, { amount: payable, currency, ratesSupportCod }) !== null
+    ) {
+      setSelectedPayment(null);
+    }
+  }, [selectedPayment, checkoutPaymentMethods, ratesSupportCod, payable, currency]);
+
   useEffect(() => {
     const query = destinationQuery.trim();
     if (!searchEnabled || query.length < 2) {
@@ -284,6 +337,7 @@ export default function CheckoutScreen() {
     let stale = false;
     const handle = setTimeout(() => {
       setSearching(true);
+      setDestIssue(null);
       void api<{ data: Destination[] }>(`/checkout/destinations?q=${encodeURIComponent(query)}`)
         .then((res) => {
           if (stale) {
@@ -304,11 +358,7 @@ export default function CheckoutScreen() {
           setDestinations([]);
           setDestIssue({
             error: true,
-            text: isNetworkFailure(e)
-              ? OFFLINE_COPY.message
-              : e instanceof TimeoutError
-                ? errorMessage(e)
-                : 'Pencarian kecamatan sedang gangguan. Coba lagi beberapa menit.',
+            text: resolveDestinationSearchError(e, errorMessage),
           });
         })
         .finally(() => {
@@ -373,6 +423,13 @@ export default function CheckoutScreen() {
     if (!street.trim()) {
       errors.street_address = 'Isi alamat lengkap';
     }
+    if (
+      capabilities.requires_coordinates &&
+      pinPoint.trim() !== '' &&
+      !PIN_POINT_REGEX.test(pinPoint.trim())
+    ) {
+      errors.pin_point = 'Format koordinat harus lintang,bujur (contoh: -6.200000,106.816666)';
+    }
     if (regionFromDestination) {
       if (!destination) {
         errors.destination = 'Pilih kecamatan dari daftar';
@@ -405,6 +462,7 @@ export default function CheckoutScreen() {
       ['last_name', lastNameRef],
       ['phone_number', phoneRef],
       ['street_address', streetRef],
+      ['pin_point', pinPointRef],
       ['destination', destinationRef],
       ['city', cityRef],
       ['state', provinceRef],
@@ -485,6 +543,10 @@ export default function CheckoutScreen() {
           case 'rajaongkir_destination_id':
             mapped.destination = message;
             break;
+          case 'pin_point':
+          case 'rajaongkir_pin_point':
+            mapped.pin_point = message;
+            break;
           default:
             leftover.push(message);
         }
@@ -556,6 +618,7 @@ export default function CheckoutScreen() {
       return;
     }
     const code = String(rate.service_code);
+    const previousRatesByShipment = selectedRatesByShipment;
     const nextRates: Record<string, string> = {
       ...selectedRatesByShipment,
       [String(inventoryId)]: code,
@@ -581,6 +644,7 @@ export default function CheckoutScreen() {
           : 'split-shipment'
       );
     } catch (e) {
+      setSelectedRatesByShipment(previousRatesByShipment);
       setOrderError(errorMessage(e, 'Gagal memilih kurir'));
     } finally {
       setBusy(null);
@@ -605,32 +669,6 @@ export default function CheckoutScreen() {
     }
   }
 
-  /**
-   * After a place-order that timed out or lost its connection: did the server create the order
-   * anyway? The server completes the cart the moment the order exists, so an empty cart plus a
-   * new unpaid order is the answer. 'none' = the cart is intact (nothing was created, retry is
-   * safe); 'unknown' = the check itself failed, so a blind retry might create a second order.
-   */
-  async function findPlacedOrder(
-    submittedAtMs: number
-  ): Promise<{ state: 'placed'; number: string } | { state: 'none' } | { state: 'unknown' }> {
-    try {
-      const cart = await api<{ data: Cart }>('/cart');
-      if ((cart.data?.lines ?? []).length > 0) {
-        return { state: 'none' };
-      }
-      const orders = await api<{ data: OrderSummary[] }>('/orders?status=unpaid');
-      const latest = (orders.data ?? []).find((row) => {
-        const ts = parseApiDate(row.created_at)?.getTime();
-        return ts !== undefined && ts >= submittedAtMs - 60_000;
-      });
-
-      return latest ? { state: 'placed', number: latest.number } : { state: 'unknown' };
-    } catch {
-      return { state: 'unknown' };
-    }
-  }
-
   async function placeOrder() {
     if (busy !== null) {
       return;
@@ -639,10 +677,14 @@ export default function CheckoutScreen() {
       setOrderError('Pilih metode pembayaran.');
       return;
     }
+    if (chosenDisabledReason) {
+      setOrderError(chosenDisabledReason);
+      return;
+    }
     setBusy('order');
     placingRef.current = true;
     setOrderError(null);
-    const submittedAtMs = Date.now();
+    const submittedAtMs = serverNow();
     try {
       const res = await api<{ data: { number: string; payment_error?: string | null } }>(
         '/checkout/place-order',
@@ -748,25 +790,18 @@ export default function CheckoutScreen() {
     );
   }
 
-  const shippingAmount = checkout.shipping_option?.amount ?? 0;
-  const goodsTotal = checkout.cart.totals.total;
-  const payable = goodsTotal + shippingAmount;
   const discount = checkout.cart.totals.discount ?? 0;
   const tax = checkout.cart.totals.tax ?? 0;
   const taxInclusive = checkout.cart.totals.tax_inclusive ?? true;
-  const currency = checkout.cart.currency || 'IDR';
-  const allocation = checkout.allocation ?? [];
-  const isSplitShipment = allocation.length > 1;
   const allSplitRatesSelected =
     !isSplitShipment ||
     allocation.every((s) => Boolean(selectedRatesByShipment[String(s.inventory_id)]));
   const itemCount = checkout.cart.lines.reduce((sum, line) => sum + line.quantity, 0);
-  const chosenMethod = checkout.payment_methods?.find((method) => method.id === selectedPayment);
   const canPlace = Boolean(
     selectedRate &&
     allSplitRatesSelected &&
     chosenMethod &&
-    paymentLimitNote(chosenMethod, payable, currency) === null &&
+    chosenDisabledReason === null &&
     busy === null
   );
   const address = checkout.shipping_address;
@@ -930,7 +965,10 @@ export default function CheckoutScreen() {
               {saved.length > 0 && !newAddressOpen ? (
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setNewAddressOpen(true)}
+                  onPress={() => {
+                    setAddressError(null);
+                    setNewAddressOpen(true);
+                  }}
                   android_ripple={ripple.row}
                   className="min-h-11 flex-row items-center justify-center gap-2 overflow-hidden rounded-sm border border-dashed border-om-navy py-3 active:opacity-70">
                   <Icon as={Plus} size={15} className="text-om-navy" />
@@ -1017,9 +1055,14 @@ export default function CheckoutScreen() {
                   />
                   {capabilities.requires_coordinates ? (
                     <Field
+                      ref={pinPointRef}
                       label="Koordinat lokasi (opsional)"
                       value={pinPoint}
-                      onChangeText={setPinPoint}
+                      onChangeText={(value) => {
+                        setPinPoint(value);
+                        clearFieldError('pin_point');
+                      }}
+                      error={fieldErrors.pin_point}
                       placeholder="-6.200000,106.816666"
                     />
                   ) : null}
@@ -1233,6 +1276,16 @@ export default function CheckoutScreen() {
                 <Text className="text-[12px] text-muted-foreground">
                   Pesanan dikirim dari {allocation.length} gudang. Pilih kurir untuk tiap paket:
                 </Text>
+                {checkout.shipping_rates_hint ? (
+                  <View
+                    accessibilityRole="alert"
+                    className="flex-row items-start gap-2 rounded-sm bg-om-warning-soft px-3 py-2.5">
+                    <Icon as={CircleAlert} size={15} className="mt-0.5 text-om-warning" />
+                    <Text className="flex-1 text-[12px] leading-4 text-om-warning">
+                      {checkout.shipping_rates_hint}
+                    </Text>
+                  </View>
+                ) : null}
                 {allocation.map((shipment, idx) => {
                   const invKey = String(shipment.inventory_id);
                   const pkgRates = checkout.shipping_rates_by_shipment?.[invKey] ?? [];
@@ -1251,6 +1304,7 @@ export default function CheckoutScreen() {
                       ) : (
                         pkgRates.map((rate) => {
                           const code = String(rate.service_code);
+                          const codStatus = rateCodStatus(rate);
                           return (
                             <OptionCard
                               key={`${invKey}:${code}`}
@@ -1264,6 +1318,21 @@ export default function CheckoutScreen() {
                               }
                               icon={<LogoImage uri={rate.carrier_logo} fallback={Truck} />}
                               title={rate.carrier_name ?? rate.carrier_code ?? rate.service_name}
+                              badge={
+                                codStatus === null ? undefined : (
+                                  <StatusPill
+                                    label={codStatus ? 'Bisa COD' : 'Tidak bisa COD'}
+                                    tone={codStatus ? 'success' : 'muted'}
+                                  />
+                                )
+                              }
+                              badgeLabel={
+                                codStatus === null
+                                  ? undefined
+                                  : codStatus
+                                    ? 'Bisa COD'
+                                    : 'Tidak bisa COD'
+                              }
                               subtitle={[rate.service_name, etaLabel(rate.estimated_days)]
                                 .filter(Boolean)
                                 .join(' · ')}
@@ -1281,16 +1350,28 @@ export default function CheckoutScreen() {
                 })}
               </View>
             ) : (checkout.shipping_rates ?? []).length === 0 ? (
-              <Text className="text-[13px] text-muted-foreground">
-                {address
-                  ? searchEnabled
-                    ? 'Ongkir belum tersedia untuk alamat ini. Coba kecamatan lain.'
-                    : 'Ongkir belum tersedia untuk alamat ini. Periksa kembali alamat pengirimanmu.'
-                  : 'Isi alamat dulu untuk melihat pilihan kurir dan ongkir.'}
-              </Text>
+              address && checkout.shipping_rates_hint ? (
+                <View
+                  accessibilityRole="alert"
+                  className="flex-row items-start gap-2 rounded-sm bg-om-warning-soft px-3 py-2.5">
+                  <Icon as={CircleAlert} size={15} className="mt-0.5 text-om-warning" />
+                  <Text className="flex-1 text-[12px] leading-4 text-om-warning">
+                    {checkout.shipping_rates_hint}
+                  </Text>
+                </View>
+              ) : (
+                <Text className="text-[13px] text-muted-foreground">
+                  {resolveEmptyShippingHint({
+                    addressPresent: Boolean(address),
+                    searchEnabled,
+                    shippingRatesHint: checkout.shipping_rates_hint,
+                  })}
+                </Text>
+              )
             ) : (
               checkout.shipping_rates.map((rate) => {
                 const code = String(rate.service_code);
+                const codStatus = rateCodStatus(rate);
                 return (
                   <OptionCard
                     key={code}
@@ -1302,6 +1383,17 @@ export default function CheckoutScreen() {
                     // The title is one line, so the service goes first in the subtitle (two
                     // lines) where it is never cut off.
                     title={rate.carrier_name ?? rate.carrier_code ?? rate.service_name}
+                    badge={
+                      codStatus === null ? undefined : (
+                        <StatusPill
+                          label={codStatus ? 'Bisa COD' : 'Tidak bisa COD'}
+                          tone={codStatus ? 'success' : 'muted'}
+                        />
+                      )
+                    }
+                    badgeLabel={
+                      codStatus === null ? undefined : codStatus ? 'Bisa COD' : 'Tidak bisa COD'
+                    }
                     subtitle={[rate.service_name, etaLabel(rate.estimated_days)]
                       .filter(Boolean)
                       .join(' · ')}
@@ -1325,20 +1417,24 @@ export default function CheckoutScreen() {
             </Text>
           ) : null}
           {(checkout.payment_methods ?? []).map((method: PaymentMethodOption) => {
-            const limit = paymentLimitNote(method, payable, currency);
+            const disabledReason = paymentDisabledReason(method, {
+              amount: payable,
+              currency,
+              ratesSupportCod,
+            });
             const isQris = /qris/i.test(method.title) || method.payment_type === 'qris';
             return (
               <OptionCard
                 key={method.id}
                 selected={selectedPayment === method.id}
-                disabled={limit !== null || busy !== null}
-                // Only a method that is out of range for good is dimmed; a busy list is not.
-                disabledDim={limit !== null}
+                disabled={disabledReason !== null || busy !== null}
+                // Only a method that is out of range or unsupported for good is dimmed; a busy list is not.
+                disabledDim={disabledReason !== null}
                 onPress={() => setSelectedPayment(method.id)}
                 icon={<LogoImage uri={method.logo} fallback={isQris ? QrCode : Landmark} />}
                 title={method.title}
                 subtitle={
-                  limit
+                  disabledReason
                     ? null
                     : method.driver === 'manual'
                       ? // The store confirms these by hand: the method's own note (COD), else none.
@@ -1347,7 +1443,7 @@ export default function CheckoutScreen() {
                         ? 'Scan dari aplikasi bank atau e-wallet mana saja'
                         : 'Verifikasi otomatis setelah transfer'
                 }
-                note={limit}
+                note={disabledReason}
               />
             );
           })}
@@ -1434,7 +1530,7 @@ export default function CheckoutScreen() {
             <Text className="text-[12px] text-muted-foreground">
               {!address
                 ? 'Isi alamat pengiriman'
-                : !selectedRate
+                : (isSplitShipment ? !allSplitRatesSelected || !selectedRate : !selectedRate)
                   ? 'Pilih kurir pengiriman'
                   : 'Pilih metode pembayaran'}{' '}
               untuk melanjutkan.
@@ -1500,26 +1596,4 @@ function SummaryRowSkeleton({ label, strong = false }: { label: string; strong?:
       <Skeleton className="h-4 w-20" />
     </View>
   );
-}
-
-function etaLabel(value?: string | number | null): string | null {
-  if (value === null || value === undefined || value === '') {
-    return 'Estimasi belum tersedia';
-  }
-  const text = String(value);
-  return /hari|day|jam/i.test(text) ? `Estimasi ${text}` : `Estimasi ${text} hari`;
-}
-
-function paymentLimitNote(
-  method: PaymentMethodOption,
-  amount: number,
-  currency = 'IDR'
-): string | null {
-  if (method.min_amount && amount < method.min_amount) {
-    return `Minimal ${formatMoney(method.min_amount, currency)} untuk metode ini.`;
-  }
-  if (method.max_amount && amount > method.max_amount) {
-    return `Maksimal ${formatMoney(method.max_amount, currency)} untuk metode ini.`;
-  }
-  return null;
 }

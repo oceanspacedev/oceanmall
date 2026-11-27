@@ -10,7 +10,9 @@ import { AddressCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { destinationSearchErrorMessage, validateSavedAddressForm } from '@/lib/address-helpers';
 import {
+  LEGACY_CAPABILITIES,
   api,
   apiFieldErrors,
   destinationRegion,
@@ -46,11 +48,7 @@ export default function AddressesScreen() {
   const router = useRouter();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [countries, setCountries] = useState<CountryOption[]>([]);
-  const [capabilities, setCapabilities] = useState<ShippingCapabilities>({
-    destination_search: true,
-    requires_destination: true,
-    requires_coordinates: false,
-  });
+  const [capabilities, setCapabilities] = useState<ShippingCapabilities>(LEGACY_CAPABILITIES);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +73,9 @@ export default function AddressesScreen() {
   const [destinationLabel, setDestinationLabel] = useState<string | null>(null);
   const [destQuery, setDestQuery] = useState('');
   const [destResults, setDestResults] = useState<Destination[]>([]);
+  const [destSearching, setDestSearching] = useState(false);
+  const [destIssue, setDestIssue] = useState<{ error: boolean; text: string } | null>(null);
+  const [regionEditable, setRegionEditable] = useState(false);
 
   const userId = user?.id ?? null;
 
@@ -114,24 +115,48 @@ export default function AddressesScreen() {
   useEffect(() => {
     if (!formOpen || !capabilities.destination_search || destQuery.trim().length < 2) {
       setDestResults([]);
+      setDestIssue(null);
+      setDestSearching(false);
       return;
     }
-    if (destinationId && destQuery === destinationLabel) {
+    if (destinationId && destQuery === (destinationLabel ?? destinationId)) {
+      setDestResults([]);
+      setDestIssue(null);
+      setDestSearching(false);
       return;
     }
     let cancelled = false;
     const handle = setTimeout(() => {
+      setDestSearching(true);
+      setDestIssue(null);
       api<{ data: Destination[] }>(
         `/checkout/destinations?q=${encodeURIComponent(destQuery.trim())}`
       )
         .then((res) => {
-          if (!cancelled) {
-            setDestResults(res.data ?? []);
+          if (cancelled) {
+            return;
           }
+          const rows = res.data ?? [];
+          setDestResults(rows);
+          setDestIssue(
+            rows.length === 0
+              ? { error: false, text: 'Kecamatan tidak ditemukan. Coba nama lain atau kode pos.' }
+              : null
+          );
         })
-        .catch(() => {
+        .catch((e) => {
+          if (cancelled) {
+            return;
+          }
+          setDestResults([]);
+          setDestIssue({
+            error: true,
+            text: destinationSearchErrorMessage(e, errorMessage),
+          });
+        })
+        .finally(() => {
           if (!cancelled) {
-            setDestResults([]);
+            setDestSearching(false);
           }
         });
     }, 350);
@@ -140,6 +165,17 @@ export default function AddressesScreen() {
       clearTimeout(handle);
     };
   }, [formOpen, destQuery, destinationId, destinationLabel, capabilities.destination_search]);
+
+  function clearFieldError(field: string) {
+    setFieldErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
 
   function openCreate() {
     setEditing(null);
@@ -156,6 +192,9 @@ export default function AddressesScreen() {
     setDestinationLabel(null);
     setDestQuery('');
     setDestResults([]);
+    setDestSearching(false);
+    setDestIssue(null);
+    setRegionEditable(false);
     setFormError(null);
     setFieldErrors({});
     setFormOpen(true);
@@ -167,19 +206,21 @@ export default function AddressesScreen() {
     setLastName(address.last_name ?? '');
     setPhone(address.phone_number ?? '');
     setStreet(address.street_address ?? '');
-    setStreetPlus(
-      (address as SavedAddress & { street_address_plus?: string | null }).street_address_plus ?? ''
-    );
+    setStreetPlus(address.street_address_plus ?? '');
     setCity(address.city ?? '');
     setStateName(address.state ?? '');
     setPostalCode(address.postal_code ?? '');
     setPinPoint(address.pin_point ?? '');
     const id = address.destination_id ?? address.rajaongkir_destination_id ?? null;
+    const validId = id && !String(id).startsWith('text:') ? String(id) : null;
     const label = address.destination_label ?? address.rajaongkir_destination_label ?? null;
-    setDestinationId(id && !String(id).startsWith('text:') ? String(id) : null);
+    setDestinationId(validId);
     setDestinationLabel(label);
-    setDestQuery(label ?? '');
+    setDestQuery(label ?? validId ?? '');
     setDestResults([]);
+    setDestSearching(false);
+    setDestIssue(null);
+    setRegionEditable(!address.city || !address.postal_code);
     setFormError(null);
     setFieldErrors({});
     setFormOpen(true);
@@ -190,23 +231,50 @@ export default function AddressesScreen() {
     setDestinationId(row.id);
     setDestinationLabel(row.label);
     setDestQuery(row.label);
-    if (region.city) setCity(region.city);
-    if (region.state) setStateName(region.state);
-    if (region.postal_code) setPostalCode(region.postal_code);
+    if (capabilities.requires_destination) {
+      setCity(region.city ?? '');
+      setStateName(region.state ?? '');
+      setPostalCode(region.postal_code ?? '');
+      setRegionEditable(!region.city || !region.postal_code);
+    } else {
+      if (region.city) setCity(region.city);
+      if (region.state) setStateName(region.state);
+      if (region.postal_code) setPostalCode(region.postal_code);
+    }
     setDestResults([]);
+    setDestIssue(null);
+    clearFieldError('destination_id');
+    clearFieldError('rajaongkir_destination_id');
+    clearFieldError('city');
+    clearFieldError('state');
+    clearFieldError('postal_code');
   }
 
   async function submitAddress() {
     if (saving) return;
-    if (
-      !firstName.trim() ||
-      !lastName.trim() ||
-      !phone.trim() ||
-      !street.trim() ||
-      !city.trim() ||
-      !postalCode.trim()
-    ) {
-      setFormError('Lengkapi nama, nomor HP, alamat, kota, dan kode pos.');
+    const validation = validateSavedAddressForm(
+      {
+        firstName,
+        lastName,
+        phone,
+        street,
+        city,
+        postalCode,
+        destinationId,
+        pinPoint,
+      },
+      capabilities
+    );
+    if (validation.formError || Object.keys(validation.fieldErrors).length > 0) {
+      if (
+        validation.fieldErrors.city ||
+        validation.fieldErrors.postal_code ||
+        validation.fieldErrors.state
+      ) {
+        setRegionEditable(true);
+      }
+      setFieldErrors(validation.fieldErrors);
+      setFormError(validation.formError);
       return;
     }
     const countryId = countries[0]?.id;
@@ -229,10 +297,10 @@ export default function AddressesScreen() {
         postal_code: postalCode.trim(),
         country_id: countryId,
         type: 'shipping',
-        ...(destinationId
+        ...(capabilities.destination_search && destinationId
           ? { destination_id: destinationId, destination_label: destinationLabel }
           : {}),
-        ...(pinPoint.trim() ? { pin_point: pinPoint.trim() } : {}),
+        ...(capabilities.requires_coordinates ? { pin_point: pinPoint.trim() || null } : {}),
       };
       if (editing) {
         await api(`/addresses/${editing.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
@@ -356,7 +424,10 @@ export default function AddressesScreen() {
                 <Field
                   label="Nama depan"
                   value={firstName}
-                  onChangeText={setFirstName}
+                  onChangeText={(val) => {
+                    setFirstName(val);
+                    clearFieldError('first_name');
+                  }}
                   error={fieldErrors.first_name?.[0]}
                 />
               </View>
@@ -364,7 +435,10 @@ export default function AddressesScreen() {
                 <Field
                   label="Nama belakang"
                   value={lastName}
-                  onChangeText={setLastName}
+                  onChangeText={(val) => {
+                    setLastName(val);
+                    clearFieldError('last_name');
+                  }}
                   error={fieldErrors.last_name?.[0]}
                 />
               </View>
@@ -372,7 +446,10 @@ export default function AddressesScreen() {
             <Field
               label="Nomor HP"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(val) => {
+                setPhone(val);
+                clearFieldError('phone_number');
+              }}
               keyboardType="phone-pad"
               placeholder="08xxxxxxxxxx"
               error={fieldErrors.phone_number?.[0]}
@@ -380,7 +457,10 @@ export default function AddressesScreen() {
             <Field
               label="Alamat lengkap"
               value={street}
-              onChangeText={setStreet}
+              onChangeText={(val) => {
+                setStreet(val);
+                clearFieldError('street_address');
+              }}
               error={fieldErrors.street_address?.[0]}
             />
             <Field
@@ -396,12 +476,26 @@ export default function AddressesScreen() {
                   value={destQuery}
                   onChangeText={(val) => {
                     setDestQuery(val);
-                    if (val !== destinationLabel) {
+                    if (val !== (destinationLabel ?? '')) {
                       setDestinationId(null);
+                      setDestinationLabel(null);
                     }
+                    clearFieldError('destination_id');
+                    clearFieldError('rajaongkir_destination_id');
                   }}
                   placeholder="Cari kecamatan..."
-                  error={fieldErrors.destination_id?.[0]}
+                  hint={
+                    destSearching
+                      ? 'Mencari kecamatan…'
+                      : destIssue && !destIssue.error
+                        ? destIssue.text
+                        : undefined
+                  }
+                  error={
+                    fieldErrors.destination_id?.[0] ??
+                    fieldErrors.rajaongkir_destination_id?.[0] ??
+                    (destIssue?.error ? destIssue.text : undefined)
+                  }
                 />
                 {destResults.length > 0 ? (
                   <View className="mt-1 rounded-sm border border-border bg-om-surface">
@@ -422,7 +516,11 @@ export default function AddressesScreen() {
                 <Field
                   label="Kota / Kabupaten"
                   value={city}
-                  onChangeText={setCity}
+                  editable={!capabilities.requires_destination || regionEditable}
+                  onChangeText={(val) => {
+                    setCity(val);
+                    clearFieldError('city');
+                  }}
                   error={fieldErrors.city?.[0]}
                 />
               </View>
@@ -430,19 +528,37 @@ export default function AddressesScreen() {
                 <Field
                   label="Kode pos"
                   value={postalCode}
-                  onChangeText={setPostalCode}
+                  editable={!capabilities.requires_destination || regionEditable}
+                  onChangeText={(val) => {
+                    setPostalCode(val.replace(/\D/g, '').slice(0, 5));
+                    clearFieldError('postal_code');
+                  }}
                   keyboardType="number-pad"
                   error={fieldErrors.postal_code?.[0]}
                 />
               </View>
             </View>
-            <Field label="Provinsi" value={stateName} onChangeText={setStateName} />
+            <Field
+              label="Provinsi"
+              value={stateName}
+              editable={!capabilities.requires_destination || regionEditable}
+              onChangeText={(val) => {
+                setStateName(val);
+                clearFieldError('state');
+              }}
+              error={fieldErrors.state?.[0]}
+            />
             {capabilities.requires_coordinates ? (
               <Field
                 label="Koordinat Pin Point (opsional)"
                 value={pinPoint}
-                onChangeText={setPinPoint}
+                onChangeText={(val) => {
+                  setPinPoint(val);
+                  clearFieldError('pin_point');
+                  clearFieldError('rajaongkir_pin_point');
+                }}
                 placeholder="-6.200000,106.816666"
+                error={fieldErrors.pin_point?.[0] ?? fieldErrors.rajaongkir_pin_point?.[0]}
               />
             ) : null}
             <Button

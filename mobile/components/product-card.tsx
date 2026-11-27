@@ -77,7 +77,11 @@ function ProductCardImpl({ product, compact = false }: { product: Product; compa
               style={{ minHeight: 32 }}>
               {product.name}
             </Text>
-            <SalePrice price={product.price} compare={product.compare_price} currency={product.currency} />
+            <SalePrice
+              price={product.price}
+              compare={product.compare_price}
+              currency={product.currency}
+            />
           </View>
           <View className="min-h-[14px] flex-row items-center gap-1.5">
             {rating || sold ? (

@@ -11,7 +11,14 @@ import { ripple } from '@/lib/ripple';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'expo-router';
-import { ChevronRight, KeyRound, MailWarning, ShieldCheck, Trash2, UserRound } from 'lucide-react-native';
+import {
+  ChevronRight,
+  KeyRound,
+  MailWarning,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Button } from '@/components/ui/button';
@@ -35,7 +42,10 @@ export default function ProfileScreen() {
       const res = await resendVerificationEmail();
       toast.show({ tone: 'success', message: res.message || 'Email verifikasi dikirim ulang.' });
     } catch (e) {
-      toast.show({ tone: 'error', message: errorMessage(e, 'Gagal mengirim ulang email verifikasi') });
+      toast.show({
+        tone: 'error',
+        message: errorMessage(e, 'Gagal mengirim ulang email verifikasi'),
+      });
     } finally {
       setResending(false);
     }

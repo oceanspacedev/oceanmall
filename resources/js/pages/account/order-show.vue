@@ -89,6 +89,7 @@ type Shipment = {
     id: number;
     inventory_name: string | null;
     status: string;
+    is_superseded?: boolean;
     awb: string | null;
     tracking_number: string | null;
     carrier: string | null;
@@ -155,6 +156,53 @@ const pendingPayment = computed<PaymentAction | null>(() =>
         ? props.paymentAction
         : null,
 );
+const paymentNeedsRenewal = computed<boolean>(() => {
+    const action = pendingPayment.value;
+
+    if (!action) {
+        return true;
+    }
+
+    const data = action.data ?? {};
+
+    if (action.kind === 'redirect') {
+        const url = data.url;
+
+        if (typeof url !== 'string' || url.trim() === '') {
+            return true;
+        }
+    } else if (action.kind === 'instructions' || action.kind === 'qr') {
+        const hasPayload =
+            (typeof data.virtual_account_number === 'string' &&
+                data.virtual_account_number.trim() !== '') ||
+            (typeof data.qris_string === 'string' &&
+                data.qris_string.trim() !== '') ||
+            (typeof data.payment_url === 'string' &&
+                data.payment_url.trim() !== '');
+
+        if (!hasPayload) {
+            return true;
+        }
+    } else if (action.kind === 'client_secret') {
+        const secret = data.client_secret;
+
+        if (typeof secret !== 'string' || secret.trim() === '') {
+            return true;
+        }
+    }
+
+    const rawExpiry = data.expiry_date ?? data.expires_at;
+
+    if (typeof rawExpiry === 'string' && rawExpiry.trim() !== '') {
+        const expiresAt = Date.parse(rawExpiry);
+
+        if (!Number.isNaN(expiresAt) && expiresAt < Date.now()) {
+            return true;
+        }
+    }
+
+    return false;
+});
 const offlinePayment = computed<PaymentAction | null>(() =>
     props.order.status !== 'cancelled' &&
     props.order.payment_status !== 'paid' &&
@@ -271,7 +319,11 @@ const confirmingReceived = ref(false);
 const receivedError = ref<string | null>(null);
 
 const canConfirmReceived = computed(() => {
-    const live = props.shipments.filter((shipment) => shipment.status !== 'cancelled');
+    const live = props.shipments.filter(
+        (shipment) =>
+            shipment.status.toLowerCase() !== 'cancelled' &&
+            !shipment.is_superseded,
+    );
 
     return (
         props.order.status !== 'cancelled' &&
@@ -282,8 +334,8 @@ const canConfirmReceived = computed(() => {
         live.some((shipment) => shipment.status.toLowerCase() !== 'delivered') &&
         live.every(
             (shipment) =>
-                shipment.status !== 'returned' &&
-                shipment.status !== 'delivery_failed' &&
+                shipment.status.toLowerCase() !== 'returned' &&
+                shipment.status.toLowerCase() !== 'delivery_failed' &&
                 Boolean(shipment.awb || shipment.tracking_number),
         )
     );
@@ -384,8 +436,10 @@ function cancelOrder(): void {
 function submitPaymentProof(): void {
     if (!proofFile.value) {
         proofError.value = 'Pilih file bukti transfer terlebih dahulu.';
+
         return;
     }
+
     uploadingProof.value = true;
     proofError.value = null;
     router.post(
@@ -419,10 +473,13 @@ function submitReturn(): void {
             qty: Number(returnQuantities.value[item.id] ?? 0),
         }))
         .filter((row) => row.qty > 0);
+
     if (!items.length) {
         returnError.value = 'Pilih minimal satu item untuk diretur.';
+
         return;
     }
+
     returnSubmitting.value = true;
     returnError.value = null;
     router.post(
@@ -513,6 +570,14 @@ function submitReturn(): void {
     </Alert>
 
     <Alert
+        v-if="paymentError && !(pendingPayment || canRetryPayment)"
+        variant="destructive"
+        class="mt-5"
+    >
+        <AlertDescription>{{ paymentError }}</AlertDescription>
+    </Alert>
+
+    <Alert
         v-if="flashSuccess && !(pendingPayment || canRetryPayment)"
         variant="success"
         class="mt-5"
@@ -583,7 +648,7 @@ function submitReturn(): void {
                     }}
                 </Button>
                 <Button
-                    v-if="canRetryPayment"
+                    v-if="canRetryPayment && paymentNeedsRenewal"
                     type="button"
                     variant="outline"
                     size="xl"
@@ -920,6 +985,12 @@ function submitReturn(): void {
                     </div>
                     <p class="text-sm font-medium text-[var(--om-navy)]">
                         {{ formatShipmentStatus(shipment.status) }}
+                        <span
+                            v-if="shipment.is_superseded"
+                            class="ml-1 text-xs font-normal text-muted-foreground"
+                        >
+                            (Dikirim ulang)
+                        </span>
                     </p>
                 </div>
 

@@ -97,10 +97,14 @@ const props = defineProps<{
     paymentOptions: Array<{
         id: number;
         title: string;
+        slug?: string | null;
         driver: string;
+        description?: string | null;
         logo?: string | null;
         channel_code?: string | null;
         payment_type?: string | null;
+        min_amount?: number | null;
+        max_amount?: number | null;
         confirm_in_page?: boolean;
     }>;
     selectedPaymentMethod: number | null;
@@ -285,13 +289,24 @@ async function searchDestinations(query: string): Promise<void> {
             },
         );
 
+        const payload = (await response.json().catch(() => ({}))) as {
+            data?: DestinationResult[];
+            message?: string;
+        };
+
         if (!response.ok) {
-            throw new Error('Destination search failed');
+            destinationResults.value = [];
+            destinationSearchError.value =
+                typeof payload.message === 'string' &&
+                payload.message.trim() !== ''
+                    ? payload.message
+                    : response.status === 429
+                      ? 'Batas kuota pencarian destinasi harian sudah tercapai. Silakan coba lagi nanti.'
+                      : 'Tidak dapat mencari tujuan saat ini.';
+
+            return;
         }
 
-        const payload = (await response.json()) as {
-            data?: DestinationResult[];
-        };
         destinationResults.value = Array.isArray(payload.data)
             ? payload.data
             : [];
@@ -301,6 +316,38 @@ async function searchDestinations(query: string): Promise<void> {
     } finally {
         destinationSearching.value = false;
     }
+}
+
+function rateSupportsCod(option: DeliveryOption | null | undefined): boolean {
+    if (!option) {
+        return true;
+    }
+
+    return (
+        option.is_cod !== false &&
+        option.kiriminaja_cod !== false &&
+        option.available_for_cash_on_delivery !== false
+    );
+}
+
+function rateCodStatus(option: DeliveryOption): boolean | null {
+    if (
+        option.is_cod === false ||
+        option.kiriminaja_cod === false ||
+        option.available_for_cash_on_delivery === false
+    ) {
+        return false;
+    }
+
+    if (
+        option.is_cod === true ||
+        option.kiriminaja_cod === true ||
+        option.available_for_cash_on_delivery === true
+    ) {
+        return true;
+    }
+
+    return null;
 }
 
 function formatCourierTitle(option: DeliveryOption): string {
@@ -506,6 +553,76 @@ const inPageAction = computed<{
 
     return { form, data: action.data as ClientSecretData };
 });
+const total = computed<number>(() => {
+    const sub = props.cartContext?.total ?? 0;
+    const delivery = isMultiPackage.value
+        ? multiShippingTotal.value
+        : (selectedDelivery.value?.amount ?? 0);
+
+    return sub + delivery;
+});
+
+type CheckoutPaymentOption = (typeof props.paymentOptions)[number];
+
+const selectedRatesSupportCod = computed<boolean>(() => {
+    if (isMultiPackage.value) {
+        return (props.allocation ?? []).every((pkg) => {
+            const code =
+                ratesByShipment.value[pkg.inventory_id] ||
+                props.selectedRatesByShipment[pkg.inventory_id];
+
+            if (!code) {
+                return true;
+            }
+
+            const opt = (
+                props.deliveryOptionsByShipment[pkg.inventory_id] ?? []
+            ).find((o) => String(o.service_code) === String(code));
+
+            return rateSupportsCod(opt);
+        });
+    }
+
+    return rateSupportsCod(selectedDelivery.value);
+});
+
+function isCodMethod(method: CheckoutPaymentOption): boolean {
+    const slug = method.slug?.toLowerCase().trim() ?? '';
+    const paymentType = method.payment_type?.toLowerCase().trim() ?? '';
+
+    return slug === 'cod' || paymentType === 'cod';
+}
+
+function paymentLimitNote(
+    method: CheckoutPaymentOption,
+    amount: number,
+    curr: string,
+): string | null {
+    if (method.min_amount && amount < method.min_amount) {
+        return `Minimal ${formatMoney(method.min_amount, curr)} untuk metode ini.`;
+    }
+
+    if (method.max_amount && amount > method.max_amount) {
+        return `Maksimal ${formatMoney(method.max_amount, curr)} untuk metode ini.`;
+    }
+
+    return null;
+}
+
+function paymentDisabledReason(method: CheckoutPaymentOption): string | null {
+    const limitNote = paymentLimitNote(method, total.value, currency.value);
+
+    if (limitNote) {
+        return limitNote;
+    }
+
+    if (isCodMethod(method) && !selectedRatesSupportCod.value) {
+        return 'Kurir yang dipilih tidak mendukung Cash on Delivery (COD).';
+    }
+
+    return null;
+}
+
 // Any driver other than Shopper's manual one takes the payment online.
 const isOnlinePaymentSelected = computed<boolean>(
     () =>
@@ -513,7 +630,10 @@ const isOnlinePaymentSelected = computed<boolean>(
         (currentPaymentMethod.value?.driver ?? 'manual') !== 'manual',
 );
 const canPlaceOrder = computed<boolean>(
-    () => Boolean(currentPaymentMethod.value) && !isInPageSelected.value,
+    () =>
+        Boolean(currentPaymentMethod.value) &&
+        !isInPageSelected.value &&
+        paymentDisabledReason(currentPaymentMethod.value!) === null,
 );
 const preparingInPage = ref<boolean>(false);
 const inPageMounted = ref<boolean>(false);
@@ -537,7 +657,7 @@ watch(
 
         const method = props.paymentOptions.find((m) => m.id === id) ?? null;
 
-        if (!method) {
+        if (!method || paymentDisabledReason(method) !== null) {
             return;
         }
 
@@ -554,15 +674,6 @@ watch(
         }
     },
 );
-
-const total = computed<number>(() => {
-    const sub = props.cartContext?.total ?? 0;
-    const delivery = isMultiPackage.value
-        ? multiShippingTotal.value
-        : (selectedDelivery.value?.amount ?? 0);
-
-    return sub + delivery;
-});
 
 function selectAddress(address: SavedCheckoutAddress): void {
     selectedAddressId.value = address.id;
@@ -1228,12 +1339,40 @@ const steps = [
                                             />
                                         </div>
                                         <div class="flex flex-col">
-                                            <span
-                                                class="text-sm font-medium text-foreground"
-                                                >{{
-                                                    formatCourierTitle(option)
-                                                }}</span
+                                            <div
+                                                class="flex flex-wrap items-center gap-1.5"
                                             >
+                                                <span
+                                                    class="text-sm font-medium text-foreground"
+                                                    >{{
+                                                        formatCourierTitle(
+                                                            option,
+                                                        )
+                                                    }}</span
+                                                >
+                                                <Badge
+                                                    v-if="
+                                                        rateCodStatus(
+                                                            option,
+                                                        ) === true
+                                                    "
+                                                    variant="secondary"
+                                                    class="text-[10px]"
+                                                >
+                                                    Bisa COD
+                                                </Badge>
+                                                <Badge
+                                                    v-else-if="
+                                                        rateCodStatus(
+                                                            option,
+                                                        ) === false
+                                                    "
+                                                    variant="outline"
+                                                    class="text-[10px] text-muted-foreground"
+                                                >
+                                                    Tidak bisa COD
+                                                </Badge>
+                                            </div>
                                             <span
                                                 v-if="option.description"
                                                 class="text-xs font-normal text-muted-foreground"
@@ -1318,6 +1457,9 @@ const steps = [
                                     :key="method.id"
                                     :id="`payment_method_${method.id}`"
                                     :value="String(method.id)"
+                                    :disabled="
+                                        Boolean(paymentDisabledReason(method))
+                                    "
                                     class="items-center px-3 py-3"
                                 >
                                     <div
@@ -1334,6 +1476,12 @@ const steps = [
                                             class="h-5 w-auto object-cover"
                                         />
                                     </div>
+                                    <p
+                                        v-if="paymentDisabledReason(method)"
+                                        class="mt-1 text-xs text-destructive"
+                                    >
+                                        {{ paymentDisabledReason(method) }}
+                                    </p>
                                 </SelectableCard>
                             </RadioGroup>
 

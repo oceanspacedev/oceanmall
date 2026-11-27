@@ -133,6 +133,9 @@ export type DeliveryOption = {
     estimated_days: number | null;
     /** Shopper shipping driver that quoted the rate ('manual' for zone options). */
     driver?: string | null;
+    is_cod?: boolean | null;
+    kiriminaja_cod?: boolean | null;
+    available_for_cash_on_delivery?: boolean | null;
 };
 
 /** What the configured shipping drivers need from the address form. */

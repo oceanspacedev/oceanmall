@@ -120,6 +120,26 @@ return option.service_name;
 
     return `${carrier} - ${option.service_name}`;
 }
+
+function rateCodStatus(option: DeliveryOption): boolean | null {
+    if (
+        option.is_cod === false ||
+        option.kiriminaja_cod === false ||
+        option.available_for_cash_on_delivery === false
+    ) {
+        return false;
+    }
+
+    if (
+        option.is_cod === true ||
+        option.kiriminaja_cod === true ||
+        option.available_for_cash_on_delivery === true
+    ) {
+        return true;
+    }
+
+    return null;
+}
 </script>
 
 <template>
@@ -182,11 +202,27 @@ return option.service_name;
                                     />
                                 </div>
                                 <div class="flex flex-col">
-                                    <span
-                                        class="text-sm font-medium text-foreground"
-                                    >
-                                        {{ formatCourierTitle(option) }}
-                                    </span>
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span
+                                            class="text-sm font-medium text-foreground"
+                                        >
+                                            {{ formatCourierTitle(option) }}
+                                        </span>
+                                        <Badge
+                                            v-if="rateCodStatus(option) === true"
+                                            variant="secondary"
+                                            class="text-[10px]"
+                                        >
+                                            Bisa COD
+                                        </Badge>
+                                        <Badge
+                                            v-else-if="rateCodStatus(option) === false"
+                                            variant="outline"
+                                            class="text-[10px] text-muted-foreground"
+                                        >
+                                            Tidak bisa COD
+                                        </Badge>
+                                    </div>
                                     <span
                                         v-if="option.description"
                                         class="text-xs text-muted-foreground font-normal"

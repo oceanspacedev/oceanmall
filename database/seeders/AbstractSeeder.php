@@ -22,18 +22,34 @@ abstract class AbstractSeeder extends Seeder
         return base_path("database/seeders/data/images/{$folder}/{$filename}");
     }
 
-    protected function syncSeedMedia(object $model, string $folder, string $filename, string $collection): void
+    /**
+     * Replace a media collection with one seed image, so re-running a seeder
+     * never stacks duplicate media.
+     */
+    protected function syncSeedMedia(object $model, string $folder, ?string $filename, string $collection): void
     {
-        $path = $this->imagePath($folder, $filename);
+        $this->syncSeedMediaFiles($model, $folder, $filename ? [$filename] : [], $collection);
+    }
 
-        if (! file_exists($path)) {
-            return;
-        }
-
+    /**
+     * Replace a media collection with the given seed images (missing files are skipped).
+     *
+     * @param  array<int, string>  $filenames
+     */
+    protected function syncSeedMediaFiles(object $model, string $folder, array $filenames, string $collection): void
+    {
         $model->clearMediaCollection($collection);
 
-        $model->addMedia($path)
-            ->preservingOriginal()
-            ->toMediaCollection($collection);
+        foreach ($filenames as $filename) {
+            $path = $this->imagePath($folder, $filename);
+
+            if (! file_exists($path)) {
+                continue;
+            }
+
+            $model->addMedia($path)
+                ->preservingOriginal()
+                ->toMediaCollection($collection);
+        }
     }
 }

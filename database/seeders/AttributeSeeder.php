@@ -18,24 +18,24 @@ class AttributeSeeder extends AbstractSeeder
 
         DB::transaction(function () use ($attributes): void {
             foreach ($attributes as $attribute) {
-                $attributeModel = Attribute::query()->create([
-                    'name' => $attribute->name,
-                    'slug' => $attribute->slug,
-                    'description' => $attribute->description,
-                    'type' => $attribute->type,
-                    'icon' => $attribute->icon,
-                    'is_enabled' => $attribute->is_enabled,
-                    'is_searchable' => $attribute->is_searchable,
-                    'is_filterable' => $attribute->is_filterable,
-                ]);
+                $attributeModel = Attribute::query()->updateOrCreate(
+                    ['slug' => $attribute->slug],
+                    [
+                        'name' => $attribute->name,
+                        'description' => $attribute->description,
+                        'type' => $attribute->type,
+                        'icon' => $attribute->icon,
+                        'is_enabled' => $attribute->is_enabled,
+                        'is_searchable' => $attribute->is_searchable,
+                        'is_filterable' => $attribute->is_filterable,
+                    ],
+                );
 
                 foreach ($attribute->values as $value) {
-                    AttributeValue::query()->create([
-                        'attribute_id' => $attributeModel->id,
-                        'key' => $value->key,
-                        'value' => $value->value,
-                        'position' => $value->position,
-                    ]);
+                    AttributeValue::query()->updateOrCreate(
+                        ['attribute_id' => $attributeModel->id, 'key' => $value->key],
+                        ['value' => $value->value, 'position' => $value->position],
+                    );
                 }
             }
         });

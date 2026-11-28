@@ -86,7 +86,7 @@ Perf cases (`TC-PERF-*`) flag responses slower than `DEPLOY_QA_SLOW_MS` as **S3*
 | **TC-CAT-006** | Categories index | S3 | | ✓ | | |
 | **TC-CAT-007** | Category show (from seeded slug) | S3 | | ✓ | | |
 | **TC-CAT-008** | Collection show (from home featured) | S3 | | ✓ | | |
-| **TC-CAT-009** | Search hit (`q=realme`) | S3 | ✓ | ✓ | | |
+| **TC-CAT-009** | Search hit (`q=minimo`) | S3 | ✓ | ✓ | | |
 | **TC-CAT-010** | Search empty / no-match | S3 | | ✓ | | |
 | **TC-CAT-011** | PDP loads with product props | S2 | ✓ | ✓ | | |
 | **TC-CAT-012** | PDP structured variants resolvable | S3 | | ✓ | | |

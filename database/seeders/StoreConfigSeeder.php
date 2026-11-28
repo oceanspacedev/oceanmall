@@ -12,20 +12,84 @@ use Shopper\Core\Models\Currency;
 use Shopper\Core\Models\Inventory;
 use Shopper\Core\Models\Setting;
 use Shopper\Shipping\Facades\Shipping;
+use Spatie\Permission\Models\Role;
 
 class StoreConfigSeeder extends Seeder
 {
     public function run(): void
     {
         if (app()->isProduction()) {
-            // Never ship accounts with a known password. Create the first admin
-            // interactively instead: `php artisan shopper:user`.
-            $this->command->warn(PHP_EOL.'Skipping demo admin/customer accounts in production — run `php artisan shopper:user`.');
-        } else {
-            $this->seedDemoAccounts();
+            // Production: one administrator from the environment (never a known
+            // password), the IDR currency and the default warehouse that the
+            // catalog prices and stock need. Store details, payment methods,
+            // couriers, zones and taxes are configured by hand in /cpanel.
+            $this->seedProductionAdmin();
+            $this->seedCurrency();
+            $this->seedDefaultInventory();
+
+            return;
         }
 
+        $this->seedDemoAccounts();
         $this->seedStoreSettings();
+    }
+
+    private function seedProductionAdmin(): void
+    {
+        /** @var string $role */
+        $role = config('shopper.admin.roles.admin');
+
+        if (Role::query()->where('name', $role)->doesntExist()) {
+            $this->command->warn(PHP_EOL.'No admin created: roles are missing — run `php artisan db:seed` (it seeds roles first).');
+
+            return;
+        }
+
+        if (User::role($role)->exists()) {
+            $this->command->info(PHP_EOL.'An administrator already exists — no admin account created.');
+
+            return;
+        }
+
+        $email = (string) config('app.admin.email');
+        $password = (string) config('app.admin.password');
+
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($password) < 12) {
+            $this->command->warn(PHP_EOL.'No admin created: set ADMIN_EMAIL and ADMIN_PASSWORD (12+ characters), or run `php artisan shopper:user`.');
+
+            return;
+        }
+
+        /** @var User $admin */
+        $admin = User::query()->firstOrCreate(
+            ['email' => $email],
+            [
+                'first_name' => (string) config('app.admin.first_name', 'Admin'),
+                'last_name' => (string) config('app.admin.last_name', 'OceanMall'),
+                'password' => Hash::make($password),
+                'email_verified_at' => now(),
+            ],
+        );
+        $admin->assignRole($role);
+
+        $this->command->info(PHP_EOL."Administrator {$email} created. Remove ADMIN_PASSWORD from the environment.");
+    }
+
+    private function seedCurrency(): void
+    {
+        $idrId = Currency::query()->where('code', 'IDR')->value('id');
+
+        if ($idrId === null) {
+            return;
+        }
+
+        foreach (['default_currency_id' => $idrId, 'currencies' => [$idrId]] as $key => $value) {
+            Setting::query()->updateOrCreate(['key' => $key], [
+                'value' => $value,
+                'locked' => true,
+                'display_name' => Setting::lockedAttributesDisplayName($key),
+            ]);
+        }
     }
 
     private function seedDemoAccounts(): void
@@ -103,6 +167,23 @@ class StoreConfigSeeder extends Seeder
             ]);
         }
 
+        $this->seedDefaultInventory();
+
+        $this->command->info('Store settings configured.');
+    }
+
+    /**
+     * The default warehouse that holds the catalog stock. In production an
+     * existing warehouse (edited in /cpanel) is never overwritten.
+     */
+    private function seedDefaultInventory(): void
+    {
+        if (app()->isProduction() && Inventory::query()->where('is_default', true)->exists()) {
+            return;
+        }
+
+        $indonesiaId = Country::query()->where('cca2', 'ID')->value('id');
+
         Inventory::query()->updateOrCreate(
             ['code' => 'oceanmall-cirebon'],
             [
@@ -125,7 +206,5 @@ class StoreConfigSeeder extends Seeder
                 ),
             ],
         );
-
-        $this->command->info('Store settings configured.');
     }
 }

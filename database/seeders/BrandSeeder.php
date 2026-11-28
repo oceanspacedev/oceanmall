@@ -30,9 +30,7 @@ class BrandSeeder extends AbstractSeeder
                     ],
                 );
 
-                if ($brand->image) {
-                    $this->syncSeedMedia($brandModel, 'brands', $brand->image, $thumbnailCollection);
-                }
+                $this->syncSeedMedia($brandModel, 'brands', $brand->image ?? null, $thumbnailCollection);
             }
         });
 

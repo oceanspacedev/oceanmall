@@ -1,98 +1,102 @@
 [
   {
-    "name": "Handphone",
-    "slug": "handphone",
-    "description": "Smartphone Android, feature phone, dan perangkat seluler dari brand resmi distribusi OCEANMALL.",
+    "name": "Aksesoris HP",
+    "slug": "aksesoris",
+    "description": "Charger, kabel data, power bank, case, dan pelindung layar dari Minimo, Rapa, dan Oraimo.",
     "is_enabled": true,
     "position": 1,
-    "image": "handphone.jpg",
+    "image": "aksesoris.jpg",
     "children": [
       {
-        "name": "Smartphone Android",
-        "slug": "smartphone-android",
-        "description": "Ponsel pintar Android 4G/5G dari Realme, Tecno, Itel, dan ZTE.",
+        "name": "Kabel Data",
+        "slug": "aksesoris-kabel-data",
+        "description": "Kabel data fast charging 4 in 1, spiral anti kusut, dan lanyard.",
         "is_enabled": true,
         "position": 1,
-        "image": "smartphones.jpg"
+        "image": "kabel-data.jpg"
       },
       {
-        "name": "Feature Phone",
-        "slug": "feature-phone",
-        "description": "Ponsel sederhana dengan baterai tahan lama untuk kebutuhan dasar.",
+        "name": "Charger",
+        "slug": "aksesoris-charger",
+        "description": "Adaptor charger GaN, charger mobil, dan paket charger + kabel.",
         "is_enabled": true,
         "position": 2,
-        "image": "feature-phone.jpg"
-      }
-    ]
-  },
-  {
-    "name": "Aksesoris",
-    "slug": "aksesoris",
-    "description": "Case, pelindung layar, charger, kabel, dan aksesoris handphone resmi.",
-    "is_enabled": true,
-    "position": 2,
-    "image": "accessories.jpg",
-    "children": [
-      {
-        "name": "Case & Pelindung",
-        "slug": "case-pelindung",
-        "description": "Soft case, hard case, dan tempered glass untuk berbagai model handphone.",
-        "is_enabled": true,
-        "position": 1,
-        "image": "case-pelindung.jpg"
-      },
-      {
-        "name": "Charger & Kabel",
-        "slug": "charger-kabel",
-        "description": "Adaptor charger, kabel USB-C, dan fast charging resmi.",
-        "is_enabled": true,
-        "position": 2,
-        "image": "charger-kabel.jpg"
+        "image": "charger.jpg"
       },
       {
         "name": "Power Bank",
-        "slug": "power-bank",
-        "description": "Power bank kapasitas tinggi dengan fast charging untuk perjalanan.",
+        "slug": "aksesoris-power-bank",
+        "description": "Power bank 10.000 mAh, fast charging, wireless dan magnetik.",
         "is_enabled": true,
         "position": 3,
         "image": "power-bank.jpg"
+      },
+      {
+        "name": "Case & Pelindung",
+        "slug": "aksesoris-case-pelindung",
+        "description": "Case iPhone MagSafe dan tempered glass.",
+        "is_enabled": true,
+        "position": 4,
+        "image": "case-pelindung.jpg"
       }
     ]
   },
   {
     "name": "Audio",
     "slug": "audio",
-    "description": "Earphone, TWS, dan headset untuk musik dan hands-free.",
+    "description": "Earbuds TWS, earphone, headphone, dan speaker Bluetooth.",
     "is_enabled": true,
-    "position": 3,
-    "image": "audio.jpg",
+    "position": 2,
+    "image": "audio.png",
     "children": [
       {
-        "name": "TWS & Earphone",
-        "slug": "tws-earphone",
-        "description": "True wireless stereo dan earphone berkualitas dari brand resmi.",
+        "name": "TWS Earphone",
+        "slug": "audio-tws-earphone",
+        "description": "Earbuds true wireless dengan ANC/ENC dan baterai tahan lama.",
         "is_enabled": true,
         "position": 1,
-        "image": "tws-earphone.jpg"
+        "image": "tws-earphone.png"
+      },
+      {
+        "name": "Earphone",
+        "slug": "audio-earphone",
+        "description": "Earphone berkabel dan earphone open ear.",
+        "is_enabled": true,
+        "position": 2,
+        "image": "earphone.jpg"
+      },
+      {
+        "name": "Headphone",
+        "slug": "audio-headphone",
+        "description": "Headphone over-ear wireless untuk musik dan panggilan.",
+        "is_enabled": true,
+        "position": 3,
+        "image": "headphone.png"
+      },
+      {
+        "name": "Speaker Bluetooth",
+        "slug": "audio-speaker-bluetooth",
+        "description": "Speaker portabel tahan air dengan lampu RGB.",
+        "is_enabled": true,
+        "position": 4,
+        "image": "speaker.jpg"
       }
     ]
   },
   {
-    "name": "Tablet",
-    "slug": "tablet",
-    "description": "Tablet Android untuk produktivitas, hiburan, dan pembelajaran.",
-    "is_enabled": true,
-    "position": 4,
-    "image": "laptops-computers.jpg",
-    "children": []
-  },
-  {
     "name": "Smartwatch",
     "slug": "smartwatch",
-    "description": "Jam tangan pintar dengan fitur kesehatan dan notifikasi smartphone.",
+    "description": "Jam pintar dengan layar sentuh, pemantau kesehatan, dan mode olahraga.",
     "is_enabled": true,
-    "position": 5,
-    "image": "smartwatch.jpg",
-    "children": []
+    "position": 3,
+    "image": "smartwatch.png"
+  },
+  {
+    "name": "Perawatan Diri",
+    "slug": "perawatan-diri",
+    "description": "Trimmer, clipper, dan shaver elektrik Oraimo.",
+    "is_enabled": true,
+    "position": 4,
+    "image": "perawatan-diri.jpg"
   }
 ]

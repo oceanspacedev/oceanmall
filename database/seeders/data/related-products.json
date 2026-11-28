@@ -1,58 +1,1013 @@
 [
   {
-    "product_slug": "realme-13-pro-5g",
-    "related_slugs": ["realme-c67", "realme-buds-t310", "soft-case-realme-13-pro", "realme-33w-charger"]
+    "product_slug": "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+    "related_slugs": [
+      "oraimo-candyline-3-kabel-data-60w-ocd-153cl",
+      "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53",
+      "oraimo-silkline-kabel-data-2-4a-ocd-115",
+      "oraimo-kabel-data-3-in-1-60w-ocd-118cml"
+    ]
   },
   {
-    "product_slug": "realme-c67",
-    "related_slugs": ["realme-13-pro-5g", "tempered-glass-realme-c67", "realme-33w-charger", "oraimo-powerbank-10000mah"]
+    "product_slug": "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+    "related_slugs": [
+      "oraimo-candyline-3-kabel-data-60w-ocd-153cl",
+      "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53",
+      "oraimo-silkline-kabel-data-2-4a-ocd-115",
+      "oraimo-kabel-data-3-in-1-60w-ocd-118cml"
+    ]
   },
   {
-    "product_slug": "realme-buds-t310",
-    "related_slugs": ["realme-13-pro-5g", "realme-c67", "oraimo-powerbank-10000mah"]
+    "product_slug": "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+    "related_slugs": [
+      "oraimo-candyline-3-kabel-data-60w-ocd-153cl",
+      "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53",
+      "oraimo-silkline-kabel-data-2-4a-ocd-115",
+      "oraimo-kabel-data-3-in-1-60w-ocd-118cml"
+    ]
   },
   {
-    "product_slug": "tecno-camon-30-premier",
-    "related_slugs": ["tecno-spark-20-pro", "oraimo-powerbank-10000mah", "baseus-usbc-cable-100w"]
+    "product_slug": "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04",
+    "related_slugs": [
+      "oraimo-candyline-3-kabel-data-60w-ocd-153cl",
+      "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53",
+      "oraimo-silkline-kabel-data-2-4a-ocd-115",
+      "oraimo-kabel-data-3-in-1-60w-ocd-118cml"
+    ]
   },
   {
-    "product_slug": "tecno-spark-20-pro",
-    "related_slugs": ["tecno-camon-30-premier", "itel-s24", "oraimo-powerbank-10000mah"]
+    "product_slug": "oraimo-candyline-3-kabel-data-60w-ocd-153cl",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
   },
   {
-    "product_slug": "itel-s24",
-    "related_slugs": ["itel-a70", "tecno-spark-20-pro", "oraimo-powerbank-10000mah"]
+    "product_slug": "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
   },
   {
-    "product_slug": "itel-a70",
-    "related_slugs": ["itel-s24", "itel-it2173", "baseus-usbc-cable-100w"]
+    "product_slug": "oraimo-poweromni-251-travel-adapter-ocw-t01",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
   },
   {
-    "product_slug": "zte-blade-v50-design",
-    "related_slugs": ["realme-c67", "oraimo-powerbank-10000mah", "baseus-usbc-cable-100w"]
+    "product_slug": "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
   },
   {
-    "product_slug": "realme-33w-charger",
-    "related_slugs": ["realme-c67", "baseus-usbc-cable-100w", "tempered-glass-realme-c67"]
+    "product_slug": "oraimo-powercube-202-anifast-charger-20w-ocw-5202",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
   },
   {
-    "product_slug": "tempered-glass-realme-c67",
-    "related_slugs": ["realme-c67", "soft-case-realme-13-pro", "realme-33w-charger"]
+    "product_slug": "oraimo-cannon-charger-18w-pd-2-0-ocw-e5184",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
   },
   {
-    "product_slug": "soft-case-realme-13-pro",
-    "related_slugs": ["realme-13-pro-5g", "realme-33w-charger", "realme-buds-t310"]
+    "product_slug": "oraimo-powercube-20-chic-charger-20w-ocw-5201e",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
   },
   {
-    "product_slug": "oraimo-powerbank-10000mah",
-    "related_slugs": ["baseus-usbc-cable-100w", "realme-33w-charger", "realme-buds-t310"]
+    "product_slug": "oraimo-conch-2-wired-earphones-oep-320c",
+    "related_slugs": [
+      "rapatech-sound-i-wired-earphone",
+      "oraimo-conch-2-neo-wired-earphones-oep-320s",
+      "oraimo-opencirclet-2-open-ear-earphone-opn-672",
+      "oraimo-grip-open-ear-earphone-opn-3004"
+    ]
   },
   {
-    "product_slug": "itel-it2173",
-    "related_slugs": ["itel-a70", "itel-s24"]
+    "product_slug": "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
   },
   {
-    "product_slug": "baseus-usbc-cable-100w",
-    "related_slugs": ["realme-33w-charger", "oraimo-powerbank-10000mah", "realme-13-pro-5g"]
+    "product_slug": "oraimo-silkline-kabel-data-2-4a-ocd-115",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "oraimo-conch-2-neo-wired-earphones-oep-320s",
+    "related_slugs": [
+      "rapatech-sound-i-wired-earphone",
+      "oraimo-conch-2-wired-earphones-oep-320c",
+      "oraimo-opencirclet-2-open-ear-earphone-opn-672",
+      "oraimo-grip-open-ear-earphone-opn-3004"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-trimmer-10w-opc-cl33n",
+    "related_slugs": [
+      "oraimo-smart-trimmer-5w-opc-cl30",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n",
+      "oraimo-smart-trimmer-otr-221",
+      "oraimo-smart-clipper-super-powerful-ocl-550"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-trimmer-5w-opc-cl30",
+    "related_slugs": [
+      "oraimo-smart-trimmer-10w-opc-cl33n",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n",
+      "oraimo-smart-trimmer-otr-221",
+      "oraimo-smart-clipper-super-powerful-ocl-550"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-trimmer-ipx7-opc-gt10n",
+    "related_slugs": [
+      "oraimo-smart-trimmer-10w-opc-cl33n",
+      "oraimo-smart-trimmer-5w-opc-cl30",
+      "oraimo-smart-trimmer-otr-221",
+      "oraimo-smart-clipper-super-powerful-ocl-550"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-trimmer-otr-221",
+    "related_slugs": [
+      "oraimo-smart-trimmer-10w-opc-cl33n",
+      "oraimo-smart-trimmer-5w-opc-cl30",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n",
+      "oraimo-smart-clipper-super-powerful-ocl-550"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-clipper-super-powerful-ocl-550",
+    "related_slugs": [
+      "oraimo-smart-trimmer-10w-opc-cl33n",
+      "oraimo-smart-trimmer-5w-opc-cl30",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n",
+      "oraimo-smart-trimmer-otr-221"
+    ]
+  },
+  {
+    "product_slug": "oraimo-flick-tws-bluetooth-5-3-otw-3002",
+    "related_slugs": [
+      "rapatech-air-pro-iii-tws-anc-enc",
+      "oraimo-spacebuds-anc-hybrid-tws-otw-630",
+      "oraimo-spacebuds-pro-anc-50db-tws-otw-930",
+      "oraimo-spacebuds-n-anc-tws-otw-626n"
+    ]
+  },
+  {
+    "product_slug": "oraimo-kabel-data-3-in-1-60w-ocd-118cml",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "oraimo-candy-kabel-data-2-1a-ocd-22",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "oraimo-candyline-2-kabel-data-ocd-121",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "oraimo-x-mobile-legends-kabel-data-3a-ocd-117",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "oraimo-robustline-kabel-data-2a-ocd-114",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "oraimo-magcable-kabel-data-magnetik-60w-ocd-710",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "oraimo-opencirclet-2-open-ear-earphone-opn-672",
+    "related_slugs": [
+      "rapatech-sound-i-wired-earphone",
+      "oraimo-conch-2-wired-earphones-oep-320c",
+      "oraimo-conch-2-neo-wired-earphones-oep-320s",
+      "oraimo-grip-open-ear-earphone-opn-3004"
+    ]
+  },
+  {
+    "product_slug": "oraimo-grip-open-ear-earphone-opn-3004",
+    "related_slugs": [
+      "rapatech-sound-i-wired-earphone",
+      "oraimo-conch-2-wired-earphones-oep-320c",
+      "oraimo-conch-2-neo-wired-earphones-oep-320s",
+      "oraimo-opencirclet-2-open-ear-earphone-opn-672"
+    ]
+  },
+  {
+    "product_slug": "oraimo-opensnap-open-ear-earphone-opn-373",
+    "related_slugs": [
+      "rapatech-sound-i-wired-earphone",
+      "oraimo-conch-2-wired-earphones-oep-320c",
+      "oraimo-conch-2-neo-wired-earphones-oep-320s",
+      "oraimo-opencirclet-2-open-ear-earphone-opn-672"
+    ]
+  },
+  {
+    "product_slug": "oraimo-powergan-451-charger-45w-ocw-5451",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
+  },
+  {
+    "product_slug": "oraimo-powergan-251-charger-25w-ocw-5251i",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
+  },
+  {
+    "product_slug": "oraimo-hypergan-65w-triple-output-charger-ocw-7652e",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
+  },
+  {
+    "product_slug": "oraimo-powergan-33w-pro-dual-output-charger-ocw-7331e",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
+  },
+  {
+    "product_slug": "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+    "related_slugs": [
+      "rapatech-origin-loop-power-bank-10-000-mah-pd-40w",
+      "rapatech-origin-max-power-bank-15-000-mah-100w-qi2",
+      "rapatech-origin-link-power-bank-10-000-20-000-mah",
+      "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah"
+    ]
+  },
+  {
+    "product_slug": "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+    "related_slugs": [
+      "rapatech-origin-loop-power-bank-10-000-mah-pd-40w",
+      "rapatech-origin-max-power-bank-15-000-mah-100w-qi2",
+      "rapatech-origin-link-power-bank-10-000-20-000-mah",
+      "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah"
+    ]
+  },
+  {
+    "product_slug": "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+    "related_slugs": [
+      "rapatech-origin-loop-power-bank-10-000-mah-pd-40w",
+      "rapatech-origin-max-power-bank-15-000-mah-100w-qi2",
+      "rapatech-origin-link-power-bank-10-000-20-000-mah",
+      "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah"
+    ]
+  },
+  {
+    "product_slug": "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103",
+    "related_slugs": [
+      "rapatech-origin-loop-power-bank-10-000-mah-pd-40w",
+      "rapatech-origin-max-power-bank-15-000-mah-100w-qi2",
+      "rapatech-origin-link-power-bank-10-000-20-000-mah",
+      "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-clipper-2c-opc-cl30c",
+    "related_slugs": [
+      "oraimo-smart-trimmer-10w-opc-cl33n",
+      "oraimo-smart-trimmer-5w-opc-cl30",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n",
+      "oraimo-smart-trimmer-otr-221"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-clipper-plus-ocl-210",
+    "related_slugs": [
+      "oraimo-smart-trimmer-10w-opc-cl33n",
+      "oraimo-smart-trimmer-5w-opc-cl30",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n",
+      "oraimo-smart-trimmer-otr-221"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-shaver-2-ipx7-opc-rs21n",
+    "related_slugs": [
+      "oraimo-smart-trimmer-10w-opc-cl33n",
+      "oraimo-smart-trimmer-5w-opc-cl30",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n",
+      "oraimo-smart-trimmer-otr-221"
+    ]
+  },
+  {
+    "product_slug": "oraimo-smart-trimmer-2-pro-otr-280",
+    "related_slugs": [
+      "oraimo-smart-trimmer-10w-opc-cl33n",
+      "oraimo-smart-trimmer-5w-opc-cl30",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n",
+      "oraimo-smart-trimmer-otr-221"
+    ]
+  },
+  {
+    "product_slug": "oraimo-watch-2r-osw-30",
+    "related_slugs": [
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807",
+      "oraimo-watch-6n-osw-8000n"
+    ]
+  },
+  {
+    "product_slug": "oraimo-x-tahilalats-watch-5-max-osw-804",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807",
+      "oraimo-watch-6n-osw-8000n"
+    ]
+  },
+  {
+    "product_slug": "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-watch-6-nano-osw-807",
+      "oraimo-watch-6n-osw-8000n"
+    ]
+  },
+  {
+    "product_slug": "oraimo-watch-6-nano-osw-807",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6n-osw-8000n"
+    ]
+  },
+  {
+    "product_slug": "oraimo-watch-6n-osw-8000n",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807"
+    ]
+  },
+  {
+    "product_slug": "oraimo-watch-6r-osw-823",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807"
+    ]
+  },
+  {
+    "product_slug": "oraimo-spacebuds-anc-hybrid-tws-otw-630",
+    "related_slugs": [
+      "rapatech-air-pro-iii-tws-anc-enc",
+      "oraimo-flick-tws-bluetooth-5-3-otw-3002",
+      "oraimo-spacebuds-pro-anc-50db-tws-otw-930",
+      "oraimo-spacebuds-n-anc-tws-otw-626n"
+    ]
+  },
+  {
+    "product_slug": "oraimo-spacebuds-pro-anc-50db-tws-otw-930",
+    "related_slugs": [
+      "rapatech-air-pro-iii-tws-anc-enc",
+      "oraimo-flick-tws-bluetooth-5-3-otw-3002",
+      "oraimo-spacebuds-anc-hybrid-tws-otw-630",
+      "oraimo-spacebuds-n-anc-tws-otw-626n"
+    ]
+  },
+  {
+    "product_slug": "oraimo-spacebuds-n-anc-tws-otw-626n",
+    "related_slugs": [
+      "rapatech-air-pro-iii-tws-anc-enc",
+      "oraimo-flick-tws-bluetooth-5-3-otw-3002",
+      "oraimo-spacebuds-anc-hybrid-tws-otw-630",
+      "oraimo-spacebuds-pro-anc-50db-tws-otw-930"
+    ]
+  },
+  {
+    "product_slug": "oraimo-spacebuds-z-anc-tws-otw-625",
+    "related_slugs": [
+      "rapatech-air-pro-iii-tws-anc-enc",
+      "oraimo-flick-tws-bluetooth-5-3-otw-3002",
+      "oraimo-spacebuds-anc-hybrid-tws-otw-630",
+      "oraimo-spacebuds-pro-anc-50db-tws-otw-930"
+    ]
+  },
+  {
+    "product_slug": "oraimo-kabel-data-type-c-100w-digital-display-ocd-175cc",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "oraimo-powertrans-usb-hub-7-in-1-ouh-511",
+    "related_slugs": [
+      "rapatech-adaptor-headset-lightning-to-3-5mm-mfi-da1012",
+      "rapatech-ring-magnetik-magsafe-hitam"
+    ]
+  },
+  {
+    "product_slug": "oraimo-anishield-dual-port-charger-10-5w-ocw-e68d",
+    "related_slugs": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c"
+    ]
+  },
+  {
+    "product_slug": "oraimo-watch-5-osw-805",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807"
+    ]
+  },
+  {
+    "product_slug": "oraimo-x-tahilalat-watch-5-lite-osw-804",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807"
+    ]
+  },
+  {
+    "product_slug": "oraimo-watch-5n-osw-806n",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807"
+    ]
+  },
+  {
+    "product_slug": "oraimo-watch-amoled-1-43",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807"
+    ]
+  },
+  {
+    "product_slug": "oraimo-watch-nova-v-osw-802n",
+    "related_slugs": [
+      "oraimo-watch-2r-osw-30",
+      "oraimo-x-tahilalats-watch-5-max-osw-804",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+      "oraimo-watch-6-nano-osw-807"
+    ]
+  },
+  {
+    "product_slug": "oraimo-wired-earphone-3-5mm-oep-e21p",
+    "related_slugs": [
+      "rapatech-sound-i-wired-earphone",
+      "oraimo-conch-2-wired-earphones-oep-320c",
+      "oraimo-conch-2-neo-wired-earphones-oep-320s",
+      "oraimo-opencirclet-2-open-ear-earphone-opn-672"
+    ]
+  },
+  {
+    "product_slug": "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-air-pro-iii-tws-anc-enc",
+    "related_slugs": [
+      "oraimo-flick-tws-bluetooth-5-3-otw-3002",
+      "oraimo-spacebuds-anc-hybrid-tws-otw-630",
+      "oraimo-spacebuds-pro-anc-50db-tws-otw-930",
+      "oraimo-spacebuds-n-anc-tws-otw-626n"
+    ]
+  },
+  {
+    "product_slug": "rapatech-line-flash-kabel-usb-c-to-usb-c-60w",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "rapatech-line-max-i-kabel-usb-a-to-usb-c-dc2021",
+    "related_slugs": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04"
+    ]
+  },
+  {
+    "product_slug": "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+    "related_slugs": [
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series",
+      "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series",
+      "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-case-ice-clear-matte-iphone-17-18-series",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series",
+      "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-case-ice-iphone-duo-18-pro-17-series",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-charger-gan-18w-samsung-android-kabel-usb-c",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-charger-gan-lightning-mfi-20w-30w-iphone-x-14",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-power-loop-avs-gan-3-0-charger-45w-kabel-retractable",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-charger-samsung-super-fast-charging-25w-30w-45w",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-paket-iphone-18-charger-zen-pro-gan60w-case-ice-tempered-glass",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-power-ion-pro-gan-60w-avs-charger",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-drive-crystal-i-car-holder-wireless-charger-2-in-1",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-hybrid-magsafe-clear-case-leather-case-iphone-13-16",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-hybrid-magsafe-clear-case-tempered-glass-iphone-12-17",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-hybrid-magsafe-clear-case-matte-hybrid-air-iphone-15-16",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-charger-gan-25w-45w-kabel-line-i-nylon-braided",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-adaptor-headset-lightning-to-3-5mm-mfi-da1012",
+    "related_slugs": [
+      "oraimo-powertrans-usb-hub-7-in-1-ouh-511",
+      "rapatech-ring-magnetik-magsafe-hitam"
+    ]
+  },
+  {
+    "product_slug": "rapatech-drive-i-car-charger-dual-port-45w-mb1030",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-origin-loop-power-bank-10-000-mah-pd-40w",
+    "related_slugs": [
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103"
+    ]
+  },
+  {
+    "product_slug": "rapatech-origin-max-power-bank-15-000-mah-100w-qi2",
+    "related_slugs": [
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103"
+    ]
+  },
+  {
+    "product_slug": "rapatech-set-iphone-17-case-ice-ar-tempered-glass",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-power-airstation-qi2-2-3-in-1-wireless-charger-25w",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-charger-power-gan-mfi-pd-20w-35w-iphone",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-charger-mfi-type-c-to-lightning-pd-20w-30w-iphone-11-14",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-power-ii-charger-mfi-20w-30w-45w-iphone-13-17",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-power-ii-charger-30w-kabel-c-to-c-65w",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-charger-mfi-gan-20w-45w-kabel-lightning-iphone-11-17",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-paket-aksesoris-iphone-power-ii-charger-case-tempered-glass",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-power-ii-charger-pd-25w-30w-kabel-c-to-c",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-power-zen-pro-gan-60w-avs-charger",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-loop-gan-charger-avs-35w-45w-67w",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-charger-gan-30w-45w-cooling-kabel-nylon-braided",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-power-ion-gan-45w-avs-charger",
+    "related_slugs": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202"
+    ]
+  },
+  {
+    "product_slug": "rapatech-origin-link-power-bank-10-000-20-000-mah",
+    "related_slugs": [
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103"
+    ]
+  },
+  {
+    "product_slug": "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah",
+    "related_slugs": [
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103"
+    ]
+  },
+  {
+    "product_slug": "rapatech-origin-on-wireless-power-bank-10-000-mah-led-display",
+    "related_slugs": [
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103"
+    ]
+  },
+  {
+    "product_slug": "rapatech-origin-on-qi2-wireless-power-bank-5-000-10-000-mah",
+    "related_slugs": [
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103"
+    ]
+  },
+  {
+    "product_slug": "rapatech-ar-tempered-glass-iphone-12-18-series",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-premium-tempered-glass-dual-pack-iphone-15-17",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-ar-tempered-glass-tanpa-list-hitam-iphone-17-18",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-premium-tempered-glass-refill-iphone-15-16",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-sound-i-wired-earphone",
+    "related_slugs": [
+      "oraimo-conch-2-wired-earphones-oep-320c",
+      "oraimo-conch-2-neo-wired-earphones-oep-320s",
+      "oraimo-opencirclet-2-open-ear-earphone-opn-672",
+      "oraimo-grip-open-ear-earphone-opn-3004"
+    ]
+  },
+  {
+    "product_slug": "rapatech-tempered-glass-easy-fit-iphone-13-13-pro",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-tempered-glass-instant-fit-iphone-16-pro-17",
+    "related_slugs": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series"
+    ]
+  },
+  {
+    "product_slug": "rapatech-origin-on-qi2-2-wireless-power-bank-10-000-mah-25w",
+    "related_slugs": [
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103"
+    ]
+  },
+  {
+    "product_slug": "rapatech-ring-magnetik-magsafe-hitam",
+    "related_slugs": [
+      "oraimo-powertrans-usb-hub-7-in-1-ouh-511",
+      "rapatech-adaptor-headset-lightning-to-3-5mm-mfi-da1012"
+    ]
   }
 ]

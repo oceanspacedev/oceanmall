@@ -1,47 +1,59 @@
 [
   {
-    "name": "Produk Terbaru",
-    "slug": "new-arrivals",
-    "description": "<p>Handphone dan aksesoris rilis terbaru dari distribusi resmi OCEANMALL.</p>",
-    "type": "auto",
-    "match_conditions": "any",
-    "image": "new-arrivals.jpg",
-    "rules": [
-      {
-        "rule": "product_created_at",
-        "operator": "less_than",
-        "value": "2026-02-28"
-      }
-    ]
+    "name": "Produk Unggulan",
+    "slug": "featured-products",
+    "description": "<p>Pilihan unggulan Minimo, Rapa, dan Oraimo dari tim OCEANMALL.</p>",
+    "type": "manual",
+    "match_conditions": null,
+    "image": "featured-products.jpg",
+    "rules": []
   },
   {
-    "name": "Promo & Diskon",
-    "slug": "sales-promotions",
-    "description": "<p>Produk dengan harga promo dan diskon spesial.</p>",
-    "type": "auto",
+    "name": "Produk Terbaru",
+    "slug": "new-arrivals",
+    "description": "<p>Aksesoris rilis terbaru di OCEANMALL.</p>",
+    "type": "manual",
     "match_conditions": null,
-    "image": "sales-promotions.jpg",
+    "image": "new-arrivals.jpg",
     "rules": []
   },
   {
     "name": "Terlaris",
     "slug": "best-sellers",
-    "description": "<p>Smartphone dan aksesoris paling laris di toko OCEANMALL.</p>",
+    "description": "<p>Aksesoris paling laris di toko OCEANMALL.</p>",
+    "type": "manual",
+    "match_conditions": null,
+    "image": "best-sellers.jpg",
+    "rules": []
+  },
+  {
+    "name": "Promo & Diskon",
+    "slug": "sales-promotions",
+    "description": "<p>Produk dengan harga promo dan diskon spesial.</p>",
+    "type": "manual",
+    "match_conditions": null,
+    "image": "sales-promotions.jpg",
+    "rules": []
+  },
+  {
+    "name": "Harga Hemat",
+    "slug": "budget-friendly",
+    "description": "<p>Aksesoris di bawah Rp 200 ribu.</p>",
     "type": "auto",
     "match_conditions": "any",
-    "image": "best-sellers.jpg",
+    "image": "budget-friendly.jpg",
     "rules": [
       {
-        "rule": "product_sales_count",
-        "operator": "greater_than",
-        "value": "10"
+        "rule": "product_price",
+        "operator": "less_than",
+        "value": "200000"
       }
     ]
   },
   {
     "name": "Stok Tersedia",
     "slug": "in-stock",
-    "description": "<p>Produk dengan stok ready di gudang Cirebon.</p>",
+    "description": "<p>Produk dengan stok ready di gudang.</p>",
     "type": "auto",
     "match_conditions": "any",
     "image": "in-stock.jpg",
@@ -54,81 +66,30 @@
     ]
   },
   {
-    "name": "Produk Unggulan",
-    "slug": "featured-products",
-    "description": "<p>Pilihan unggulan dari tim OCEANMALL.</p>",
-    "type": "auto",
-    "match_conditions": "any",
-    "image": "featured-products.jpg",
-    "rules": [
-      {
-        "rule": "product_featured",
-        "operator": "equals_to",
-        "value": "0"
-      }
-    ]
-  },
-  {
-    "name": "Realme Collection",
-    "slug": "realme-collection",
-    "description": "<p>Lini lengkap smartphone dan aksesoris Realme resmi.</p>",
-    "type": "auto",
+    "name": "Minimo Collection",
+    "slug": "minimo-collection",
+    "description": "<p>Lini kabel data 4 in 1 Minimo.</p>",
+    "type": "manual",
     "match_conditions": null,
-    "image": "featured-products.jpg",
+    "image": "minimo-collection.jpg",
     "rules": []
   },
   {
-    "name": "Aksesoris Wajib",
-    "slug": "must-have-accessories",
-    "description": "<p>Case, tempered glass, dan charger yang wajib dibeli bersama handphone baru.</p>",
-    "type": "auto",
+    "name": "Rapa Collection",
+    "slug": "rapa-collection",
+    "description": "<p>Charger GaN, power bank, case, tempered glass, dan audio RAPAtech.</p>",
+    "type": "manual",
     "match_conditions": null,
-    "image": "gift-ideas.jpg",
+    "image": "rapa-collection.jpg",
     "rules": []
   },
   {
-    "name": "Harga Hemat",
-    "slug": "budget-friendly",
-    "description": "<p>Smartphone dan aksesoris di bawah Rp 2 juta.</p>",
-    "type": "auto",
-    "match_conditions": "any",
-    "image": "budget-friendly.jpg",
-    "rules": [
-      {
-        "rule": "product_price",
-        "operator": "less_than",
-        "value": "2000000"
-      }
-    ]
-  },
-  {
-    "name": "Premium",
-    "slug": "premium",
-    "description": "<p>Flagship smartphone dengan spesifikasi terbaik.</p>",
-    "type": "auto",
-    "match_conditions": "any",
-    "image": "premium.jpg",
-    "rules": [
-      {
-        "rule": "product_price",
-        "operator": "greater_than",
-        "value": "2000000"
-      }
-    ]
-  },
-  {
-    "name": "Rating Tertinggi",
-    "slug": "top-rated",
-    "description": "<p>Produk dengan rating 4 bintang ke atas dari pelanggan.</p>",
-    "type": "auto",
-    "match_conditions": "any",
-    "image": "top-rated.jpg",
-    "rules": [
-      {
-        "rule": "product_rating",
-        "operator": "greater_than",
-        "value": "3"
-      }
-    ]
+    "name": "Oraimo Collection",
+    "slug": "oraimo-collection",
+    "description": "<p>Earbuds, headphone, charger, kabel, power bank, smartwatch, dan trimmer Oraimo.</p>",
+    "type": "manual",
+    "match_conditions": null,
+    "image": "oraimo-collection.png",
+    "rules": []
   }
 ]

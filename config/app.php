@@ -123,4 +123,23 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Production Administrator
+    |--------------------------------------------------------------------------
+    |
+    | `php artisan db:seed` in production creates this single administrator
+    | (only when no administrator exists yet). The password is read here and
+    | never stored in the codebase; remove it from the environment after the
+    | first deploy and change it from the admin panel.
+    |
+    */
+
+    'admin' => [
+        'email' => env('ADMIN_EMAIL'),
+        'password' => env('ADMIN_PASSWORD'),
+        'first_name' => env('ADMIN_FIRST_NAME', 'Admin'),
+        'last_name' => env('ADMIN_LAST_NAME', 'OceanMall'),
+    ],
+
 ];

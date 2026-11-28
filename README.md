@@ -79,6 +79,19 @@ npm run start
 
 Octane akan berjalan di port `8087`. Pastikan Nginx server Anda diatur sebagai _reverse proxy_ yang meneruskan trafik ke `127.0.0.1:8087`.
 
+### Data awal production
+Dengan `APP_ENV=production`, `php artisan db:seed --force` hanya mengisi:
+
+- katalog Minimo, Rapa, Oraimo (brand, kategori, koleksi, produk + varian, harga, gambar, stok awal);
+- mata uang IDR, channel, dan gudang default (dibutuhkan harga & stok);
+- **satu** administrator dari `ADMIN_EMAIL` / `ADMIN_PASSWORD` (min. 12 karakter). Dilewati kalau sudah ada administrator, dan password-nya tidak pernah ditimpa. Hapus `ADMIN_PASSWORD` dari env setelah deploy pertama.
+
+Tidak ada pelanggan, pesanan, kupon, atau ulasan demo. Info toko, metode pembayaran, kurir, zona, pajak, dan halaman legal diatur manual di `/cpanel`.
+
+```bash
+ADMIN_EMAIL=admin@domain-anda.id ADMIN_PASSWORD='password-panjang-dan-acak' php artisan db:seed --force
+```
+
 ## Setup Development (Lokal)
 
 ```bash

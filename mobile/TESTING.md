@@ -93,7 +93,7 @@ Tandai ✅/❌ dan catat nomor order, screenshot, serta jam kejadian kalau gagal
 - [ ] Lonceng menampilkan jumlah notifikasi belum dibaca untuk user yang masuk. Sebagai tamu, lonceng membuka Masuk, dan setelah masuk mendarat di Notifikasi. Ikon keranjang menampilkan jumlah barang, dan lencananya berdenyut kecil saat jumlah bertambah.
 - [ ] Banner koleksi bergeser sendiri tiap 4 detik dan berulang. Menyentuh atau menggeser menjeda gerakan beberapa detik. Dengan Reduce Motion atau pembaca layar menyala, banner tidak bergerak sendiri. Titik indikator ada di atas gambar.
 - [ ] Kategori tampil sebagai kisi 4 kolom dengan ikon. Lebih dari 8 kategori menjadikan ubin terakhir **Lainnya**.
-- [ ] **Promo hari ini** berupa baris geser horizontal dengan lencana "Hemat s.d. N%". Promo juga memuat HP bervarian (mis. Realme 13 Pro 5G). **Lihat semua** membuka daftar promo.
+- [ ] **Promo hari ini** berupa baris geser horizontal dengan lencana "Hemat s.d. N%". Promo juga memuat produk bervarian (mis. RAPAtech Air Pro III TWS). **Lihat semua** membuka daftar promo.
 - [ ] **Brand pilihan** dan **Rekomendasi untukmu** (satu-satunya kisi 2 kolom di Beranda, **Lihat semua** membuka daftar lengkap). Semua kartu produk punya **gambar**.
 - [ ] Sebagai tamu, strip "Masuk untuk lacak pesanan & checkout lebih cepat" ada di atas, bisa ditutup dengan X, dan tidak muncul lagi setelah itu (juga setelah app dibuka ulang).
 - [ ] Tarik ke bawah memuat ulang dengan spinner navy. Katalog kosong menampilkan "Katalog sedang disiapkan" dengan **Muat ulang**. Server mati menampilkan "Yah, ada yang salah" dengan **Coba lagi**.
@@ -101,7 +101,7 @@ Tandai ✅/❌ dan catat nomor order, screenshot, serta jam kejadian kalau gagal
 ### Cari dan daftar produk
 
 - [ ] Tab **Cari**: kalau kolom kosong, keyboard langsung terbuka. Pencarian terakhir tampil sebagai pil (maksimal 8), ada X per pil dan **Hapus** untuk semua.
-- [ ] Mengetik satu huruf menampilkan "Ketik minimal 2 huruf untuk mencari". Cari "realme" menampilkan hasil. Mengetik cepat tidak memunculkan hasil kata kunci lama.
+- [ ] Mengetik satu huruf menampilkan "Ketik minimal 2 huruf untuk mencari". Cari "minimo" menampilkan hasil. Mengetik cepat tidak memunculkan hasil kata kunci lama.
 - [ ] Saat mengetik, hasil sebelumnya tetap tampil agak redup dengan baris "Mencari “…”", tidak diganti spinner penuh.
 - [ ] Kata kunci tanpa hasil menampilkan "Produk tidak ditemukan" dan pilihan kategori ("Atau jelajahi kategori"). Label di atas hasil berbunyi "N produk untuk “kata kunci”".
 - [ ] Urutan **Terbaru**, **Termurah**, **Termahal** bekerja di pencarian, kategori, koleksi, promo, rekomendasi, dan **Semua produk**.

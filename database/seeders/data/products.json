@@ -1,330 +1,3749 @@
 [
   {
-    "name": "Realme 13 Pro 5G",
-    "slug": "realme-13-pro-5g",
+    "name": "Minimo Kabel Data 4 in 1 240W Spiral Fragrance Edition",
+    "slug": "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition",
     "sku": null,
-    "barcode": "6941774635123",
-    "description": "<p>Realme 13 Pro 5G hadir dengan kamera Sony LYT-600 50MP OIS, layar AMOLED 120Hz 6,7 inci, dan chipset Snapdragon 7s Gen 2. Dilengkapi fast charging 80W SuperVOOC dan baterai 5.020 mAh untuk performa seharian penuh.</p><ul><li>Prosesor Snapdragon 7s Gen 2</li><li>RAM 8GB + ROM 256GB (expandable)</li><li>Kamera utama 50MP Sony LYT-600 OIS</li><li>Layar AMOLED 120Hz Curved</li><li>Charging 80W SuperVOOC</li></ul>",
-    "summary": "Flagship Realme dengan kamera Sony 50MP OIS dan charging 80W.",
-    "security_stock": 5,
+    "barcode": null,
+    "description": "<p>Minimo Kabel Data 4 in 1 240W Spiral Fragrance Edition — produk resmi Minimo, sama seperti yang dijual di toko resmi Minimo di Tokopedia.</p><ul><li>Daya hingga 240W</li></ul>",
+    "summary": "Daya hingga 240W.",
+    "security_stock": 2,
     "featured": true,
     "is_visible": true,
     "type": "variant",
-    "seo_title": "Realme 13 Pro 5G — Kamera Sony 50MP OIS",
-    "seo_description": "Beli Realme 13 Pro 5G resmi di OCEANMALL. Snapdragon 7s Gen 2, layar AMOLED 120Hz, fast charging 80W.",
-    "brand_slug": "realme",
-    "categories": ["handphone", "smartphone-android"],
-    "collections": ["featured-products", "best-sellers", "premium", "realme-collection"],
-    "thumbnail": "realme-13-pro-thumb.jpg",
-    "images": ["realme-13-pro-2.jpg", "realme-13-pro-3.jpg"],
-    "prices": [],
-    "stock": 30,
-    "attributes": {
-      "color": ["#1c1c1c", "#f59e0b"],
-      "storage": ["256_gb", "512_gb"]
-    }
-  },
-  {
-    "name": "Realme C67",
-    "slug": "realme-c67",
-    "sku": "RMX3890-ID",
-    "barcode": "6941774634890",
-    "description": "<p>Realme C67 menawarkan kamera 108MP, baterai 5.000 mAh dengan fast charging 33W, dan layar 90Hz 6,72 inci. Pilihan ideal untuk pengguna yang mengutamakan kamera dan daya tahan baterai dengan budget terjangkau.</p>",
-    "summary": "Smartphone 108MP dengan baterai 5.000 mAh dan fast charging 33W.",
-    "security_stock": 10,
-    "featured": true,
-    "is_visible": true,
-    "type": "variant",
-    "seo_title": "Realme C67 — Kamera 108MP Fast Charging 33W",
-    "seo_description": "Realme C67 resmi OCEANMALL. Kamera 108MP, baterai 5000mAh, layar 90Hz. Harga terbaik Cirebon.",
-    "brand_slug": "realme",
-    "categories": ["handphone", "smartphone-android"],
-    "collections": ["featured-products", "best-sellers", "realme-collection"],
-    "thumbnail": "realme-c67-thumb.jpg",
-    "images": ["realme-c67-2.jpg"],
-    "prices": [],
-    "stock": 50,
-    "attributes": {
-      "color": ["#1c1c1c", "#1b910c"],
-      "storage": ["128_gb", "256_gb"]
-    }
-  },
-  {
-    "name": "Realme Buds T310",
-    "slug": "realme-buds-t310",
-    "sku": "RMA2401",
-    "barcode": "6941774632101",
-    "description": "Realme Buds T310 TWS dengan driver 12,4mm, active noise cancellation, dan total playtime hingga 36 jam. IP55 water resistant, perfect companion untuk Realme smartphone.",
-    "summary": "TWS dengan ANC, playtime 36 jam, dan IP55 water resistant.",
-    "security_stock": 5,
-    "featured": true,
-    "is_visible": true,
-    "type": "standard",
-    "seo_title": "Realme Buds T310 TWS dengan ANC",
-    "seo_description": "Earphone Realme Buds T310 resmi. ANC, 36 jam playtime, IP55. Stok ready OCEANMALL.",
-    "brand_slug": "realme",
-    "categories": ["audio", "tws-earphone", "aksesoris"],
-    "collections": ["featured-products", "realme-collection"],
-    "thumbnail": "realme-buds-t310-thumb.jpg",
-    "images": ["realme-buds-t310-2.jpg"],
-    "prices": [
-      { "currency_code": "IDR", "amount": 399000, "compare_amount": 499000, "cost_amount": 280000 }
+    "seo_title": "Minimo Kabel Data 4 in 1 240W Spiral Fragrance Edition",
+    "seo_description": "Beli Minimo Kabel Data 4 in 1 240W Spiral Fragrance Edition resmi di OCEANMALL.",
+    "brand_slug": "minimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
     ],
-    "stock": 40
-  },
-  {
-    "name": "Tecno Camon 30 Premier",
-    "slug": "tecno-camon-30-premier",
-    "sku": "CM7-ID",
-    "barcode": "6934782345601",
-    "description": "<p>Tecno Camon 30 Premier dengan kamera Sony LYT-600 50MP periscope telephoto, layar AMOLED 144Hz LTPO, dan chipset MediaTek Dimensity 8200 Ultimate. Flagship camera-focused dari Tecno.</p>",
-    "summary": "Flagship Tecno dengan kamera periscope 50MP dan layar 144Hz.",
-    "security_stock": 3,
-    "featured": true,
-    "is_visible": true,
-    "type": "standard",
-    "seo_title": "Tecno Camon 30 Premier — Kamera Periscope 50MP",
-    "seo_description": "Tecno Camon 30 Premier resmi OCEANMALL. Dimensity 8200, layar AMOLED 144Hz, kamera periscope.",
-    "brand_slug": "tecno",
-    "categories": ["handphone", "smartphone-android"],
-    "collections": ["featured-products", "premium"],
-    "thumbnail": "tecno-camon-30-thumb.jpg",
-    "images": ["tecno-camon-30-2.jpg"],
-    "prices": [
-      { "currency_code": "IDR", "amount": 5499000, "compare_amount": 5999000, "cost_amount": 4200000 }
+    "collections": [
+      "minimo-collection",
+      "new-arrivals",
+      "best-sellers",
+      "featured-products",
+      "sales-promotions"
     ],
-    "stock": 15
+    "thumbnail": "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition-1.jpg",
+    "images": [
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition-2.jpg",
+      "minimo-kabel-data-4-in-1-240w-spiral-fragrance-edition-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.1
   },
   {
-    "name": "Tecno Spark 20 Pro",
-    "slug": "tecno-spark-20-pro",
+    "name": "Minimo Kabel Data 4 in 1 Series (Spiral / Lanyard / RGB Light)",
+    "slug": "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light",
     "sku": null,
-    "barcode": "6934782345102",
-    "description": "<p>Tecno Spark 20 Pro dengan kamera 108MP, layar AMOLED 120Hz 6,78 inci, dan Helio G99 Ultimate. Desain premium dengan ring light di belakang untuk selfie sempurna.</p>",
-    "summary": "Smartphone 108MP dengan layar AMOLED 120Hz dan ring light selfie.",
-    "security_stock": 5,
+    "barcode": null,
+    "description": "<p>Minimo Kabel Data 4 in 1 Series (Spiral / Lanyard / RGB Light) — produk resmi Minimo, sama seperti yang dijual di toko resmi Minimo di Tokopedia.</p><ul><li>Daya hingga 240W</li></ul>",
+    "summary": "Daya hingga 240W.",
+    "security_stock": 2,
     "featured": true,
     "is_visible": true,
     "type": "variant",
-    "seo_title": "Tecno Spark 20 Pro — 108MP AMOLED 120Hz",
-    "seo_description": "Tecno Spark 20 Pro resmi. Kamera 108MP, layar AMOLED 120Hz, ring light. OCEANMALL Cirebon.",
-    "brand_slug": "tecno",
-    "categories": ["handphone", "smartphone-android"],
-    "collections": ["featured-products", "best-sellers"],
-    "thumbnail": "tecno-spark-20-pro-thumb.jpg",
-    "images": ["tecno-spark-20-pro-2.jpg"],
+    "seo_title": "Minimo Kabel Data 4 in 1 Series (Spiral / Lanyard / RGB",
+    "seo_description": "Beli Minimo Kabel Data 4 in 1 Series (Spiral / Lanyard / RGB Light) resmi di OCEANMALL.",
+    "brand_slug": "minimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "minimo-collection",
+      "new-arrivals",
+      "best-sellers",
+      "featured-products",
+      "sales-promotions"
+    ],
+    "thumbnail": "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light-1.jpg",
+    "images": [
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light-2.jpg",
+      "minimo-kabel-data-4-in-1-series-spiral-lanyard-rgb-light-3.jpg"
+    ],
     "prices": [],
-    "stock": 35,
-    "attributes": {
-      "color": ["#1c1c1c", "#1e3a8a", "#ffffff"],
-      "storage": ["128_gb", "256_gb"]
-    }
+    "stock": null,
+    "weight_value": 0.12
   },
   {
-    "name": "Itel S24",
-    "slug": "itel-s24",
-    "sku": "S665L",
-    "barcode": "6934782344801",
-    "description": "<p>Itel S24 dengan kamera 108MP AI, layar 6,6 inci 90Hz, Helio G91, dan baterai 5.000 mAh. Smartphone terbaik di kelas entry-level dengan fitur lengkap.</p>",
-    "summary": "Entry-level 108MP dengan baterai 5000mAh dan layar 90Hz.",
-    "security_stock": 8,
-    "featured": true,
-    "is_visible": true,
-    "type": "standard",
-    "seo_title": "Itel S24 — 108MP Entry Level Terbaik",
-    "seo_description": "Itel S24 resmi OCEANMALL. Kamera 108MP, baterai 5000mAh. Harga mulai Rp 1,3 juta.",
-    "brand_slug": "itel",
-    "categories": ["handphone", "smartphone-android"],
-    "collections": ["featured-products", "budget-friendly"],
-    "thumbnail": "itel-s24-thumb.jpg",
-    "images": ["itel-s24-2.jpg"],
-    "prices": [
-      { "currency_code": "IDR", "amount": 1299000, "compare_amount": 1499000, "cost_amount": 950000 }
-    ],
-    "stock": 60
-  },
-  {
-    "name": "Itel A70",
-    "slug": "itel-a70",
-    "sku": "A665L",
-    "barcode": "6934782344702",
-    "description": "<p>Itel A70 — smartphone paling terjangkau dengan layar 6,6 inci, baterai 5.000 mAh, dan kamera 13MP. Cocok untuk pengguna pertama kali atau sebagai handphone cadangan.</p>",
-    "summary": "Smartphone terjangkau dengan baterai 5000mAh dan layar 6,6 inci.",
-    "security_stock": 10,
-    "featured": false,
-    "is_visible": true,
-    "type": "standard",
-    "seo_title": "Itel A70 — Smartphone Terjangkau 5000mAh",
-    "seo_description": "Itel A70 resmi OCEANMALL. Baterai 5000mAh, layar 6,6 inci. Harga di bawah Rp 1 juta.",
-    "brand_slug": "itel",
-    "categories": ["handphone", "smartphone-android"],
-    "collections": ["budget-friendly"],
-    "thumbnail": "itel-a70-thumb.jpg",
-    "images": [],
-    "prices": [
-      { "currency_code": "IDR", "amount": 999000, "compare_amount": 1099000, "cost_amount": 750000 }
-    ],
-    "stock": 80
-  },
-  {
-    "name": "ZTE Blade V50 Design",
-    "slug": "zte-blade-v50-design",
-    "sku": "ZTE-V50D",
-    "barcode": "6934782344503",
-    "description": "<p>ZTE Blade V50 Design dengan desain ultra-tipis 7,1mm, layar AMOLED 6,67 inci, kamera 50MP, dan Unisoc T760 5G. Estetika premium dengan performa 5G terjangkau.</p>",
-    "summary": "Smartphone 5G ultra-tipis dengan layar AMOLED dan kamera 50MP.",
-    "security_stock": 5,
-    "featured": true,
-    "is_visible": true,
-    "type": "standard",
-    "seo_title": "ZTE Blade V50 Design — 5G Ultra Tipis",
-    "seo_description": "ZTE Blade V50 Design resmi OCEANMALL. 5G, AMOLED, desain 7,1mm. Stok ready.",
-    "brand_slug": "zte",
-    "categories": ["handphone", "smartphone-android"],
-    "collections": ["featured-products"],
-    "thumbnail": "zte-blade-v50-thumb.jpg",
-    "images": ["zte-blade-v50-2.jpg"],
-    "prices": [
-      { "currency_code": "IDR", "amount": 1799000, "compare_amount": 1999000, "cost_amount": 1350000 }
-    ],
-    "stock": 25
-  },
-  {
-    "name": "Realme 33W SuperDart Charger",
-    "slug": "realme-33w-charger",
-    "sku": "RMK2101",
-    "barcode": "6941774631801",
-    "description": "Adaptor charger resmi Realme 33W SuperDart dengan kabel USB-C. Kompatibel dengan Realme C67, Realme 13 series, dan perangkat USB-C lainnya.",
-    "summary": "Charger resmi Realme 33W SuperDart + kabel USB-C.",
-    "security_stock": 15,
-    "featured": false,
-    "is_visible": true,
-    "type": "standard",
-    "seo_title": "Realme 33W SuperDart Charger Resmi",
-    "seo_description": "Charger Realme 33W resmi OCEANMALL. Fast charging SuperDart + kabel USB-C.",
-    "brand_slug": "realme",
-    "categories": ["aksesoris", "charger-kabel"],
-    "collections": ["must-have-accessories", "realme-collection"],
-    "thumbnail": "realme-33w-charger-thumb.jpg",
-    "images": [],
-    "prices": [
-      { "currency_code": "IDR", "amount": 149000, "compare_amount": 179000, "cost_amount": 90000 }
-    ],
-    "stock": 100
-  },
-  {
-    "name": "Tempered Glass Realme C67",
-    "slug": "tempered-glass-realme-c67",
-    "sku": "TG-C67",
+    "name": "Minimo Kabel Data 4 in 1 240W Spiral Anti Kusut DSF03",
+    "slug": "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03",
+    "sku": null,
     "barcode": null,
-    "description": "Tempered glass 9H khusus Realme C67 dengan edge-to-edge coverage, anti fingerprint, dan bubble-free installation. Melindungi layar dari goresan dan benturan.",
-    "summary": "Pelindung layar tempered glass 9H untuk Realme C67.",
-    "security_stock": 20,
-    "featured": false,
-    "is_visible": true,
-    "type": "standard",
-    "seo_title": "Tempered Glass Realme C67 9H",
-    "seo_description": "Tempered glass resmi Realme C67. 9H hardness, anti fingerprint. OCEANMALL.",
-    "brand_slug": "realme",
-    "categories": ["aksesoris", "case-pelindung"],
-    "collections": ["must-have-accessories"],
-    "thumbnail": "tempered-glass-c67-thumb.jpg",
-    "images": [],
-    "prices": [
-      { "currency_code": "IDR", "amount": 49000, "compare_amount": 69000, "cost_amount": 25000 }
-    ],
-    "stock": 200
-  },
-  {
-    "name": "Soft Case Realme 13 Pro",
-    "slug": "soft-case-realme-13-pro",
-    "sku": "SC-R13P",
-    "barcode": null,
-    "description": "Soft case silikon premium untuk Realme 13 Pro 5G. Presisi cutout untuk kamera dan port, anti-slip, dan proteksi dari goresan harian.",
-    "summary": "Soft case silikon premium untuk Realme 13 Pro 5G.",
-    "security_stock": 15,
-    "featured": false,
-    "is_visible": true,
-    "type": "standard",
-    "seo_title": "Soft Case Realme 13 Pro 5G",
-    "seo_description": "Case resmi Realme 13 Pro. Silikon premium, anti-slip. Stok ready OCEANMALL.",
-    "brand_slug": "realme",
-    "categories": ["aksesoris", "case-pelindung"],
-    "collections": ["must-have-accessories", "realme-collection"],
-    "thumbnail": "soft-case-r13pro-thumb.jpg",
-    "images": [],
-    "prices": [
-      { "currency_code": "IDR", "amount": 79000, "compare_amount": 99000, "cost_amount": 40000 }
-    ],
-    "stock": 150
-  },
-  {
-    "name": "Oraimo Power Bank 10000mAh 22.5W",
-    "slug": "oraimo-powerbank-10000mah",
-    "sku": "OPB-1104",
-    "barcode": "6934782344201",
-    "description": "Power bank Oraimo 10.000mAh dengan fast charging 22.5W, dual output USB-A + USB-C, dan LED indicator. Compact design mudah dibawa kemana saja.",
-    "summary": "Power bank 10000mAh fast charging 22.5W dual port.",
-    "security_stock": 10,
+    "description": "<p>Minimo Kabel Data 4 in 1 240W Spiral Anti Kusut DSF03 — produk resmi Minimo, sama seperti yang dijual di toko resmi Minimo di Tokopedia.</p><ul><li>Daya hingga 240W</li></ul>",
+    "summary": "Daya hingga 240W.",
+    "security_stock": 2,
     "featured": true,
     "is_visible": true,
+    "type": "variant",
+    "seo_title": "Minimo Kabel Data 4 in 1 240W Spiral Anti Kusut DSF03",
+    "seo_description": "Beli Minimo Kabel Data 4 in 1 240W Spiral Anti Kusut DSF03 resmi di OCEANMALL.",
+    "brand_slug": "minimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "minimo-collection",
+      "new-arrivals",
+      "best-sellers",
+      "featured-products",
+      "sales-promotions"
+    ],
+    "thumbnail": "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03-1.jpg",
+    "images": [
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03-2.jpg",
+      "minimo-kabel-data-4-in-1-240w-spiral-anti-kusut-dsf03-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Minimo Kabel Data 4 in 1 240W Crossbody Lanyard DSF04",
+    "slug": "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04",
+    "sku": "MINIMO-DSF04",
+    "barcode": null,
+    "description": "<p>Minimo Kabel Data 4 in 1 240W Crossbody Lanyard DSF04 — produk resmi Minimo, sama seperti yang dijual di toko resmi Minimo di Tokopedia.</p><ul><li>Daya hingga 240W</li></ul>",
+    "summary": "Daya hingga 240W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
     "type": "standard",
-    "seo_title": "Oraimo Power Bank 10000mAh 22.5W",
-    "seo_description": "Power bank Oraimo 10000mAh resmi. Fast charging 22.5W, dual port. OCEANMALL.",
+    "seo_title": "Minimo Kabel Data 4 in 1 240W Crossbody Lanyard DSF04",
+    "seo_description": "Beli Minimo Kabel Data 4 in 1 240W Crossbody Lanyard DSF04 resmi di OCEANMALL.",
+    "brand_slug": "minimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "minimo-collection",
+      "new-arrivals",
+      "best-sellers",
+      "sales-promotions"
+    ],
+    "thumbnail": "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04-1.jpg",
+    "images": [
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04-2.jpg",
+      "minimo-kabel-data-4-in-1-240w-crossbody-lanyard-dsf04-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 104000,
+        "compare_amount": 299000,
+        "cost_amount": 67600
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo CandyLine 3 Kabel Data 60W OCD-153CL",
+    "slug": "oraimo-candyline-3-kabel-data-60w-ocd-153cl",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo CandyLine 3 Kabel Data 60W OCD-153CL — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 60W</li><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Daya hingga 60W, Konektor USB-C, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": true,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo CandyLine 3 Kabel Data 60W OCD-153CL",
+    "seo_description": "Beli Oraimo CandyLine 3 Kabel Data 60W OCD-153CL resmi di OCEANMALL.",
     "brand_slug": "oraimo",
-    "categories": ["aksesoris", "power-bank"],
-    "collections": ["featured-products", "must-have-accessories"],
-    "thumbnail": "oraimo-powerbank-thumb.jpg",
-    "images": [],
-    "prices": [
-      { "currency_code": "IDR", "amount": 199000, "compare_amount": 249000, "cost_amount": 130000 }
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
     ],
-    "stock": 75
+    "collections": [
+      "oraimo-collection",
+      "new-arrivals",
+      "featured-products"
+    ],
+    "thumbnail": "oraimo-candyline-3-kabel-data-60w-ocd-153cl-1.jpg",
+    "images": [
+      "oraimo-candyline-3-kabel-data-60w-ocd-153cl-2.jpg",
+      "oraimo-candyline-3-kabel-data-60w-ocd-153cl-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.05
   },
   {
-    "name": "Itel it2173 Feature Phone",
-    "slug": "itel-it2173",
-    "sku": "it2173",
-    "barcode": "6934782344101",
-    "description": "Feature phone Itel it2173 dengan baterai 1200mAh tahan lama, dual SIM, radio FM, dan senter LED. Ideal untuk penggunaan dasel atau sebagai handphone kedua.",
-    "summary": "Feature phone dual SIM dengan baterai tahan lama dan radio FM.",
-    "security_stock": 15,
+    "name": "Oraimo Car Charger Highway 15 Dual Output 15.5W OCC-1152",
+    "slug": "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Car Charger Highway 15 Dual Output 15.5W OCC-1152 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Car Charger Highway 15 Dual Output 15.5W OCC-1152",
+    "seo_description": "Beli Oraimo Car Charger Highway 15 Dual Output 15.5W OCC-1152 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152-1.jpg",
+    "images": [
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152-2.jpg",
+      "oraimo-car-charger-highway-15-dual-output-15-5w-occ-1152-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo PowerOmni 251 Travel Adapter OCW-T01",
+    "slug": "oraimo-poweromni-251-travel-adapter-ocw-t01",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo PowerOmni 251 Travel Adapter OCW-T01 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 500W</li></ul>",
+    "summary": "Daya hingga 500W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo PowerOmni 251 Travel Adapter OCW-T01",
+    "seo_description": "Beli Oraimo PowerOmni 251 Travel Adapter OCW-T01 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-poweromni-251-travel-adapter-ocw-t01-1.jpg",
+    "images": [
+      "oraimo-poweromni-251-travel-adapter-ocw-t01-2.jpg",
+      "oraimo-poweromni-251-travel-adapter-ocw-t01-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo PowerCube 12 Sleek Charger 12W OCW-1121E",
+    "slug": "oraimo-powercube-12-sleek-charger-12w-ocw-1121e",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo PowerCube 12 Sleek Charger 12W OCW-1121E — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 12W</li><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Daya hingga 12W, Konektor USB-C, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo PowerCube 12 Sleek Charger 12W OCW-1121E",
+    "seo_description": "Beli Oraimo PowerCube 12 Sleek Charger 12W OCW-1121E resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-powercube-12-sleek-charger-12w-ocw-1121e-1.jpg",
+    "images": [
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e-2.jpg",
+      "oraimo-powercube-12-sleek-charger-12w-ocw-1121e-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo PowerCube 202 AniFast Charger 20W OCW-5202",
+    "slug": "oraimo-powercube-202-anifast-charger-20w-ocw-5202",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo PowerCube 202 AniFast Charger 20W OCW-5202 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 20W</li></ul>",
+    "summary": "Daya hingga 20W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo PowerCube 202 AniFast Charger 20W OCW-5202",
+    "seo_description": "Beli Oraimo PowerCube 202 AniFast Charger 20W OCW-5202 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-powercube-202-anifast-charger-20w-ocw-5202-1.jpg",
+    "images": [
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202-2.jpg",
+      "oraimo-powercube-202-anifast-charger-20w-ocw-5202-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.1
+  },
+  {
+    "name": "Oraimo Cannon Charger 18W PD 2.0 OCW-E5184",
+    "slug": "oraimo-cannon-charger-18w-pd-2-0-ocw-e5184",
+    "sku": "ORAIMO-OCW-E5184",
+    "barcode": null,
+    "description": "<p>Oraimo Cannon Charger 18W PD 2.0 OCW-E5184 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 18W</li></ul>",
+    "summary": "Daya hingga 18W.",
+    "security_stock": 2,
     "featured": false,
     "is_visible": true,
     "type": "standard",
-    "seo_title": "Itel it2173 Feature Phone Dual SIM",
-    "seo_description": "Itel it2173 feature phone resmi. Dual SIM, baterai tahan lama, radio FM.",
-    "brand_slug": "itel",
-    "categories": ["handphone", "feature-phone"],
-    "collections": ["budget-friendly"],
-    "thumbnail": "itel-it2173-thumb.jpg",
-    "images": [],
-    "prices": [
-      { "currency_code": "IDR", "amount": 299000, "compare_amount": 349000, "cost_amount": 200000 }
+    "seo_title": "Oraimo Cannon Charger 18W PD 2.0 OCW-E5184",
+    "seo_description": "Beli Oraimo Cannon Charger 18W PD 2.0 OCW-E5184 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
     ],
-    "stock": 120
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-cannon-charger-18w-pd-2-0-ocw-e5184-1.jpg",
+    "images": [
+      "oraimo-cannon-charger-18w-pd-2-0-ocw-e5184-2.jpg",
+      "oraimo-cannon-charger-18w-pd-2-0-ocw-e5184-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 77900,
+        "compare_amount": 93900,
+        "cost_amount": 50600
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.3
   },
   {
-    "name": "Baseus USB-C Cable 100W 1m",
-    "slug": "baseus-usbc-cable-100w",
-    "sku": "BAS-CATKC",
-    "barcode": "6934782344001",
-    "description": "Kabel Baseus USB-C to USB-C 100W 1 meter dengan chip E-marker, support fast charging dan data transfer. Nylon braided untuk daya tahan maksimal.",
-    "summary": "Kabel USB-C 100W nylon braided 1 meter.",
-    "security_stock": 20,
+    "name": "Oraimo PowerCube 20 Chic Charger 20W OCW-5201E",
+    "slug": "oraimo-powercube-20-chic-charger-20w-ocw-5201e",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo PowerCube 20 Chic Charger 20W OCW-5201E — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 20W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 20W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo PowerCube 20 Chic Charger 20W OCW-5201E",
+    "seo_description": "Beli Oraimo PowerCube 20 Chic Charger 20W OCW-5201E resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-powercube-20-chic-charger-20w-ocw-5201e-1.jpg",
+    "images": [
+      "oraimo-powercube-20-chic-charger-20w-ocw-5201e-2.jpg",
+      "oraimo-powercube-20-chic-charger-20w-ocw-5201e-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo Conch 2 Wired Earphones OEP-320C",
+    "slug": "oraimo-conch-2-wired-earphones-oep-320c",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Conch 2 Wired Earphones OEP-320C — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Conch 2 Wired Earphones OEP-320C",
+    "seo_description": "Beli Oraimo Conch 2 Wired Earphones OEP-320C resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-earphone"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-conch-2-wired-earphones-oep-320c-1.jpg",
+    "images": [
+      "oraimo-conch-2-wired-earphones-oep-320c-2.jpg",
+      "oraimo-conch-2-wired-earphones-oep-320c-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo Kabel Data 2A 1M OCD-M53/L53/C53",
+    "slug": "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Kabel Data 2A 1M OCD-M53/L53/C53 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Kabel Data 2A 1M OCD-M53/L53/C53",
+    "seo_description": "Beli Oraimo Kabel Data 2A 1M OCD-M53/L53/C53 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "best-sellers"
+    ],
+    "thumbnail": "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53-1.jpg",
+    "images": [
+      "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53-2.jpg",
+      "oraimo-kabel-data-2a-1m-ocd-m53-l53-c53-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo SilkLine Kabel Data 2.4A OCD-115",
+    "slug": "oraimo-silkline-kabel-data-2-4a-ocd-115",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo SilkLine Kabel Data 2.4A OCD-115 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Konektor USB-C, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo SilkLine Kabel Data 2.4A OCD-115",
+    "seo_description": "Beli Oraimo SilkLine Kabel Data 2.4A OCD-115 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-silkline-kabel-data-2-4a-ocd-115-1.jpg",
+    "images": [
+      "oraimo-silkline-kabel-data-2-4a-ocd-115-2.jpg",
+      "oraimo-silkline-kabel-data-2-4a-ocd-115-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.1
+  },
+  {
+    "name": "Oraimo Conch 2 Neo Wired Earphones OEP-320S",
+    "slug": "oraimo-conch-2-neo-wired-earphones-oep-320s",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Conch 2 Neo Wired Earphones OEP-320S — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Conch 2 Neo Wired Earphones OEP-320S",
+    "seo_description": "Beli Oraimo Conch 2 Neo Wired Earphones OEP-320S resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-earphone"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "best-sellers"
+    ],
+    "thumbnail": "oraimo-conch-2-neo-wired-earphones-oep-320s-1.jpg",
+    "images": [
+      "oraimo-conch-2-neo-wired-earphones-oep-320s-2.jpg",
+      "oraimo-conch-2-neo-wired-earphones-oep-320s-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo Smart Trimmer 10W OPC-CL33N",
+    "slug": "oraimo-smart-trimmer-10w-opc-cl33n",
+    "sku": "ORAIMO-OPC-CL33N",
+    "barcode": null,
+    "description": "<p>Oraimo Smart Trimmer 10W OPC-CL33N — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 10W</li></ul>",
+    "summary": "Daya hingga 10W.",
+    "security_stock": 2,
     "featured": false,
     "is_visible": true,
     "type": "standard",
-    "seo_title": "Baseus USB-C Cable 100W 1m",
-    "seo_description": "Kabel Baseus USB-C 100W resmi. Nylon braided, fast charging. OCEANMALL.",
-    "brand_slug": "baseus",
-    "categories": ["aksesoris", "charger-kabel"],
-    "collections": ["must-have-accessories"],
-    "thumbnail": "baseus-usbc-cable-thumb.jpg",
+    "seo_title": "Oraimo Smart Trimmer 10W OPC-CL33N",
+    "seo_description": "Beli Oraimo Smart Trimmer 10W OPC-CL33N resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-smart-trimmer-10w-opc-cl33n-1.jpg",
+    "images": [
+      "oraimo-smart-trimmer-10w-opc-cl33n-2.jpg",
+      "oraimo-smart-trimmer-10w-opc-cl33n-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 543900,
+        "compare_amount": 652900,
+        "cost_amount": 353500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo Smart Trimmer 5W OPC-CL30",
+    "slug": "oraimo-smart-trimmer-5w-opc-cl30",
+    "sku": "ORAIMO-OPC-CL30",
+    "barcode": null,
+    "description": "<p>Oraimo Smart Trimmer 5W OPC-CL30 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Smart Trimmer 5W OPC-CL30",
+    "seo_description": "Beli Oraimo Smart Trimmer 5W OPC-CL30 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-smart-trimmer-5w-opc-cl30-1.jpg",
+    "images": [
+      "oraimo-smart-trimmer-5w-opc-cl30-2.jpg",
+      "oraimo-smart-trimmer-5w-opc-cl30-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 413900,
+        "compare_amount": 496900,
+        "cost_amount": 269000
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo Smart Trimmer IPX7 OPC-GT10N",
+    "slug": "oraimo-smart-trimmer-ipx7-opc-gt10n",
+    "sku": "ORAIMO-OPC-GT10N",
+    "barcode": null,
+    "description": "<p>Oraimo Smart Trimmer IPX7 OPC-GT10N — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IPX7</li></ul>",
+    "summary": "Tahan air IPX7.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Smart Trimmer IPX7 OPC-GT10N",
+    "seo_description": "Beli Oraimo Smart Trimmer IPX7 OPC-GT10N resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-smart-trimmer-ipx7-opc-gt10n-1.jpg",
+    "images": [
+      "oraimo-smart-trimmer-ipx7-opc-gt10n-2.jpg",
+      "oraimo-smart-trimmer-ipx7-opc-gt10n-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 423900,
+        "compare_amount": 508900,
+        "cost_amount": 275500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo Smart Trimmer OTR-221",
+    "slug": "oraimo-smart-trimmer-otr-221",
+    "sku": "ORAIMO-OTR-221",
+    "barcode": null,
+    "description": "<p>Oraimo Smart Trimmer OTR-221 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Smart Trimmer OTR-221",
+    "seo_description": "Beli Oraimo Smart Trimmer OTR-221 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-smart-trimmer-otr-221-1.jpg",
+    "images": [
+      "oraimo-smart-trimmer-otr-221-2.jpg",
+      "oraimo-smart-trimmer-otr-221-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 383900,
+        "compare_amount": 460900,
+        "cost_amount": 249500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo Smart Clipper Super Powerful OCL-550",
+    "slug": "oraimo-smart-clipper-super-powerful-ocl-550",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Smart Clipper Super Powerful OCL-550 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Smart Clipper Super Powerful OCL-550",
+    "seo_description": "Beli Oraimo Smart Clipper Super Powerful OCL-550 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-smart-clipper-super-powerful-ocl-550-1.jpg",
+    "images": [
+      "oraimo-smart-clipper-super-powerful-ocl-550-2.jpg",
+      "oraimo-smart-clipper-super-powerful-ocl-550-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo Flick TWS Bluetooth 5.3 OTW-3002",
+    "slug": "oraimo-flick-tws-bluetooth-5-3-otw-3002",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Flick TWS Bluetooth 5.3 OTW-3002 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Bluetooth 5.3</li></ul>",
+    "summary": "Bluetooth 5.3.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Flick TWS Bluetooth 5.3 OTW-3002",
+    "seo_description": "Beli Oraimo Flick TWS Bluetooth 5.3 OTW-3002 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-tws-earphone"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-flick-tws-bluetooth-5-3-otw-3002-1.jpg",
+    "images": [
+      "oraimo-flick-tws-bluetooth-5-3-otw-3002-2.jpg",
+      "oraimo-flick-tws-bluetooth-5-3-otw-3002-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo Kabel Data 3 in 1 60W OCD-118CML",
+    "slug": "oraimo-kabel-data-3-in-1-60w-ocd-118cml",
+    "sku": "ORAIMO-OCD-118CML",
+    "barcode": null,
+    "description": "<p>Oraimo Kabel Data 3 in 1 60W OCD-118CML — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 60W</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Daya hingga 60W, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Kabel Data 3 in 1 60W OCD-118CML",
+    "seo_description": "Beli Oraimo Kabel Data 3 in 1 60W OCD-118CML resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-kabel-data-3-in-1-60w-ocd-118cml-1.jpg",
     "images": [],
     "prices": [
-      { "currency_code": "IDR", "amount": 89000, "compare_amount": 119000, "cost_amount": 50000 }
+      {
+        "currency_code": "IDR",
+        "amount": 64900,
+        "compare_amount": null,
+        "cost_amount": 42200
+      }
     ],
-    "stock": 180
+    "stock": 25,
+    "weight_value": 0.05
+  },
+  {
+    "name": "Oraimo Candy Kabel Data 2.1A OCD-22",
+    "slug": "oraimo-candy-kabel-data-2-1a-ocd-22",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Candy Kabel Data 2.1A OCD-22 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Konektor USB-C, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": true,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Candy Kabel Data 2.1A OCD-22",
+    "seo_description": "Beli Oraimo Candy Kabel Data 2.1A OCD-22 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "new-arrivals",
+      "featured-products"
+    ],
+    "thumbnail": "oraimo-candy-kabel-data-2-1a-ocd-22-1.jpg",
+    "images": [
+      "oraimo-candy-kabel-data-2-1a-ocd-22-2.jpg",
+      "oraimo-candy-kabel-data-2-1a-ocd-22-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo CandyLine 2 Kabel Data OCD-121",
+    "slug": "oraimo-candyline-2-kabel-data-ocd-121",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo CandyLine 2 Kabel Data OCD-121 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Konektor USB-C, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo CandyLine 2 Kabel Data OCD-121",
+    "seo_description": "Beli Oraimo CandyLine 2 Kabel Data OCD-121 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-candyline-2-kabel-data-ocd-121-1.jpg",
+    "images": [
+      "oraimo-candyline-2-kabel-data-ocd-121-2.jpg",
+      "oraimo-candyline-2-kabel-data-ocd-121-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo x Mobile Legends Kabel Data 3A OCD-117",
+    "slug": "oraimo-x-mobile-legends-kabel-data-3a-ocd-117",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo x Mobile Legends Kabel Data 3A OCD-117 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Konektor USB-C, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo x Mobile Legends Kabel Data 3A OCD-117",
+    "seo_description": "Beli Oraimo x Mobile Legends Kabel Data 3A OCD-117 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-x-mobile-legends-kabel-data-3a-ocd-117-1.jpg",
+    "images": [
+      "oraimo-x-mobile-legends-kabel-data-3a-ocd-117-2.jpg",
+      "oraimo-x-mobile-legends-kabel-data-3a-ocd-117-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo RobustLine Kabel Data 2A OCD-114",
+    "slug": "oraimo-robustline-kabel-data-2a-ocd-114",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo RobustLine Kabel Data 2A OCD-114 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo RobustLine Kabel Data 2A OCD-114",
+    "seo_description": "Beli Oraimo RobustLine Kabel Data 2A OCD-114 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-robustline-kabel-data-2a-ocd-114-1.jpg",
+    "images": [
+      "oraimo-robustline-kabel-data-2a-ocd-114-2.jpg",
+      "oraimo-robustline-kabel-data-2a-ocd-114-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.05
+  },
+  {
+    "name": "Oraimo MagCable Kabel Data Magnetik 60W OCD-710",
+    "slug": "oraimo-magcable-kabel-data-magnetik-60w-ocd-710",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo MagCable Kabel Data Magnetik 60W OCD-710 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 60W</li><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Daya hingga 60W, Konektor USB-C, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo MagCable Kabel Data Magnetik 60W OCD-710",
+    "seo_description": "Beli Oraimo MagCable Kabel Data Magnetik 60W OCD-710 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-magcable-kabel-data-magnetik-60w-ocd-710-1.jpg",
+    "images": [
+      "oraimo-magcable-kabel-data-magnetik-60w-ocd-710-2.jpg",
+      "oraimo-magcable-kabel-data-magnetik-60w-ocd-710-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo OpenCirclet 2 Open Ear Earphone OPN-672",
+    "slug": "oraimo-opencirclet-2-open-ear-earphone-opn-672",
+    "sku": "ORAIMO-OPN-672",
+    "barcode": null,
+    "description": "<p>Oraimo OpenCirclet 2 Open Ear Earphone OPN-672 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Bluetooth 5.4</li><li>Tahan air IPX5</li></ul>",
+    "summary": "Bluetooth 5.4, Tahan air IPX5.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo OpenCirclet 2 Open Ear Earphone OPN-672",
+    "seo_description": "Beli Oraimo OpenCirclet 2 Open Ear Earphone OPN-672 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-earphone"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-opencirclet-2-open-ear-earphone-opn-672-1.jpg",
+    "images": [],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 613900,
+        "compare_amount": 736900,
+        "cost_amount": 399000
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Grip Open Ear Earphone OPN-3004",
+    "slug": "oraimo-grip-open-ear-earphone-opn-3004",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Grip Open Ear Earphone OPN-3004 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Bluetooth 5.4</li></ul>",
+    "summary": "Bluetooth 5.4.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Grip Open Ear Earphone OPN-3004",
+    "seo_description": "Beli Oraimo Grip Open Ear Earphone OPN-3004 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-earphone"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "new-arrivals"
+    ],
+    "thumbnail": "oraimo-grip-open-ear-earphone-opn-3004-1.jpg",
+    "images": [
+      "oraimo-grip-open-ear-earphone-opn-3004-2.jpg",
+      "oraimo-grip-open-ear-earphone-opn-3004-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo OpenSnap Open Ear Earphone OPN-373",
+    "slug": "oraimo-opensnap-open-ear-earphone-opn-373",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo OpenSnap Open Ear Earphone OPN-373 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Bluetooth 5.4</li><li>Tahan air IPX4</li></ul>",
+    "summary": "Bluetooth 5.4, Tahan air IPX4.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo OpenSnap Open Ear Earphone OPN-373",
+    "seo_description": "Beli Oraimo OpenSnap Open Ear Earphone OPN-373 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-earphone"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-opensnap-open-ear-earphone-opn-373-1.jpg",
+    "images": [
+      "oraimo-opensnap-open-ear-earphone-opn-373-2.jpg",
+      "oraimo-opensnap-open-ear-earphone-opn-373-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo PowerGaN 451 Charger 45W OCW-5451",
+    "slug": "oraimo-powergan-451-charger-45w-ocw-5451",
+    "sku": "ORAIMO-OCW-5451",
+    "barcode": null,
+    "description": "<p>Oraimo PowerGaN 451 Charger 45W OCW-5451 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 45W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 45W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo PowerGaN 451 Charger 45W OCW-5451",
+    "seo_description": "Beli Oraimo PowerGaN 451 Charger 45W OCW-5451 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-powergan-451-charger-45w-ocw-5451-1.jpg",
+    "images": [],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 232900,
+        "compare_amount": null,
+        "cost_amount": 151400
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.1
+  },
+  {
+    "name": "Oraimo PowerGaN 251 Charger 25W OCW-5251I",
+    "slug": "oraimo-powergan-251-charger-25w-ocw-5251i",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo PowerGaN 251 Charger 25W OCW-5251I — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 25W</li></ul>",
+    "summary": "Daya hingga 25W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo PowerGaN 251 Charger 25W OCW-5251I",
+    "seo_description": "Beli Oraimo PowerGaN 251 Charger 25W OCW-5251I resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-powergan-251-charger-25w-ocw-5251i-1.jpg",
+    "images": [
+      "oraimo-powergan-251-charger-25w-ocw-5251i-2.jpg",
+      "oraimo-powergan-251-charger-25w-ocw-5251i-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo HyperGaN 65W Triple Output Charger OCW-7652E",
+    "slug": "oraimo-hypergan-65w-triple-output-charger-ocw-7652e",
+    "sku": "ORAIMO-OCW-7652E",
+    "barcode": null,
+    "description": "<p>Oraimo HyperGaN 65W Triple Output Charger OCW-7652E — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 65W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 65W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo HyperGaN 65W Triple Output Charger OCW-7652E",
+    "seo_description": "Beli Oraimo HyperGaN 65W Triple Output Charger OCW-7652E resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-hypergan-65w-triple-output-charger-ocw-7652e-1.jpg",
+    "images": [
+      "oraimo-hypergan-65w-triple-output-charger-ocw-7652e-2.jpg",
+      "oraimo-hypergan-65w-triple-output-charger-ocw-7652e-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 383900,
+        "compare_amount": 460900,
+        "cost_amount": 249500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo PowerGaN 33W Pro Dual Output Charger OCW-7331E",
+    "slug": "oraimo-powergan-33w-pro-dual-output-charger-ocw-7331e",
+    "sku": "ORAIMO-OCW-7331E",
+    "barcode": null,
+    "description": "<p>Oraimo PowerGaN 33W Pro Dual Output Charger OCW-7331E — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 33W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 33W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo PowerGaN 33W Pro Dual Output Charger OCW-7331E",
+    "seo_description": "Beli Oraimo PowerGaN 33W Pro Dual Output Charger OCW-7331E resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-powergan-33w-pro-dual-output-charger-ocw-7331e-1.jpg",
+    "images": [],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 193900,
+        "compare_amount": 232900,
+        "cost_amount": 126000
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Jet Power Bank 27.600 mAh 130W OPB-727SQ",
+    "slug": "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq",
+    "sku": "ORAIMO-OPB-727SQ",
+    "barcode": null,
+    "description": "<p>Oraimo Jet Power Bank 27.600 mAh 130W OPB-727SQ — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Kapasitas 27600 mAh</li><li>Daya hingga 130W</li></ul>",
+    "summary": "Kapasitas 27600 mAh, Daya hingga 130W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Jet Power Bank 27.600 mAh 130W OPB-727SQ",
+    "seo_description": "Beli Oraimo Jet Power Bank 27.600 mAh 130W OPB-727SQ resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq-1.jpg",
+    "images": [
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq-2.jpg",
+      "oraimo-jet-power-bank-27-600-mah-130w-opb-727sq-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 905900,
+        "compare_amount": 1987900,
+        "cost_amount": 588800
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo MagPower Wireless Power Bank 10.000 mAh OPB-7102W",
+    "slug": "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w",
+    "sku": "ORAIMO-OPB-7102W",
+    "barcode": null,
+    "description": "<p>Oraimo MagPower Wireless Power Bank 10.000 mAh OPB-7102W — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Kapasitas 10000 mAh</li><li>Daya hingga 102W</li></ul>",
+    "summary": "Kapasitas 10000 mAh, Daya hingga 102W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo MagPower Wireless Power Bank 10.000 mAh OPB-7102W",
+    "seo_description": "Beli Oraimo MagPower Wireless Power Bank 10.000 mAh OPB-7102W resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w-1.jpg",
+    "images": [
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w-2.jpg",
+      "oraimo-magpower-wireless-power-bank-10-000-mah-opb-7102w-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 339900,
+        "compare_amount": 1000000,
+        "cost_amount": 220900
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo PowerNova L11 Power Bank Mini 10.000 mAh 22.5W OPB-7103C",
+    "slug": "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo PowerNova L11 Power Bank Mini 10.000 mAh 22.5W OPB-7103C — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Kapasitas 10000 mAh</li><li>Konektor USB-C</li></ul>",
+    "summary": "Kapasitas 10000 mAh, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo PowerNova L11 Power Bank Mini 10.000 mAh 22.5W",
+    "seo_description": "Beli Oraimo PowerNova L11 Power Bank Mini 10.000 mAh 22.5W OPB-7103C resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c-1.jpg",
+    "images": [
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c-2.jpg",
+      "oraimo-powernova-l11-power-bank-mini-10-000-mah-22-5w-opb-7103c-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo PowerFlow L1 Power Bank 10.000 mAh 15W OPB-1103",
+    "slug": "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo PowerFlow L1 Power Bank 10.000 mAh 15W OPB-1103 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Kapasitas 10000 mAh</li><li>Daya hingga 15W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Kapasitas 10000 mAh, Daya hingga 15W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo PowerFlow L1 Power Bank 10.000 mAh 15W OPB-1103",
+    "seo_description": "Beli Oraimo PowerFlow L1 Power Bank 10.000 mAh 15W OPB-1103 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103-1.jpg",
+    "images": [
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103-2.jpg",
+      "oraimo-powerflow-l1-power-bank-10-000-mah-15w-opb-1103-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo Smart Clipper 2C OPC-CL30C",
+    "slug": "oraimo-smart-clipper-2c-opc-cl30c",
+    "sku": "ORAIMO-OPC-CL30C",
+    "barcode": null,
+    "description": "<p>Oraimo Smart Clipper 2C OPC-CL30C — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Smart Clipper 2C OPC-CL30C",
+    "seo_description": "Beli Oraimo Smart Clipper 2C OPC-CL30C resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-smart-clipper-2c-opc-cl30c-1.jpg",
+    "images": [
+      "oraimo-smart-clipper-2c-opc-cl30c-2.jpg",
+      "oraimo-smart-clipper-2c-opc-cl30c-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 353900,
+        "compare_amount": 424900,
+        "cost_amount": 230000
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Smart Clipper Plus OCL-210",
+    "slug": "oraimo-smart-clipper-plus-ocl-210",
+    "sku": "ORAIMO-OCL-210",
+    "barcode": null,
+    "description": "<p>Oraimo Smart Clipper Plus OCL-210 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Smart Clipper Plus OCL-210",
+    "seo_description": "Beli Oraimo Smart Clipper Plus OCL-210 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-smart-clipper-plus-ocl-210-1.jpg",
+    "images": [
+      "oraimo-smart-clipper-plus-ocl-210-2.jpg",
+      "oraimo-smart-clipper-plus-ocl-210-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 263900,
+        "compare_amount": 316900,
+        "cost_amount": 171500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Smart Shaver 2 IPX7 OPC-RS21N",
+    "slug": "oraimo-smart-shaver-2-ipx7-opc-rs21n",
+    "sku": "ORAIMO-OPC-RS21N",
+    "barcode": null,
+    "description": "<p>Oraimo Smart Shaver 2 IPX7 OPC-RS21N — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IPX7</li></ul>",
+    "summary": "Tahan air IPX7.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Smart Shaver 2 IPX7 OPC-RS21N",
+    "seo_description": "Beli Oraimo Smart Shaver 2 IPX7 OPC-RS21N resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-smart-shaver-2-ipx7-opc-rs21n-1.jpg",
+    "images": [
+      "oraimo-smart-shaver-2-ipx7-opc-rs21n-2.jpg",
+      "oraimo-smart-shaver-2-ipx7-opc-rs21n-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 383900,
+        "compare_amount": 460900,
+        "cost_amount": 249500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo Smart Trimmer 2 Pro OTR-280",
+    "slug": "oraimo-smart-trimmer-2-pro-otr-280",
+    "sku": "ORAIMO-OTR-280",
+    "barcode": null,
+    "description": "<p>Oraimo Smart Trimmer 2 Pro OTR-280 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Smart Trimmer 2 Pro OTR-280",
+    "seo_description": "Beli Oraimo Smart Trimmer 2 Pro OTR-280 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "perawatan-diri"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-smart-trimmer-2-pro-otr-280-1.jpg",
+    "images": [
+      "oraimo-smart-trimmer-2-pro-otr-280-2.jpg",
+      "oraimo-smart-trimmer-2-pro-otr-280-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 452900,
+        "compare_amount": 543900,
+        "cost_amount": 294400
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.35
+  },
+  {
+    "name": "Oraimo Watch 2R OSW-30",
+    "slug": "oraimo-watch-2r-osw-30",
+    "sku": "ORAIMO-OSW-30",
+    "barcode": null,
+    "description": "<p>Oraimo Watch 2R OSW-30 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 1,39 inci</li></ul>",
+    "summary": "Tahan air IP68, Layar 1,39 inci.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Watch 2R OSW-30",
+    "seo_description": "Beli Oraimo Watch 2R OSW-30 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-watch-2r-osw-30-1.jpg",
+    "images": [
+      "oraimo-watch-2r-osw-30-2.jpg",
+      "oraimo-watch-2r-osw-30-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 319900,
+        "compare_amount": 1200000,
+        "cost_amount": 207900
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.4
+  },
+  {
+    "name": "Oraimo x Tahilalats Watch 5 Max OSW-804",
+    "slug": "oraimo-x-tahilalats-watch-5-max-osw-804",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo x Tahilalats Watch 5 Max OSW-804 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 2,01 inci</li></ul>",
+    "summary": "Tahan air IP68, Layar 2,01 inci.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo x Tahilalats Watch 5 Max OSW-804",
+    "seo_description": "Beli Oraimo x Tahilalats Watch 5 Max OSW-804 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-x-tahilalats-watch-5-max-osw-804-1.jpg",
+    "images": [
+      "oraimo-x-tahilalats-watch-5-max-osw-804-2.jpg",
+      "oraimo-x-tahilalats-watch-5-max-osw-804-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo x Tahilalats Watch 6 Max OSW-8001N",
+    "slug": "oraimo-x-tahilalats-watch-6-max-osw-8001n",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo x Tahilalats Watch 6 Max OSW-8001N — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 1,83 inci</li></ul>",
+    "summary": "Tahan air IP68, Layar 1,83 inci.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo x Tahilalats Watch 6 Max OSW-8001N",
+    "seo_description": "Beli Oraimo x Tahilalats Watch 6 Max OSW-8001N resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-x-tahilalats-watch-6-max-osw-8001n-1.jpg",
+    "images": [
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n-2.jpg",
+      "oraimo-x-tahilalats-watch-6-max-osw-8001n-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Watch 6 Nano OSW-807",
+    "slug": "oraimo-watch-6-nano-osw-807",
+    "sku": "ORAIMO-OSW-807",
+    "barcode": null,
+    "description": "<p>Oraimo Watch 6 Nano OSW-807 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 1,52 inci</li></ul>",
+    "summary": "Tahan air IP68, Layar 1,52 inci.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Watch 6 Nano OSW-807",
+    "seo_description": "Beli Oraimo Watch 6 Nano OSW-807 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-watch-6-nano-osw-807-1.jpg",
+    "images": [
+      "oraimo-watch-6-nano-osw-807-2.jpg",
+      "oraimo-watch-6-nano-osw-807-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 333900,
+        "compare_amount": 400900,
+        "cost_amount": 217000
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Watch 6N OSW-8000N",
+    "slug": "oraimo-watch-6n-osw-8000n",
+    "sku": "ORAIMO-OSW-8000N",
+    "barcode": null,
+    "description": "<p>Oraimo Watch 6N OSW-8000N — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 1,83 inci</li></ul>",
+    "summary": "Tahan air IP68, Layar 1,83 inci.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Watch 6N OSW-8000N",
+    "seo_description": "Beli Oraimo Watch 6N OSW-8000N resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-watch-6n-osw-8000n-1.jpg",
+    "images": [
+      "oraimo-watch-6n-osw-8000n-2.jpg",
+      "oraimo-watch-6n-osw-8000n-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 295900,
+        "compare_amount": null,
+        "cost_amount": 192300
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Watch 6R OSW-823",
+    "slug": "oraimo-watch-6r-osw-823",
+    "sku": "ORAIMO-OSW-823",
+    "barcode": null,
+    "description": "<p>Oraimo Watch 6R OSW-823 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 1,39 inci</li></ul>",
+    "summary": "Tahan air IP68, Layar 1,39 inci.",
+    "security_stock": 2,
+    "featured": true,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Watch 6R OSW-823",
+    "seo_description": "Beli Oraimo Watch 6R OSW-823 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "new-arrivals",
+      "featured-products"
+    ],
+    "thumbnail": "oraimo-watch-6r-osw-823-1.jpg",
+    "images": [],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 486900,
+        "compare_amount": null,
+        "cost_amount": 316500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo SpaceBuds ANC Hybrid TWS OTW-630",
+    "slug": "oraimo-spacebuds-anc-hybrid-tws-otw-630",
+    "sku": "ORAIMO-OTW-630",
+    "barcode": null,
+    "description": "<p>Oraimo SpaceBuds ANC Hybrid TWS OTW-630 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Active Noise Cancellation (ANC)</li><li>Tahan air IP54</li></ul>",
+    "summary": "Active Noise Cancellation (ANC), Tahan air IP54.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo SpaceBuds ANC Hybrid TWS OTW-630",
+    "seo_description": "Beli Oraimo SpaceBuds ANC Hybrid TWS OTW-630 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-tws-earphone"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-spacebuds-anc-hybrid-tws-otw-630-1.jpg",
+    "images": [
+      "oraimo-spacebuds-anc-hybrid-tws-otw-630-2.jpg",
+      "oraimo-spacebuds-anc-hybrid-tws-otw-630-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 623900,
+        "compare_amount": 748900,
+        "cost_amount": 405500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo SpaceBuds Pro ANC 50dB TWS OTW-930",
+    "slug": "oraimo-spacebuds-pro-anc-50db-tws-otw-930",
+    "sku": "ORAIMO-OTW-930",
+    "barcode": null,
+    "description": "<p>Oraimo SpaceBuds Pro ANC 50dB TWS OTW-930 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Active Noise Cancellation (ANC)</li><li>Tahan air IP54</li></ul>",
+    "summary": "Active Noise Cancellation (ANC), Tahan air IP54.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo SpaceBuds Pro ANC 50dB TWS OTW-930",
+    "seo_description": "Beli Oraimo SpaceBuds Pro ANC 50dB TWS OTW-930 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-tws-earphone"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-spacebuds-pro-anc-50db-tws-otw-930-1.jpg",
+    "images": [
+      "oraimo-spacebuds-pro-anc-50db-tws-otw-930-2.jpg",
+      "oraimo-spacebuds-pro-anc-50db-tws-otw-930-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 1353900,
+        "compare_amount": 1971900,
+        "cost_amount": 880000
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo SpaceBuds N ANC TWS OTW-626N",
+    "slug": "oraimo-spacebuds-n-anc-tws-otw-626n",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo SpaceBuds N ANC TWS OTW-626N — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Bluetooth 5.4</li><li>Active Noise Cancellation (ANC)</li></ul>",
+    "summary": "Bluetooth 5.4, Active Noise Cancellation (ANC).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo SpaceBuds N ANC TWS OTW-626N",
+    "seo_description": "Beli Oraimo SpaceBuds N ANC TWS OTW-626N resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-tws-earphone"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-spacebuds-n-anc-tws-otw-626n-1.jpg",
+    "images": [
+      "oraimo-spacebuds-n-anc-tws-otw-626n-2.jpg",
+      "oraimo-spacebuds-n-anc-tws-otw-626n-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo SpaceBuds Z ANC TWS OTW-625",
+    "slug": "oraimo-spacebuds-z-anc-tws-otw-625",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo SpaceBuds Z ANC TWS OTW-625 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Active Noise Cancellation (ANC)</li></ul>",
+    "summary": "Active Noise Cancellation (ANC).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo SpaceBuds Z ANC TWS OTW-625",
+    "seo_description": "Beli Oraimo SpaceBuds Z ANC TWS OTW-625 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-tws-earphone"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-spacebuds-z-anc-tws-otw-625-1.jpg",
+    "images": [
+      "oraimo-spacebuds-z-anc-tws-otw-625-2.jpg",
+      "oraimo-spacebuds-z-anc-tws-otw-625-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo Kabel Data Type-C 100W Digital Display OCD-175CC",
+    "slug": "oraimo-kabel-data-type-c-100w-digital-display-ocd-175cc",
+    "sku": "ORAIMO-OCD-175CC",
+    "barcode": null,
+    "description": "<p>Oraimo Kabel Data Type-C 100W Digital Display OCD-175CC — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 100W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 100W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Kabel Data Type-C 100W Digital Display OCD-175CC",
+    "seo_description": "Beli Oraimo Kabel Data Type-C 100W Digital Display OCD-175CC resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-kabel-data-type-c-100w-digital-display-ocd-175cc-1.jpg",
+    "images": [
+      "oraimo-kabel-data-type-c-100w-digital-display-ocd-175cc-2.jpg",
+      "oraimo-kabel-data-type-c-100w-digital-display-ocd-175cc-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 103900,
+        "compare_amount": 124900,
+        "cost_amount": 67500
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo PowerTrans USB Hub 7 in 1 OUH-511",
+    "slug": "oraimo-powertrans-usb-hub-7-in-1-ouh-511",
+    "sku": "ORAIMO-OUH-511",
+    "barcode": null,
+    "description": "<p>Oraimo PowerTrans USB Hub 7 in 1 OUH-511 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Daya hingga 100W</li></ul>",
+    "summary": "Daya hingga 100W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo PowerTrans USB Hub 7 in 1 OUH-511",
+    "seo_description": "Beli Oraimo PowerTrans USB Hub 7 in 1 OUH-511 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-powertrans-usb-hub-7-in-1-ouh-511-1.jpg",
+    "images": [
+      "oraimo-powertrans-usb-hub-7-in-1-ouh-511-2.jpg",
+      "oraimo-powertrans-usb-hub-7-in-1-ouh-511-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 293900,
+        "compare_amount": 352900,
+        "cost_amount": 191000
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo AniShield Dual Port Charger 10.5W OCW-E68D",
+    "slug": "oraimo-anishield-dual-port-charger-10-5w-ocw-e68d",
+    "sku": "ORAIMO-OCW-E68D",
+    "barcode": null,
+    "description": "<p>Oraimo AniShield Dual Port Charger 10.5W OCW-E68D — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo AniShield Dual Port Charger 10.5W OCW-E68D",
+    "seo_description": "Beli Oraimo AniShield Dual Port Charger 10.5W OCW-E68D resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-anishield-dual-port-charger-10-5w-ocw-e68d-1.jpg",
+    "images": [
+      "oraimo-anishield-dual-port-charger-10-5w-ocw-e68d-2.jpg",
+      "oraimo-anishield-dual-port-charger-10-5w-ocw-e68d-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 93900,
+        "compare_amount": 112900,
+        "cost_amount": 61000
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.3
+  },
+  {
+    "name": "Oraimo Watch 5 OSW-805",
+    "slug": "oraimo-watch-5-osw-805",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Watch 5 OSW-805 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Layar 2,01 inci</li></ul>",
+    "summary": "Layar 2,01 inci.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Watch 5 OSW-805",
+    "seo_description": "Beli Oraimo Watch 5 OSW-805 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-watch-5-osw-805-1.jpg",
+    "images": [
+      "oraimo-watch-5-osw-805-2.jpg",
+      "oraimo-watch-5-osw-805-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo x Tahilalat Watch 5 Lite OSW-804",
+    "slug": "oraimo-x-tahilalat-watch-5-lite-osw-804",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo x Tahilalat Watch 5 Lite OSW-804 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 2,01 inci</li><li>Layar AMOLED</li></ul>",
+    "summary": "Tahan air IP68, Layar 2,01 inci, Layar AMOLED.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo x Tahilalat Watch 5 Lite OSW-804",
+    "seo_description": "Beli Oraimo x Tahilalat Watch 5 Lite OSW-804 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "best-sellers",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-x-tahilalat-watch-5-lite-osw-804-1.jpg",
+    "images": [
+      "oraimo-x-tahilalat-watch-5-lite-osw-804-2.jpg",
+      "oraimo-x-tahilalat-watch-5-lite-osw-804-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo Watch 5N OSW-806N",
+    "slug": "oraimo-watch-5n-osw-806n",
+    "sku": "ORAIMO-OSW-806N",
+    "barcode": null,
+    "description": "<p>Oraimo Watch 5N OSW-806N — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 2,01 inci</li></ul>",
+    "summary": "Tahan air IP68, Layar 2,01 inci.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Watch 5N OSW-806N",
+    "seo_description": "Beli Oraimo Watch 5N OSW-806N resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-watch-5n-osw-806n-1.jpg",
+    "images": [
+      "oraimo-watch-5n-osw-806n-2.jpg",
+      "oraimo-watch-5n-osw-806n-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 319900,
+        "compare_amount": 799000,
+        "cost_amount": 207900
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.4
+  },
+  {
+    "name": "Oraimo Watch AMOLED 1.43\"",
+    "slug": "oraimo-watch-amoled-1-43",
+    "sku": "ORAIMO-OSW-42",
+    "barcode": null,
+    "description": "<p>Oraimo Watch AMOLED 1.43\" — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Tahan air IP68</li><li>Layar 1,43 inci</li><li>Layar AMOLED</li></ul>",
+    "summary": "Tahan air IP68, Layar 1,43 inci, Layar AMOLED.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Watch AMOLED 1.43\"",
+    "seo_description": "Beli Oraimo Watch AMOLED 1.43\" resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-watch-amoled-1-43-1.jpg",
+    "images": [
+      "oraimo-watch-amoled-1-43-2.jpg",
+      "oraimo-watch-amoled-1-43-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 740900,
+        "compare_amount": 889900,
+        "cost_amount": 481600
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Watch Nova V OSW-802N",
+    "slug": "oraimo-watch-nova-v-osw-802n",
+    "sku": "ORAIMO-OSW-802N",
+    "barcode": null,
+    "description": "<p>Oraimo Watch Nova V OSW-802N — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p><ul><li>Layar 2,01 inci</li></ul>",
+    "summary": "Layar 2,01 inci.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "Oraimo Watch Nova V OSW-802N",
+    "seo_description": "Beli Oraimo Watch Nova V OSW-802N resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "smartwatch"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-watch-nova-v-osw-802n-1.jpg",
+    "images": [
+      "oraimo-watch-nova-v-osw-802n-2.jpg",
+      "oraimo-watch-nova-v-osw-802n-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 880900,
+        "compare_amount": 1918900,
+        "cost_amount": 572600
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "Oraimo Wired Earphone 3.5mm OEP-E21P",
+    "slug": "oraimo-wired-earphone-3-5mm-oep-e21p",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo Wired Earphone 3.5mm OEP-E21P — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo Wired Earphone 3.5mm OEP-E21P",
+    "seo_description": "Beli Oraimo Wired Earphone 3.5mm OEP-E21P resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-earphone"
+    ],
+    "collections": [
+      "oraimo-collection",
+      "best-sellers",
+      "sales-promotions"
+    ],
+    "thumbnail": "oraimo-wired-earphone-3-5mm-oep-e21p-1.jpg",
+    "images": [
+      "oraimo-wired-earphone-3-5mm-oep-e21p-2.jpg",
+      "oraimo-wired-earphone-3-5mm-oep-e21p-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.2
+  },
+  {
+    "name": "Oraimo BoomPop Lite Wireless Headphone OHP-317",
+    "slug": "oraimo-boompop-lite-wireless-headphone-ohp-317",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>Oraimo BoomPop Lite Wireless Headphone OHP-317 — produk resmi Oraimo, sama seperti yang dijual di toko resmi Oraimo di Tokopedia.</p>",
+    "summary": "Produk resmi Oraimo.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "Oraimo BoomPop Lite Wireless Headphone OHP-317",
+    "seo_description": "Beli Oraimo BoomPop Lite Wireless Headphone OHP-317 resmi di OCEANMALL.",
+    "brand_slug": "oraimo",
+    "categories": [
+      "audio",
+      "audio-headphone"
+    ],
+    "collections": [
+      "oraimo-collection"
+    ],
+    "thumbnail": "oraimo-boompop-lite-wireless-headphone-ohp-317-1.jpg",
+    "images": [
+      "oraimo-boompop-lite-wireless-headphone-ohp-317-2.jpg",
+      "oraimo-boompop-lite-wireless-headphone-ohp-317-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "RAPAtech Adaptor Charger GaN PD 20W/25W/30W",
+    "slug": "rapatech-adaptor-charger-gan-pd-20w-25w-30w",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Adaptor Charger GaN PD 20W/25W/30W — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 20W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 20W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Adaptor Charger GaN PD 20W/25W/30W",
+    "seo_description": "Beli RAPAtech Adaptor Charger GaN PD 20W/25W/30W resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-adaptor-charger-gan-pd-20w-25w-30w-1.jpg",
+    "images": [
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w-2.jpg",
+      "rapatech-adaptor-charger-gan-pd-20w-25w-30w-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Air Pro III TWS ANC + ENC",
+    "slug": "rapatech-air-pro-iii-tws-anc-enc",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Air Pro III TWS ANC + ENC — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Active Noise Cancellation (ANC)</li><li>Peredam bising saat panggilan (ENC)</li></ul>",
+    "summary": "Active Noise Cancellation (ANC), Peredam bising saat panggilan (ENC).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Air Pro III TWS ANC + ENC",
+    "seo_description": "Beli RAPAtech Air Pro III TWS ANC + ENC resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "audio",
+      "audio-tws-earphone"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-air-pro-iii-tws-anc-enc-1.jpg",
+    "images": [
+      "rapatech-air-pro-iii-tws-anc-enc-2.jpg",
+      "rapatech-air-pro-iii-tws-anc-enc-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "RAPAtech LINE Flash Kabel USB-C to USB-C 60W",
+    "slug": "rapatech-line-flash-kabel-usb-c-to-usb-c-60w",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech LINE Flash Kabel USB-C to USB-C 60W — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 60W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 60W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech LINE Flash Kabel USB-C to USB-C 60W",
+    "seo_description": "Beli RAPAtech LINE Flash Kabel USB-C to USB-C 60W resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-line-flash-kabel-usb-c-to-usb-c-60w-1.jpg",
+    "images": [
+      "rapatech-line-flash-kabel-usb-c-to-usb-c-60w-2.jpg",
+      "rapatech-line-flash-kabel-usb-c-to-usb-c-60w-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "RAPAtech LINE MAX I Kabel USB-A to USB-C DC2021",
+    "slug": "rapatech-line-max-i-kabel-usb-a-to-usb-c-dc2021",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech LINE MAX I Kabel USB-A to USB-C DC2021 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Konektor USB-C</li></ul>",
+    "summary": "Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech LINE MAX I Kabel USB-A to USB-C DC2021",
+    "seo_description": "Beli RAPAtech LINE MAX I Kabel USB-A to USB-C DC2021 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-kabel-data"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-line-max-i-kabel-usb-a-to-usb-c-dc2021-1.jpg",
+    "images": [
+      "rapatech-line-max-i-kabel-usb-a-to-usb-c-dc2021-2.jpg",
+      "rapatech-line-max-i-kabel-usb-a-to-usb-c-dc2021-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.25
+  },
+  {
+    "name": "RAPAtech Paket Car Charger 30W/45W + Car Holder Wireless Charger",
+    "slug": "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Paket Car Charger 30W/45W + Car Holder Wireless Charger — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 30W</li></ul>",
+    "summary": "Daya hingga 30W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Paket Car Charger 30W/45W + Car Holder Wireless",
+    "seo_description": "Beli RAPAtech Paket Car Charger 30W/45W + Car Holder Wireless Charger resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger-1.jpg",
+    "images": [
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger-2.jpg",
+      "rapatech-paket-car-charger-30w-45w-car-holder-wireless-charger-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.7
+  },
+  {
+    "name": "RAPAtech DRIVE I Car Charger Dual Port 30W MB1020",
+    "slug": "rapatech-drive-i-car-charger-dual-port-30w-mb1020",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech DRIVE I Car Charger Dual Port 30W MB1020 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 30W</li></ul>",
+    "summary": "Daya hingga 30W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech DRIVE I Car Charger Dual Port 30W MB1020",
+    "seo_description": "Beli RAPAtech DRIVE I Car Charger Dual Port 30W MB1020 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-drive-i-car-charger-dual-port-30w-mb1020-1.jpg",
+    "images": [
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020-2.jpg",
+      "rapatech-drive-i-car-charger-dual-port-30w-mb1020-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.35
+  },
+  {
+    "name": "RAPAtech Set iPhone 18 Case AERO / Case ICE + Tempered Glass",
+    "slug": "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Set iPhone 18 Case AERO / Case ICE + Tempered Glass — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Set iPhone 18 Case AERO / Case ICE + Tempered Glass",
+    "seo_description": "Beli RAPAtech Set iPhone 18 Case AERO / Case ICE + Tempered Glass resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "new-arrivals",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass-1.jpg",
+    "images": [
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass-2.jpg",
+      "rapatech-set-iphone-18-case-aero-case-ice-tempered-glass-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.65
+  },
+  {
+    "name": "RAPAtech Case Hybrid MagSafe iPhone 15/16 Series",
+    "slug": "rapatech-case-hybrid-magsafe-iphone-15-16-series",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Case Hybrid MagSafe iPhone 15/16 Series — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Case Hybrid MagSafe iPhone 15/16 Series",
+    "seo_description": "Beli RAPAtech Case Hybrid MagSafe iPhone 15/16 Series resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-case-hybrid-magsafe-iphone-15-16-series-1.jpg",
+    "images": [
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series-2.jpg",
+      "rapatech-case-hybrid-magsafe-iphone-15-16-series-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.35
+  },
+  {
+    "name": "RAPAtech Case ICE Clear & Matte iPhone 17/18 Series",
+    "slug": "rapatech-case-ice-clear-matte-iphone-17-18-series",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Case ICE Clear & Matte iPhone 17/18 Series — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Case ICE Clear & Matte iPhone 17/18 Series",
+    "seo_description": "Beli RAPAtech Case ICE Clear & Matte iPhone 17/18 Series resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-case-ice-clear-matte-iphone-17-18-series-1.jpg",
+    "images": [
+      "rapatech-case-ice-clear-matte-iphone-17-18-series-2.jpg",
+      "rapatech-case-ice-clear-matte-iphone-17-18-series-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.65
+  },
+  {
+    "name": "RAPAtech Case ICE iPhone Duo / 18 Pro / 17 Series",
+    "slug": "rapatech-case-ice-iphone-duo-18-pro-17-series",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Case ICE iPhone Duo / 18 Pro / 17 Series — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": true,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Case ICE iPhone Duo / 18 Pro / 17 Series",
+    "seo_description": "Beli RAPAtech Case ICE iPhone Duo / 18 Pro / 17 Series resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "new-arrivals",
+      "featured-products",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-case-ice-iphone-duo-18-pro-17-series-1.jpg",
+    "images": [
+      "rapatech-case-ice-iphone-duo-18-pro-17-series-2.jpg",
+      "rapatech-case-ice-iphone-duo-18-pro-17-series-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.65
+  },
+  {
+    "name": "RAPAtech Case Aero Hybrid MagSafe iPhone 17/18 Pro Series",
+    "slug": "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Case Aero Hybrid MagSafe iPhone 17/18 Pro Series — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Case Aero Hybrid MagSafe iPhone 17/18 Pro Series",
+    "seo_description": "Beli RAPAtech Case Aero Hybrid MagSafe iPhone 17/18 Pro Series resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series-1.jpg",
+    "images": [
+      "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series-2.jpg",
+      "rapatech-case-aero-hybrid-magsafe-iphone-17-18-pro-series-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Charger GaN 18W Samsung & Android + Kabel USB-C",
+    "slug": "rapatech-charger-gan-18w-samsung-android-kabel-usb-c",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Charger GaN 18W Samsung & Android + Kabel USB-C — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 18W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 18W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Charger GaN 18W Samsung & Android + Kabel USB-C",
+    "seo_description": "Beli RAPAtech Charger GaN 18W Samsung & Android + Kabel USB-C resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-charger-gan-18w-samsung-android-kabel-usb-c-1.jpg",
+    "images": [
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c-2.jpg",
+      "rapatech-charger-gan-18w-samsung-android-kabel-usb-c-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Charger GaN Lightning MFi 20W/30W iPhone X-14",
+    "slug": "rapatech-charger-gan-lightning-mfi-20w-30w-iphone-x-14",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Charger GaN Lightning MFi 20W/30W iPhone X-14 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 20W</li><li>Bersertifikat Apple MFi</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Daya hingga 20W, Bersertifikat Apple MFi, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Charger GaN Lightning MFi 20W/30W iPhone X-14",
+    "seo_description": "Beli RAPAtech Charger GaN Lightning MFi 20W/30W iPhone X-14 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-charger-gan-lightning-mfi-20w-30w-iphone-x-14-1.jpg",
+    "images": [
+      "rapatech-charger-gan-lightning-mfi-20w-30w-iphone-x-14-2.jpg",
+      "rapatech-charger-gan-lightning-mfi-20w-30w-iphone-x-14-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Power Loop AVS GaN 3.0 Charger 45W + Kabel Retractable",
+    "slug": "rapatech-power-loop-avs-gan-3-0-charger-45w-kabel-retractable",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Power Loop AVS GaN 3.0 Charger 45W + Kabel Retractable — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 45W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 45W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Power Loop AVS GaN 3.0 Charger 45W + Kabel",
+    "seo_description": "Beli RAPAtech Power Loop AVS GaN 3.0 Charger 45W + Kabel Retractable resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-power-loop-avs-gan-3-0-charger-45w-kabel-retractable-1.jpg",
+    "images": [
+      "rapatech-power-loop-avs-gan-3-0-charger-45w-kabel-retractable-2.jpg",
+      "rapatech-power-loop-avs-gan-3-0-charger-45w-kabel-retractable-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Charger Samsung Super Fast Charging 25W/30W/45W",
+    "slug": "rapatech-charger-samsung-super-fast-charging-25w-30w-45w",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Charger Samsung Super Fast Charging 25W/30W/45W — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 25W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 25W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Charger Samsung Super Fast Charging 25W/30W/45W",
+    "seo_description": "Beli RAPAtech Charger Samsung Super Fast Charging 25W/30W/45W resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-charger-samsung-super-fast-charging-25w-30w-45w-1.jpg",
+    "images": [
+      "rapatech-charger-samsung-super-fast-charging-25w-30w-45w-2.jpg",
+      "rapatech-charger-samsung-super-fast-charging-25w-30w-45w-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Paket iPhone 18: Charger ZEN PRO GaN60W + Case ICE + Tempered Glass",
+    "slug": "rapatech-paket-iphone-18-charger-zen-pro-gan60w-case-ice-tempered-glass",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Paket iPhone 18: Charger ZEN PRO GaN60W + Case ICE + Tempered Glass — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 60W</li></ul>",
+    "summary": "Daya hingga 60W.",
+    "security_stock": 2,
+    "featured": true,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Paket iPhone 18: Charger ZEN PRO GaN60W + Case ICE",
+    "seo_description": "Beli RAPAtech Paket iPhone 18: Charger ZEN PRO GaN60W + Case ICE + Tempered Glass resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "new-arrivals",
+      "featured-products",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-paket-iphone-18-charger-zen-pro-gan60w-case-ice-tempered-glass-1.jpg",
+    "images": [
+      "rapatech-paket-iphone-18-charger-zen-pro-gan60w-case-ice-tempered-glass-2.jpg",
+      "rapatech-paket-iphone-18-charger-zen-pro-gan60w-case-ice-tempered-glass-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.85
+  },
+  {
+    "name": "RAPAtech Power ION PRO GaN 60W AVS Charger",
+    "slug": "rapatech-power-ion-pro-gan-60w-avs-charger",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Power ION PRO GaN 60W AVS Charger — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 60W</li></ul>",
+    "summary": "Daya hingga 60W.",
+    "security_stock": 2,
+    "featured": true,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Power ION PRO GaN 60W AVS Charger",
+    "seo_description": "Beli RAPAtech Power ION PRO GaN 60W AVS Charger resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "new-arrivals",
+      "featured-products",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-power-ion-pro-gan-60w-avs-charger-1.jpg",
+    "images": [
+      "rapatech-power-ion-pro-gan-60w-avs-charger-2.jpg",
+      "rapatech-power-ion-pro-gan-60w-avs-charger-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Drive Crystal I Car Holder Wireless Charger 2 in 1",
+    "slug": "rapatech-drive-crystal-i-car-holder-wireless-charger-2-in-1",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Drive Crystal I Car Holder Wireless Charger 2 in 1 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Konektor USB-C</li></ul>",
+    "summary": "Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Drive Crystal I Car Holder Wireless Charger 2 in 1",
+    "seo_description": "Beli RAPAtech Drive Crystal I Car Holder Wireless Charger 2 in 1 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-drive-crystal-i-car-holder-wireless-charger-2-in-1-1.jpg",
+    "images": [
+      "rapatech-drive-crystal-i-car-holder-wireless-charger-2-in-1-2.jpg",
+      "rapatech-drive-crystal-i-car-holder-wireless-charger-2-in-1-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.3
+  },
+  {
+    "name": "RAPAtech Hybrid MagSafe Clear Case & Leather Case iPhone 13-16",
+    "slug": "rapatech-hybrid-magsafe-clear-case-leather-case-iphone-13-16",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Hybrid MagSafe Clear Case & Leather Case iPhone 13-16 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Hybrid MagSafe Clear Case & Leather Case iPhone",
+    "seo_description": "Beli RAPAtech Hybrid MagSafe Clear Case & Leather Case iPhone 13-16 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-hybrid-magsafe-clear-case-leather-case-iphone-13-16-1.jpg",
+    "images": [
+      "rapatech-hybrid-magsafe-clear-case-leather-case-iphone-13-16-2.jpg",
+      "rapatech-hybrid-magsafe-clear-case-leather-case-iphone-13-16-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Hybrid MagSafe Clear Case + Tempered Glass iPhone 12-17",
+    "slug": "rapatech-hybrid-magsafe-clear-case-tempered-glass-iphone-12-17",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Hybrid MagSafe Clear Case + Tempered Glass iPhone 12-17 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Hybrid MagSafe Clear Case + Tempered Glass iPhone",
+    "seo_description": "Beli RAPAtech Hybrid MagSafe Clear Case + Tempered Glass iPhone 12-17 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "best-sellers",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-hybrid-magsafe-clear-case-tempered-glass-iphone-12-17-1.jpg",
+    "images": [
+      "rapatech-hybrid-magsafe-clear-case-tempered-glass-iphone-12-17-2.jpg",
+      "rapatech-hybrid-magsafe-clear-case-tempered-glass-iphone-12-17-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Hybrid MagSafe Clear Case Matte & Hybrid Air iPhone 15/16",
+    "slug": "rapatech-hybrid-magsafe-clear-case-matte-hybrid-air-iphone-15-16",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Hybrid MagSafe Clear Case Matte & Hybrid Air iPhone 15/16 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Hybrid MagSafe Clear Case Matte & Hybrid Air",
+    "seo_description": "Beli RAPAtech Hybrid MagSafe Clear Case Matte & Hybrid Air iPhone 15/16 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-hybrid-magsafe-clear-case-matte-hybrid-air-iphone-15-16-1.jpg",
+    "images": [
+      "rapatech-hybrid-magsafe-clear-case-matte-hybrid-air-iphone-15-16-2.jpg",
+      "rapatech-hybrid-magsafe-clear-case-matte-hybrid-air-iphone-15-16-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.35
+  },
+  {
+    "name": "RAPAtech Charger GaN 25W-45W + Kabel LINE I Nylon Braided",
+    "slug": "rapatech-charger-gan-25w-45w-kabel-line-i-nylon-braided",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Charger GaN 25W-45W + Kabel LINE I Nylon Braided — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 25W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 25W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Charger GaN 25W-45W + Kabel LINE I Nylon Braided",
+    "seo_description": "Beli RAPAtech Charger GaN 25W-45W + Kabel LINE I Nylon Braided resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-charger-gan-25w-45w-kabel-line-i-nylon-braided-1.jpg",
+    "images": [
+      "rapatech-charger-gan-25w-45w-kabel-line-i-nylon-braided-2.jpg",
+      "rapatech-charger-gan-25w-45w-kabel-line-i-nylon-braided-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.35
+  },
+  {
+    "name": "RAPAtech Adaptor Headset Lightning to 3.5mm MFi DA1012",
+    "slug": "rapatech-adaptor-headset-lightning-to-3-5mm-mfi-da1012",
+    "sku": "RAPA-DA1012",
+    "barcode": null,
+    "description": "<p>RAPAtech Adaptor Headset Lightning to 3.5mm MFi DA1012 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Bersertifikat Apple MFi</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Bersertifikat Apple MFi, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "RAPAtech Adaptor Headset Lightning to 3.5mm MFi DA1012",
+    "seo_description": "Beli RAPAtech Adaptor Headset Lightning to 3.5mm MFi DA1012 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-adaptor-headset-lightning-to-3-5mm-mfi-da1012-1.jpg",
+    "images": [
+      "rapatech-adaptor-headset-lightning-to-3-5mm-mfi-da1012-2.jpg",
+      "rapatech-adaptor-headset-lightning-to-3-5mm-mfi-da1012-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 189000,
+        "compare_amount": 399000,
+        "cost_amount": 122900
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.25
+  },
+  {
+    "name": "RAPAtech DRIVE I Car Charger Dual Port 45W MB1030",
+    "slug": "rapatech-drive-i-car-charger-dual-port-45w-mb1030",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech DRIVE I Car Charger Dual Port 45W MB1030 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 45W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 45W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech DRIVE I Car Charger Dual Port 45W MB1030",
+    "seo_description": "Beli RAPAtech DRIVE I Car Charger Dual Port 45W MB1030 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-drive-i-car-charger-dual-port-45w-mb1030-1.jpg",
+    "images": [
+      "rapatech-drive-i-car-charger-dual-port-45w-mb1030-2.jpg",
+      "rapatech-drive-i-car-charger-dual-port-45w-mb1030-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.35
+  },
+  {
+    "name": "RAPAtech Origin Loop Power Bank 10.000 mAh PD 40W",
+    "slug": "rapatech-origin-loop-power-bank-10-000-mah-pd-40w",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Origin Loop Power Bank 10.000 mAh PD 40W — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Kapasitas 10.000 mAh</li><li>Daya hingga 40W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Kapasitas 10.000 mAh, Daya hingga 40W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Origin Loop Power Bank 10.000 mAh PD 40W",
+    "seo_description": "Beli RAPAtech Origin Loop Power Bank 10.000 mAh PD 40W resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-origin-loop-power-bank-10-000-mah-pd-40w-1.jpg",
+    "images": [
+      "rapatech-origin-loop-power-bank-10-000-mah-pd-40w-2.jpg",
+      "rapatech-origin-loop-power-bank-10-000-mah-pd-40w-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Origin MAX Power Bank 15.000 mAh 100W Qi2",
+    "slug": "rapatech-origin-max-power-bank-15-000-mah-100w-qi2",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Origin MAX Power Bank 15.000 mAh 100W Qi2 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Kapasitas 15.000 mAh</li><li>Daya hingga 100W</li><li>Wireless charging Qi2</li></ul>",
+    "summary": "Kapasitas 15.000 mAh, Daya hingga 100W, Wireless charging Qi2.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Origin MAX Power Bank 15.000 mAh 100W Qi2",
+    "seo_description": "Beli RAPAtech Origin MAX Power Bank 15.000 mAh 100W Qi2 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-origin-max-power-bank-15-000-mah-100w-qi2-1.jpg",
+    "images": [
+      "rapatech-origin-max-power-bank-15-000-mah-100w-qi2-2.jpg",
+      "rapatech-origin-max-power-bank-15-000-mah-100w-qi2-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.9
+  },
+  {
+    "name": "RAPAtech Set iPhone 17 Case ICE + AR Tempered Glass",
+    "slug": "rapatech-set-iphone-17-case-ice-ar-tempered-glass",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Set iPhone 17 Case ICE + AR Tempered Glass — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Set iPhone 17 Case ICE + AR Tempered Glass",
+    "seo_description": "Beli RAPAtech Set iPhone 17 Case ICE + AR Tempered Glass resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-set-iphone-17-case-ice-ar-tempered-glass-1.jpg",
+    "images": [
+      "rapatech-set-iphone-17-case-ice-ar-tempered-glass-2.jpg",
+      "rapatech-set-iphone-17-case-ice-ar-tempered-glass-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.65
+  },
+  {
+    "name": "RAPAtech Power AirStation Qi2.2 3 in 1 Wireless Charger 25W",
+    "slug": "rapatech-power-airstation-qi2-2-3-in-1-wireless-charger-25w",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Power AirStation Qi2.2 3 in 1 Wireless Charger 25W — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 25W</li><li>Wireless charging Qi2.2</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 25W, Wireless charging Qi2.2, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Power AirStation Qi2.2 3 in 1 Wireless Charger 25W",
+    "seo_description": "Beli RAPAtech Power AirStation Qi2.2 3 in 1 Wireless Charger 25W resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-power-airstation-qi2-2-3-in-1-wireless-charger-25w-1.jpg",
+    "images": [
+      "rapatech-power-airstation-qi2-2-3-in-1-wireless-charger-25w-2.jpg",
+      "rapatech-power-airstation-qi2-2-3-in-1-wireless-charger-25w-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.8
+  },
+  {
+    "name": "RAPAtech Charger Power GaN MFi PD 20W-35W iPhone",
+    "slug": "rapatech-charger-power-gan-mfi-pd-20w-35w-iphone",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Charger Power GaN MFi PD 20W-35W iPhone — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 20W</li><li>Bersertifikat Apple MFi</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Daya hingga 20W, Bersertifikat Apple MFi, Mendukung Lightning (iPhone).",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Charger Power GaN MFi PD 20W-35W iPhone",
+    "seo_description": "Beli RAPAtech Charger Power GaN MFi PD 20W-35W iPhone resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-charger-power-gan-mfi-pd-20w-35w-iphone-1.jpg",
+    "images": [
+      "rapatech-charger-power-gan-mfi-pd-20w-35w-iphone-2.jpg",
+      "rapatech-charger-power-gan-mfi-pd-20w-35w-iphone-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Charger MFi Type-C to Lightning PD 20W/30W iPhone 11-14",
+    "slug": "rapatech-charger-mfi-type-c-to-lightning-pd-20w-30w-iphone-11-14",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Charger MFi Type-C to Lightning PD 20W/30W iPhone 11-14 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 20W</li><li>Bersertifikat Apple MFi</li><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Daya hingga 20W, Bersertifikat Apple MFi, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Charger MFi Type-C to Lightning PD 20W/30W iPhone",
+    "seo_description": "Beli RAPAtech Charger MFi Type-C to Lightning PD 20W/30W iPhone 11-14 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-charger-mfi-type-c-to-lightning-pd-20w-30w-iphone-11-14-1.jpg",
+    "images": [
+      "rapatech-charger-mfi-type-c-to-lightning-pd-20w-30w-iphone-11-14-2.jpg",
+      "rapatech-charger-mfi-type-c-to-lightning-pd-20w-30w-iphone-11-14-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.35
+  },
+  {
+    "name": "RAPAtech Power II Charger MFi 20W/30W/45W iPhone 13-17",
+    "slug": "rapatech-power-ii-charger-mfi-20w-30w-45w-iphone-13-17",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Power II Charger MFi 20W/30W/45W iPhone 13-17 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 20W</li><li>Bersertifikat Apple MFi</li></ul>",
+    "summary": "Daya hingga 20W, Bersertifikat Apple MFi.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Power II Charger MFi 20W/30W/45W iPhone 13-17",
+    "seo_description": "Beli RAPAtech Power II Charger MFi 20W/30W/45W iPhone 13-17 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-power-ii-charger-mfi-20w-30w-45w-iphone-13-17-1.jpg",
+    "images": [
+      "rapatech-power-ii-charger-mfi-20w-30w-45w-iphone-13-17-2.jpg",
+      "rapatech-power-ii-charger-mfi-20w-30w-45w-iphone-13-17-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Power II Charger 30W + Kabel C to C 65W",
+    "slug": "rapatech-power-ii-charger-30w-kabel-c-to-c-65w",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Power II Charger 30W + Kabel C to C 65W — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 30W</li></ul>",
+    "summary": "Daya hingga 30W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Power II Charger 30W + Kabel C to C 65W",
+    "seo_description": "Beli RAPAtech Power II Charger 30W + Kabel C to C 65W resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-power-ii-charger-30w-kabel-c-to-c-65w-1.jpg",
+    "images": [
+      "rapatech-power-ii-charger-30w-kabel-c-to-c-65w-2.jpg",
+      "rapatech-power-ii-charger-30w-kabel-c-to-c-65w-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.25
+  },
+  {
+    "name": "RAPAtech Charger MFi GaN 20W-45W + Kabel Lightning iPhone 11-17",
+    "slug": "rapatech-charger-mfi-gan-20w-45w-kabel-lightning-iphone-11-17",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Charger MFi GaN 20W-45W + Kabel Lightning iPhone 11-17 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 20W</li><li>Bersertifikat Apple MFi</li><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Daya hingga 20W, Bersertifikat Apple MFi, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Charger MFi GaN 20W-45W + Kabel Lightning iPhone",
+    "seo_description": "Beli RAPAtech Charger MFi GaN 20W-45W + Kabel Lightning iPhone 11-17 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "best-sellers",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-charger-mfi-gan-20w-45w-kabel-lightning-iphone-11-17-1.jpg",
+    "images": [
+      "rapatech-charger-mfi-gan-20w-45w-kabel-lightning-iphone-11-17-2.jpg",
+      "rapatech-charger-mfi-gan-20w-45w-kabel-lightning-iphone-11-17-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Paket Aksesoris iPhone: Power II Charger + Case + Tempered Glass",
+    "slug": "rapatech-paket-aksesoris-iphone-power-ii-charger-case-tempered-glass",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Paket Aksesoris iPhone: Power II Charger + Case + Tempered Glass — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 20W</li><li>Bersertifikat Apple MFi</li></ul>",
+    "summary": "Daya hingga 20W, Bersertifikat Apple MFi.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Paket Aksesoris iPhone: Power II Charger + Case",
+    "seo_description": "Beli RAPAtech Paket Aksesoris iPhone: Power II Charger + Case + Tempered Glass resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-paket-aksesoris-iphone-power-ii-charger-case-tempered-glass-1.jpg",
+    "images": [
+      "rapatech-paket-aksesoris-iphone-power-ii-charger-case-tempered-glass-2.jpg",
+      "rapatech-paket-aksesoris-iphone-power-ii-charger-case-tempered-glass-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.6
+  },
+  {
+    "name": "RAPAtech Power II Charger PD 25W/30W + Kabel C to C",
+    "slug": "rapatech-power-ii-charger-pd-25w-30w-kabel-c-to-c",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Power II Charger PD 25W/30W + Kabel C to C — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 25W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 25W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Power II Charger PD 25W/30W + Kabel C to C",
+    "seo_description": "Beli RAPAtech Power II Charger PD 25W/30W + Kabel C to C resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-power-ii-charger-pd-25w-30w-kabel-c-to-c-1.jpg",
+    "images": [
+      "rapatech-power-ii-charger-pd-25w-30w-kabel-c-to-c-2.jpg",
+      "rapatech-power-ii-charger-pd-25w-30w-kabel-c-to-c-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Power ZeN PRO GaN 60W AVS Charger",
+    "slug": "rapatech-power-zen-pro-gan-60w-avs-charger",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Power ZeN PRO GaN 60W AVS Charger — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 60W</li></ul>",
+    "summary": "Daya hingga 60W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Power ZeN PRO GaN 60W AVS Charger",
+    "seo_description": "Beli RAPAtech Power ZeN PRO GaN 60W AVS Charger resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-power-zen-pro-gan-60w-avs-charger-1.jpg",
+    "images": [
+      "rapatech-power-zen-pro-gan-60w-avs-charger-2.jpg",
+      "rapatech-power-zen-pro-gan-60w-avs-charger-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Loop GaN Charger AVS 35W/45W/67W",
+    "slug": "rapatech-loop-gan-charger-avs-35w-45w-67w",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Loop GaN Charger AVS 35W/45W/67W — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 35W</li></ul>",
+    "summary": "Daya hingga 35W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Loop GaN Charger AVS 35W/45W/67W",
+    "seo_description": "Beli RAPAtech Loop GaN Charger AVS 35W/45W/67W resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-loop-gan-charger-avs-35w-45w-67w-1.jpg",
+    "images": [
+      "rapatech-loop-gan-charger-avs-35w-45w-67w-2.jpg",
+      "rapatech-loop-gan-charger-avs-35w-45w-67w-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Charger GaN 30W-45W Cooling + Kabel Nylon Braided",
+    "slug": "rapatech-charger-gan-30w-45w-cooling-kabel-nylon-braided",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Charger GaN 30W-45W Cooling + Kabel Nylon Braided — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 30W</li><li>Konektor USB-C</li></ul>",
+    "summary": "Daya hingga 30W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Charger GaN 30W-45W Cooling + Kabel Nylon Braided",
+    "seo_description": "Beli RAPAtech Charger GaN 30W-45W Cooling + Kabel Nylon Braided resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "best-sellers",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-charger-gan-30w-45w-cooling-kabel-nylon-braided-1.jpg",
+    "images": [
+      "rapatech-charger-gan-30w-45w-cooling-kabel-nylon-braided-2.jpg",
+      "rapatech-charger-gan-30w-45w-cooling-kabel-nylon-braided-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Power ION GaN 45W AVS Charger",
+    "slug": "rapatech-power-ion-gan-45w-avs-charger",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Power ION GaN 45W AVS Charger — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Daya hingga 45W</li></ul>",
+    "summary": "Daya hingga 45W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Power ION GaN 45W AVS Charger",
+    "seo_description": "Beli RAPAtech Power ION GaN 45W AVS Charger resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-charger"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-power-ion-gan-45w-avs-charger-1.jpg",
+    "images": [
+      "rapatech-power-ion-gan-45w-avs-charger-2.jpg",
+      "rapatech-power-ion-gan-45w-avs-charger-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Origin Link Power Bank 10.000/20.000 mAh",
+    "slug": "rapatech-origin-link-power-bank-10-000-20-000-mah",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Origin Link Power Bank 10.000/20.000 mAh — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Kapasitas 10.000 mAh</li><li>Daya hingga 40W</li><li>Konektor USB-C</li><li>Mendukung Lightning (iPhone)</li></ul>",
+    "summary": "Kapasitas 10.000 mAh, Daya hingga 40W, Konektor USB-C.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Origin Link Power Bank 10.000/20.000 mAh",
+    "seo_description": "Beli RAPAtech Origin Link Power Bank 10.000/20.000 mAh resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-origin-link-power-bank-10-000-20-000-mah-1.jpg",
+    "images": [
+      "rapatech-origin-link-power-bank-10-000-20-000-mah-2.jpg",
+      "rapatech-origin-link-power-bank-10-000-20-000-mah-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.6
+  },
+  {
+    "name": "RAPAtech Origin ON Wireless Power Bank 5.000/10.000 mAh",
+    "slug": "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Origin ON Wireless Power Bank 5.000/10.000 mAh — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Kapasitas 10000 mAh</li><li>Daya hingga 15W</li></ul>",
+    "summary": "Kapasitas 10000 mAh, Daya hingga 15W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Origin ON Wireless Power Bank 5.000/10.000 mAh",
+    "seo_description": "Beli RAPAtech Origin ON Wireless Power Bank 5.000/10.000 mAh resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "rapa-collection",
+      "best-sellers",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah-1.jpg",
+    "images": [
+      "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah-2.jpg",
+      "rapatech-origin-on-wireless-power-bank-5-000-10-000-mah-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Origin ON+ Wireless Power Bank 10.000 mAh LED Display",
+    "slug": "rapatech-origin-on-wireless-power-bank-10-000-mah-led-display",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Origin ON+ Wireless Power Bank 10.000 mAh LED Display — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Kapasitas 10.000 mAh</li><li>Daya hingga 15W</li></ul>",
+    "summary": "Kapasitas 10.000 mAh, Daya hingga 15W.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Origin ON+ Wireless Power Bank 10.000 mAh LED",
+    "seo_description": "Beli RAPAtech Origin ON+ Wireless Power Bank 10.000 mAh LED Display resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-origin-on-wireless-power-bank-10-000-mah-led-display-1.jpg",
+    "images": [
+      "rapatech-origin-on-wireless-power-bank-10-000-mah-led-display-2.jpg",
+      "rapatech-origin-on-wireless-power-bank-10-000-mah-led-display-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Origin ON+ Qi2 Wireless Power Bank 5.000/10.000 mAh",
+    "slug": "rapatech-origin-on-qi2-wireless-power-bank-5-000-10-000-mah",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Origin ON+ Qi2 Wireless Power Bank 5.000/10.000 mAh — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Kapasitas 10.000 mAh</li><li>Daya hingga 15W</li><li>Wireless charging Qi2</li></ul>",
+    "summary": "Kapasitas 10.000 mAh, Daya hingga 15W, Wireless charging Qi2.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Origin ON+ Qi2 Wireless Power Bank 5.000/10.000 mAh",
+    "seo_description": "Beli RAPAtech Origin ON+ Qi2 Wireless Power Bank 5.000/10.000 mAh resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-origin-on-qi2-wireless-power-bank-5-000-10-000-mah-1.jpg",
+    "images": [
+      "rapatech-origin-on-qi2-wireless-power-bank-5-000-10-000-mah-2.jpg",
+      "rapatech-origin-on-qi2-wireless-power-bank-5-000-10-000-mah-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech AR Tempered Glass iPhone 12-18 Series",
+    "slug": "rapatech-ar-tempered-glass-iphone-12-18-series",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech AR Tempered Glass iPhone 12-18 Series — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech AR Tempered Glass iPhone 12-18 Series",
+    "seo_description": "Beli RAPAtech AR Tempered Glass iPhone 12-18 Series resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-ar-tempered-glass-iphone-12-18-series-1.jpg",
+    "images": [
+      "rapatech-ar-tempered-glass-iphone-12-18-series-2.jpg",
+      "rapatech-ar-tempered-glass-iphone-12-18-series-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.6
+  },
+  {
+    "name": "RAPAtech Premium Tempered Glass Dual Pack iPhone 15-17",
+    "slug": "rapatech-premium-tempered-glass-dual-pack-iphone-15-17",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Premium Tempered Glass Dual Pack iPhone 15-17 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Premium Tempered Glass Dual Pack iPhone 15-17",
+    "seo_description": "Beli RAPAtech Premium Tempered Glass Dual Pack iPhone 15-17 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-premium-tempered-glass-dual-pack-iphone-15-17-1.jpg",
+    "images": [
+      "rapatech-premium-tempered-glass-dual-pack-iphone-15-17-2.jpg",
+      "rapatech-premium-tempered-glass-dual-pack-iphone-15-17-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.5
+  },
+  {
+    "name": "RAPAtech AR Tempered Glass Tanpa List Hitam iPhone 17/18",
+    "slug": "rapatech-ar-tempered-glass-tanpa-list-hitam-iphone-17-18",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech AR Tempered Glass Tanpa List Hitam iPhone 17/18 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech AR Tempered Glass Tanpa List Hitam iPhone 17/18",
+    "seo_description": "Beli RAPAtech AR Tempered Glass Tanpa List Hitam iPhone 17/18 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-ar-tempered-glass-tanpa-list-hitam-iphone-17-18-1.jpg",
+    "images": [
+      "rapatech-ar-tempered-glass-tanpa-list-hitam-iphone-17-18-2.jpg",
+      "rapatech-ar-tempered-glass-tanpa-list-hitam-iphone-17-18-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.5
+  },
+  {
+    "name": "RAPAtech Premium Tempered Glass Refill iPhone 15/16",
+    "slug": "rapatech-premium-tempered-glass-refill-iphone-15-16",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Premium Tempered Glass Refill iPhone 15/16 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Premium Tempered Glass Refill iPhone 15/16",
+    "seo_description": "Beli RAPAtech Premium Tempered Glass Refill iPhone 15/16 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-premium-tempered-glass-refill-iphone-15-16-1.jpg",
+    "images": [
+      "rapatech-premium-tempered-glass-refill-iphone-15-16-2.jpg",
+      "rapatech-premium-tempered-glass-refill-iphone-15-16-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.25
+  },
+  {
+    "name": "RAPAtech Sound I Wired Earphone",
+    "slug": "rapatech-sound-i-wired-earphone",
+    "sku": "RAPA-SOUND-I-WIRED",
+    "barcode": null,
+    "description": "<p>RAPAtech Sound I Wired Earphone — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "RAPAtech Sound I Wired Earphone",
+    "seo_description": "Beli RAPAtech Sound I Wired Earphone resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "audio",
+      "audio-earphone"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-sound-i-wired-earphone-1.jpg",
+    "images": [
+      "rapatech-sound-i-wired-earphone-2.jpg",
+      "rapatech-sound-i-wired-earphone-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 75000,
+        "compare_amount": 399000,
+        "cost_amount": 48800
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.016
+  },
+  {
+    "name": "RAPAtech Tempered Glass Easy Fit iPhone 13/13 Pro",
+    "slug": "rapatech-tempered-glass-easy-fit-iphone-13-13-pro",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Tempered Glass Easy Fit iPhone 13/13 Pro — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Tempered Glass Easy Fit iPhone 13/13 Pro",
+    "seo_description": "Beli RAPAtech Tempered Glass Easy Fit iPhone 13/13 Pro resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-tempered-glass-easy-fit-iphone-13-13-pro-1.jpg",
+    "images": [
+      "rapatech-tempered-glass-easy-fit-iphone-13-13-pro-2.jpg",
+      "rapatech-tempered-glass-easy-fit-iphone-13-13-pro-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.1
+  },
+  {
+    "name": "RAPAtech Tempered Glass Instant Fit+ iPhone 16 Pro/17",
+    "slug": "rapatech-tempered-glass-instant-fit-iphone-16-pro-17",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Tempered Glass Instant Fit+ iPhone 16 Pro/17 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Tempered Glass Instant Fit+ iPhone 16 Pro/17",
+    "seo_description": "Beli RAPAtech Tempered Glass Instant Fit+ iPhone 16 Pro/17 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-case-pelindung"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-tempered-glass-instant-fit-iphone-16-pro-17-1.jpg",
+    "images": [
+      "rapatech-tempered-glass-instant-fit-iphone-16-pro-17-2.jpg",
+      "rapatech-tempered-glass-instant-fit-iphone-16-pro-17-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.5
+  },
+  {
+    "name": "RAPAtech WAVE I Speaker Bluetooth RGB IPX7 SP1011",
+    "slug": "rapatech-wave-i-speaker-bluetooth-rgb-ipx7-sp1011",
+    "sku": "RAPA-WAVE-I-SPEAKER",
+    "barcode": null,
+    "description": "<p>RAPAtech WAVE I Speaker Bluetooth RGB IPX7 SP1011 — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "RAPAtech WAVE I Speaker Bluetooth RGB IPX7 SP1011",
+    "seo_description": "Beli RAPAtech WAVE I Speaker Bluetooth RGB IPX7 SP1011 resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "audio",
+      "audio-speaker-bluetooth"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-wave-i-speaker-bluetooth-rgb-ipx7-sp1011-1.jpg",
+    "images": [
+      "rapatech-wave-i-speaker-bluetooth-rgb-ipx7-sp1011-2.jpg",
+      "rapatech-wave-i-speaker-bluetooth-rgb-ipx7-sp1011-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 592900,
+        "compare_amount": 1299000,
+        "cost_amount": 385400
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.5
+  },
+  {
+    "name": "RAPAtech Origin ON+ Qi2.2 Wireless Power Bank 10.000 mAh 25W",
+    "slug": "rapatech-origin-on-qi2-2-wireless-power-bank-10-000-mah-25w",
+    "sku": null,
+    "barcode": null,
+    "description": "<p>RAPAtech Origin ON+ Qi2.2 Wireless Power Bank 10.000 mAh 25W — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p><ul><li>Kapasitas 10.000 mAh</li><li>Daya hingga 25W</li><li>Wireless charging Qi2.2</li></ul>",
+    "summary": "Kapasitas 10.000 mAh, Daya hingga 25W, Wireless charging Qi2.2.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "variant",
+    "seo_title": "RAPAtech Origin ON+ Qi2.2 Wireless Power Bank 10.000 mAh 25W",
+    "seo_description": "Beli RAPAtech Origin ON+ Qi2.2 Wireless Power Bank 10.000 mAh 25W resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris",
+      "aksesoris-power-bank"
+    ],
+    "collections": [
+      "rapa-collection",
+      "sales-promotions"
+    ],
+    "thumbnail": "rapatech-origin-on-qi2-2-wireless-power-bank-10-000-mah-25w-1.jpg",
+    "images": [
+      "rapatech-origin-on-qi2-2-wireless-power-bank-10-000-mah-25w-2.jpg",
+      "rapatech-origin-on-qi2-2-wireless-power-bank-10-000-mah-25w-3.jpg"
+    ],
+    "prices": [],
+    "stock": null,
+    "weight_value": 0.4
+  },
+  {
+    "name": "RAPAtech Ring Magnetik MagSafe Hitam",
+    "slug": "rapatech-ring-magnetik-magsafe-hitam",
+    "sku": "RAPA-RING-MAGNETIK-MAGSAFE",
+    "barcode": null,
+    "description": "<p>RAPAtech Ring Magnetik MagSafe Hitam — produk resmi RAPAtech, sama seperti yang dijual di toko resmi RAPAtech di Tokopedia.</p>",
+    "summary": "Produk resmi RAPAtech.",
+    "security_stock": 2,
+    "featured": false,
+    "is_visible": true,
+    "type": "standard",
+    "seo_title": "RAPAtech Ring Magnetik MagSafe Hitam",
+    "seo_description": "Beli RAPAtech Ring Magnetik MagSafe Hitam resmi di OCEANMALL.",
+    "brand_slug": "rapa",
+    "categories": [
+      "aksesoris"
+    ],
+    "collections": [
+      "rapa-collection"
+    ],
+    "thumbnail": "rapatech-ring-magnetik-magsafe-hitam-1.jpg",
+    "images": [
+      "rapatech-ring-magnetik-magsafe-hitam-2.jpg",
+      "rapatech-ring-magnetik-magsafe-hitam-3.jpg"
+    ],
+    "prices": [
+      {
+        "currency_code": "IDR",
+        "amount": 19000,
+        "compare_amount": null,
+        "cost_amount": 12400
+      }
+    ],
+    "stock": 25,
+    "weight_value": 0.05
   }
 ]

@@ -34,11 +34,8 @@ class DatabaseSeeder extends Seeder
             TaxSeeder::class,
             // Demo data below is a no-op in production (Concerns\DemoDataOnly).
             CustomerSeeder::class,
-            ReviewSeeder::class,
             DiscountSeeder::class,
             OrderSeeder::class,
-            // BlogSeeder skipped: OceanMall belum punya model/migration Blog*.
-            // Legacy optional: StorefrontDemoSeeder::class,
         ]);
     }
 }

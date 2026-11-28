@@ -20,20 +20,23 @@ class CollectionSeeder extends AbstractSeeder
 
         DB::transaction(function () use ($collections, $thumbnailCollection): void {
             foreach ($collections as $collection) {
-                $collectionModel = Collection::query()->create([
-                    'name' => $collection->name,
-                    'slug' => $collection->slug,
-                    'description' => $collection->description,
-                    'type' => $collection->type,
-                    'match_conditions' => $collection->match_conditions,
-                    'published_at' => now(),
-                ]);
+                $collectionModel = Collection::query()->updateOrCreate(
+                    ['slug' => $collection->slug],
+                    [
+                        'name' => $collection->name,
+                        'description' => $collection->description,
+                        'type' => $collection->type,
+                        'match_conditions' => $collection->match_conditions,
+                    ],
+                );
 
-                if ($collection->image) {
-                    $collectionModel->addMedia($this->imagePath('collections', $collection->image))
-                        ->preservingOriginal()
-                        ->toMediaCollection($thumbnailCollection);
+                if ($collectionModel->published_at === null) {
+                    $collectionModel->forceFill(['published_at' => now()])->save();
                 }
+
+                $this->syncSeedMedia($collectionModel, 'collections', $collection->image ?? null, $thumbnailCollection);
+
+                CollectionRule::query()->where('collection_id', $collectionModel->id)->delete();
 
                 foreach ($collection->rules ?? [] as $rule) {
                     CollectionRule::query()->create([

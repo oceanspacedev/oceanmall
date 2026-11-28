@@ -13,7 +13,7 @@ test.describe('TC-UI-A11Y — Accessibility sweep', () => {
         { id: 'TC-UI-A11Y-004', path: '/cart' },
         { id: 'TC-UI-A11Y-005', path: '/login' },
         { id: 'TC-UI-A11Y-006', path: '/register' },
-        { id: 'TC-UI-A11Y-007', path: '/search?q=realme' },
+        { id: 'TC-UI-A11Y-007', path: '/search?q=minimo' },
     ];
 
     for (const entry of guestPages) {

@@ -19,39 +19,32 @@ class CategorySeeder extends AbstractSeeder
 
         DB::transaction(function () use ($categories, $thumbnailCollection): void {
             foreach ($categories as $category) {
-                $parent = Category::query()->create([
-                    'name' => $category->name,
-                    'slug' => $category->slug,
-                    'description' => $category->description,
-                    'is_enabled' => $category->is_enabled,
-                    'position' => $category->position,
-                ]);
-
-                if ($category->image) {
-                    $parent->addMedia($this->imagePath('categories', $category->image))
-                        ->preservingOriginal()
-                        ->toMediaCollection($thumbnailCollection);
-                }
+                $parent = $this->upsert($category, null, $thumbnailCollection);
 
                 foreach ($category->children ?? [] as $child) {
-                    $childModel = Category::query()->create([
-                        'name' => $child->name,
-                        'slug' => $child->slug,
-                        'description' => $child->description,
-                        'is_enabled' => $child->is_enabled,
-                        'position' => $child->position,
-                        'parent_id' => $parent->id,
-                    ]);
-
-                    if ($child->image) {
-                        $childModel->addMedia($this->imagePath('categories', $child->image))
-                            ->preservingOriginal()
-                            ->toMediaCollection($thumbnailCollection);
-                    }
+                    $this->upsert($child, $parent->id, $thumbnailCollection);
                 }
             }
         });
 
         $this->command->info('Categories created successfully.');
+    }
+
+    private function upsert(object $data, ?int $parentId, string $thumbnailCollection): Category
+    {
+        $category = Category::query()->updateOrCreate(
+            ['slug' => $data->slug],
+            [
+                'name' => $data->name,
+                'description' => $data->description,
+                'is_enabled' => $data->is_enabled,
+                'position' => $data->position,
+                'parent_id' => $parentId,
+            ],
+        );
+
+        $this->syncSeedMedia($category, 'categories', $data->image ?? null, $thumbnailCollection);
+
+        return $category;
     }
 }

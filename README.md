@@ -93,8 +93,8 @@ php artisan key:generate
 touch database/database.sqlite
 php artisan migrate
 
-# Demo catalog storefront (brand, kategori, koleksi, produk + harga/promo)
-php artisan db:seed --class=StorefrontDemoSeeder
+# Data awal + katalog demo (brand Minimo, Rapa, Oraimo; kategori, koleksi, produk + harga/promo)
+php artisan db:seed
 
 npm install
 npm run build
